@@ -130,3 +130,12 @@ export interface MapSector {
    */
   backgroundUrl?: string;
 }
+
+/** LeftSidebar 的當前目標。屬於遊戲進度，會進存檔。 */
+export interface Objective {
+  id: string;
+  text: string;
+  location?: string;
+  /** 已完成的目標以刪除線呈現。 */
+  done?: boolean;
+}

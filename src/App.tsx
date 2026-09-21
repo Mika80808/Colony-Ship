@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import SceneLayer from './components/SceneLayer';
 import RoomScene from './components/RoomScene';
 import CorridorScene from './components/CorridorScene';
@@ -48,10 +48,14 @@ import {
   GAME_START_DATE,
   GAME_START_TIME,
 } from './data/initialGameData';
+import { loadGameSave, writeGameSave, clearGameSave } from './data/persistence';
 import { sound } from './utils/audio';
 import { runMockGm } from './gm/mockGm';
 
 export default function App() {
+  // 掛載時讀一次存檔。沒有存檔／格式不符時為 null，各項 state 退回新遊戲的初始值。
+  const [saved] = useState(loadGameSave);
+
   // Audio State
   // theme state 已移除：全 App 沒有任何地方讀它，Tailwind 也沒有對應的亮色樣式。
   // 需要亮色時再一併實作樣式與設定面板的控制項。
@@ -77,13 +81,13 @@ export default function App() {
   const [storybookTargetNpcId, setStorybookTargetNpcId] = useState<string | null>(null);
 
   // Player Profile State
-  const [profile, setProfile] = useState<PlayerProfile>(EMPTY_PROFILE);
+  const [profile, setProfile] = useState<PlayerProfile>(saved?.profile ?? EMPTY_PROFILE);
 
   // Player Stats State
-  const [stats, setStats] = useState<PlayerStats>(INITIAL_STATS);
+  const [stats, setStats] = useState<PlayerStats>(saved?.stats ?? INITIAL_STATS);
 
   // Quests Data
-  const [quests, setQuests] = useState<Quest[]>(INITIAL_QUESTS);
+  const [quests, setQuests] = useState<Quest[]>(saved?.quests ?? INITIAL_QUESTS);
 
   // Handle Quests actions
   const handleReportQuest = (quest: Quest) => sendToGm(`我回報任務【${quest.title}】`);
@@ -95,41 +99,73 @@ export default function App() {
   };
 
   // 玩家背包。與下面故事書用的設定集物品定義是兩份資料。
-  const [items, setItems] = useState<InventoryItem[]>(INITIAL_INVENTORY);
+  const [items, setItems] = useState<InventoryItem[]>(saved?.items ?? INITIAL_INVENTORY);
 
   // 設定集的物品定義。故事書物品分頁編輯這一份，不動玩家背包。
   const [itemDefinitions, setItemDefinitions] = useState<ItemDefinition[]>(
-    INITIAL_ITEM_DEFINITIONS
+    saved?.itemDefinitions ?? INITIAL_ITEM_DEFINITIONS
   );
 
   // NPCs Data
-  const [npcs, setNpcs] = useState<NPCData[]>(INITIAL_NPCS);
+  const [npcs, setNpcs] = useState<NPCData[]>(saved?.npcs ?? INITIAL_NPCS);
 
   // Dialogue History
-  const [dialogueHistory, setDialogueHistory] = useState<DialogueTurn[]>(INITIAL_DIALOGUE_HISTORY);
+  const [dialogueHistory, setDialogueHistory] = useState<DialogueTurn[]>(saved?.dialogueHistory ?? INITIAL_DIALOGUE_HISTORY);
 
   // Story Chapters Data
-  const [chapters, setChapters] = useState<StoryChapter[]>(INITIAL_CHAPTERS);
+  const [chapters, setChapters] = useState<StoryChapter[]>(saved?.chapters ?? INITIAL_CHAPTERS);
 
   // Diary Entries (Personal Logs)
-  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>(INITIAL_DIARY_ENTRIES);
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>(saved?.diaryEntries ?? INITIAL_DIARY_ENTRIES);
 
   // Map Sectors (中上方: 研究室 / 右方: 溫室 / 下方: 醫療區 / 左方: 工程部 / 正中間: 1. 艦橋, 2. 中央公園)
-  const [sectors, setSectors] = useState<MapSector[]>(INITIAL_SECTORS);
+  const [sectors, setSectors] = useState<MapSector[]>(saved?.sectors ?? INITIAL_SECTORS);
 
-  const [currentSectorId, setCurrentSectorId] = useState<string>(START_SECTOR_ID);
-  const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
+  const [currentSectorId, setCurrentSectorId] = useState<string>(saved?.currentSectorId ?? START_SECTOR_ID);
+  const [currentRoomId, setCurrentRoomId] = useState<string | null>(saved?.currentRoomId ?? null);
 
   // 以下四項原本寫死在各元件內部，現在改由這裡供給。
-  // 內容之後由 AI 或資料庫接手，屆時只換這幾個 state 的來源。
-  const [areaMemories] = useState<string[]>(INITIAL_AREA_MEMORIES);
-  const [objectives] = useState<Objective[]>(INITIAL_OBJECTIVES);
-  const [summary] = useState<string>(INITIAL_SUMMARY);
+  // 前三項屬於遊戲進度、會進存檔，但目前還沒有 setter：內容要等 Phase 3
+  // 由 GM 生成後才會變動。quickReplies 是靜態的通用回應，不進存檔。
+  const [areaMemories] = useState<string[]>(saved?.areaMemories ?? INITIAL_AREA_MEMORIES);
+  const [objectives] = useState<Objective[]>(saved?.objectives ?? INITIAL_OBJECTIVES);
+  const [summary] = useState<string>(saved?.summary ?? INITIAL_SUMMARY);
   const [quickReplies] = useState<string[]>(INITIAL_QUICK_REPLIES);
 
   // 遊戲時間。不抓現實系統時間，也不每秒 setState 重繪整個 header。
-  const [gameDate] = useState<string>(GAME_START_DATE);
-  const [gameTime] = useState<string>(GAME_START_TIME);
+  const [gameDate] = useState<string>(saved?.gameDate ?? GAME_START_DATE);
+  const [gameTime] = useState<string>(saved?.gameTime ?? GAME_START_TIME);
+
+  /**
+   * 自動存檔。
+   *
+   * 任何一項遊戲狀態變動後延遲 500ms 才寫入，避免連續操作（例如一次 GM 回應
+   * 同時改動數值、背包與任務）反覆序列化整份存檔。
+   *
+   * 寫入失敗多半是 localStorage 容量不足或無痕視窗，這種情況會提示玩家一次，
+   * 不靜默失敗 —— 玩家以為有存檔卻沒有，比直接告知更糟。
+   */
+  const saveFailedRef = useRef<boolean>(false);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const ok = writeGameSave({
+        profile, stats, quests, items, itemDefinitions, npcs, dialogueHistory,
+        chapters, diaryEntries, sectors, currentSectorId, currentRoomId,
+        areaMemories, objectives, summary, gameDate, gameTime,
+      });
+      if (ok) {
+        saveFailedRef.current = false;
+      } else if (!saveFailedRef.current) {
+        saveFailedRef.current = true;
+        triggerToast('自動存檔失敗：瀏覽器儲存空間不足或無法寫入');
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [
+    profile, stats, quests, items, itemDefinitions, npcs, dialogueHistory,
+    chapters, diaryEntries, sectors, currentSectorId, currentRoomId,
+    areaMemories, objectives, summary, gameDate, gameTime,
+  ]);
 
   // Handle Hotkeys
   useEffect(() => {
@@ -283,6 +319,10 @@ export default function App() {
     setActiveDrawer(null);
     setActiveModal(null);
     setStorybookTargetNpcId(null);
+
+    // 先清掉存檔再讓自動存檔寫入重置後的狀態。
+    // 少了這行，玩家若在 500ms 內關掉分頁，重開會讀回重置前的進度。
+    clearGameSave();
 
     triggerToast('已重置進度');
   };

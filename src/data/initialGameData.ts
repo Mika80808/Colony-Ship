@@ -8,6 +8,7 @@ import {
   DiaryEntry,
   StoryChapter,
   MapSector,
+  Objective,
 } from '../types';
 
 /**
@@ -200,12 +201,7 @@ export const INITIAL_SECTORS: MapSector[] = [
 export const INITIAL_AREA_MEMORIES: string[] = [];
 
 /** LeftSidebar 的當前目標。由 GM 依任務進度生成（Phase 3）。 */
-export const INITIAL_OBJECTIVES: {
-  id: string;
-  text: string;
-  location?: string;
-  done?: boolean;
-}[] = [];
+export const INITIAL_OBJECTIVES: Objective[] = [];
 
 /** LeftSidebar 的當前摘要。由 GM 生成（Phase 3）。 */
 export const INITIAL_SUMMARY = '';

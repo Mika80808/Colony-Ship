@@ -8,16 +8,11 @@ import {
   Target,
   FileText,
 } from 'lucide-react';
-import { DrawerType, ModalType } from '../types';
+import { DrawerType, ModalType, Objective } from '../types';
 import { sound } from '../utils/audio';
 
-export interface Objective {
-  id: string;
-  text: string;
-  location?: string;
-  /** 已完成的目標以刪除線呈現。 */
-  done?: boolean;
-}
+// Objective 已移至 types.ts（屬於遊戲進度，存檔需要）。此處再匯出以維持既有 import。
+export type { Objective };
 
 interface LeftSidebarProps {
   activeDrawer: DrawerType;
