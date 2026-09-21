@@ -1,3 +1,5 @@
+import { DEFAULT_GM_MODEL, isKnownGeminiModel } from './models';
+
 /**
  * GM 的 AI 設定。
  *
@@ -27,7 +29,7 @@ const KEY_MODEL = 'starport_gm_model';
 const KEY_TOKENS = 'starport_gm_tokens';
 const KEY_ENDPOINT = 'starport_gm_endpoint';
 
-export const DEFAULT_GM_MODEL = 'gemini-2.5-flash';
+export { DEFAULT_GM_MODEL };
 
 function read(key: string): string {
   try {
@@ -40,10 +42,18 @@ function read(key: string): string {
 
 export function readGmSettings(): GmSettings {
   const tokens = Number(read(KEY_TOKENS));
+  const endpoint = read(KEY_ENDPOINT).trim();
+  const storedModel = read(KEY_MODEL).trim();
+  // 直連 Gemini 時，只接受清單內的模型：舊版存下的 ID（例如已下架的型號）
+  // 會讓每次呼叫都 404，退回預設比讓玩家卡在錯誤訊息好。
+  // 自訂端點的模型命名由該服務決定，不做檢查。
+  const model = endpoint
+    ? storedModel || DEFAULT_GM_MODEL
+    : isKnownGeminiModel(storedModel) ? storedModel : DEFAULT_GM_MODEL;
   return {
     apiKey: read(KEY_API).trim(),
-    model: read(KEY_MODEL).trim() || DEFAULT_GM_MODEL,
+    model,
     maxTokens: Number.isFinite(tokens) && tokens > 0 ? tokens : 8192,
-    endpoint: read(KEY_ENDPOINT).trim(),
+    endpoint,
   };
 }

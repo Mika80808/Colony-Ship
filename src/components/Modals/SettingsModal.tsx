@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { sound } from '../../utils/sound';
 import ModalShell from './ModalShell';
+import { GEMINI_MODELS, DEFAULT_GM_MODEL, isKnownGeminiModel } from '../../gm/models';
 
 interface SettingsModalProps {
   isOpen?: boolean;
@@ -59,7 +60,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     return localStorage.getItem('starport_gm_api_key') || '';
   });
   const [gmModel, setGmModel] = useState<string>(() => {
-    return localStorage.getItem('starport_gm_model') || 'gemini-3.7-flash';
+    const stored = localStorage.getItem('starport_gm_model') || '';
+    // 有自訂端點時模型是自由輸入，不受清單限制。
+    if (localStorage.getItem('starport_gm_endpoint')) return stored || DEFAULT_GM_MODEL;
+    // 清單外的舊 ID 退回預設，否則下拉選單顯示第一項、實際卻存著舊值。
+    return isKnownGeminiModel(stored) ? stored : DEFAULT_GM_MODEL;
   });
   const [gmTokens, setGmTokens] = useState<number>(() => {
     return parseStoredTokens(localStorage.getItem('starport_gm_tokens'));
@@ -82,7 +87,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     return localStorage.getItem('starport_assistant_api_key') || '';
   });
   const [assistantModel, setAssistantModel] = useState<string>(() => {
-    return localStorage.getItem('starport_assistant_model') || 'gemini-3.7-flash';
+    const stored = localStorage.getItem('starport_assistant_model') || '';
+    return isKnownGeminiModel(stored) ? stored : DEFAULT_GM_MODEL;
   });
   const [assistantTokens, setAssistantTokens] = useState<number>(() => {
     return parseStoredTokens(localStorage.getItem('starport_assistant_tokens'));
@@ -108,13 +114,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   // 模型選項
-  const modelOptions = [
-    { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash', maxTokens: 65536 },
-    { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro', maxTokens: 65536 },
-    { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', maxTokens: 32768 },
-    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', maxTokens: 65536 },
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', maxTokens: 32768 },
-  ];
+  const modelOptions = GEMINI_MODELS;
 
   const stepsFor = (model: string) => TOKEN_STEPS.filter((step) => step <= (modelOptions.find((option) => option.id === model)?.maxTokens ?? 4096));
   const gmSteps = stepsFor(gmModel);
