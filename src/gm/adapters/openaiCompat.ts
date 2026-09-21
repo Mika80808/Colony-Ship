@@ -1,6 +1,6 @@
 import { GmContext, GmError, GmResult } from '../types';
 import { GmSettings } from '../settings';
-import { GM_SYSTEM_PROMPT, buildContextBlock, buildHistoryTurns } from '../prompt';
+import { GM_SYSTEM_PROMPT, buildContextBlock, buildHistoryTurns, extractJsonObject } from '../prompt';
 import { GM_RESPONSE_SCHEMA, RawGmResponse } from './schema';
 
 /**
@@ -103,16 +103,14 @@ export async function callOpenAiCompatible(
     throw new GmError('format', '回應長度超出上限而被截斷，請到系統設定調高輸出長度。');
   }
 
-  // DeepSeek 文件明載 JSON 模式偶爾會回傳空內容，重送通常就好。
-  const text = choice?.message?.content;
-  if (!text) throw new GmError('format', `${options.label}這次沒有回傳內容，請再送一次。`);
-
-  let raw: RawGmResponse;
+  let raw: RawGmResponse | null;
   try {
-    raw = JSON.parse(text);
+    raw = extractJsonObject(choice?.message?.content) as RawGmResponse | null;
   } catch {
     throw new GmError('format', `${options.label}回傳的不是合法 JSON。該模型可能不支援 JSON 輸出模式。`);
   }
+  // DeepSeek 文件明載 JSON 模式偶爾會回傳空內容（實測會是一整串空白），重送通常就好。
+  if (!raw) throw new GmError('format', `${options.label}這次沒有回傳內容，請再送一次。`);
 
   return raw as unknown as GmResult;
 }

@@ -118,3 +118,24 @@ assert.deepEqual(
 );
 
 console.log('gm/normalize: 全部通過');
+
+// --- extractJsonObject：實測 DeepSeek 會回 HTTP 200 但內容全是空白 ---
+const { extractJsonObject, buildHistoryTurns } = await import('./prompt');
+assert.equal(extractJsonObject(' '.repeat(170)), null, '全空白視為沒有內容，而非「不是合法 JSON」');
+assert.equal(extractJsonObject(''), null);
+assert.equal(extractJsonObject(undefined), null);
+assert.deepEqual(extractJsonObject('```json\n{"segments":[],"commands":[]}\n```'), { segments: [], commands: [] }, '容忍 json 圍欄');
+assert.deepEqual(extractJsonObject('好的，以下是回應：{"a":1}'), { a: 1 }, '容忍前綴文字');
+assert.throws(() => extractJsonObject('這不是 json'), SyntaxError);
+
+// 歷史回合必須是與輸出要求相同的 JSON，不能攤成散文
+const turns = buildHistoryTurns({
+  ...context,
+  dialogueHistory: [{ playerInput: '你好', segments: [{ kind: 'dialogue', speaker: '真角色', text: '「嗨。」' }] }],
+});
+assert.deepEqual(JSON.parse(turns[0].gm), {
+  segments: [{ kind: 'dialogue', speaker: '真角色', text: '「嗨。」' }],
+  commands: [],
+}, 'GM 歷史回應以 JSON 回填');
+
+console.log('gm/prompt: 全部通過');

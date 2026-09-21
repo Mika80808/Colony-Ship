@@ -108,10 +108,31 @@ ${itemBlock}`;
  * 近期對話，給模型當上下文。
  * 只取最後 8 回：再多會讓每次呼叫的 token 成本快速膨脹，
  * 而玩家自備金鑰的架構下，成本是玩家在付的。
+ *
+ * GM 的歷史回應必須以「與輸出要求相同的 json 格式」回填，不能攤成散文。
+ * 否則模型會看到自己「過去」都用散文回答，與 JSON 輸出要求互相拉扯 ——
+ * 實測 DeepSeek 在這種情況下會回傳 HTTP 200、內容卻全是空白。
+ * 歷史裡沒有保存當時的指令，所以 commands 一律填空陣列。
  */
 export function buildHistoryTurns(context: GmContext) {
   return context.dialogueHistory.slice(-8).map((turn) => ({
     player: turn.playerInput,
-    gm: turn.segments.map((s) => (s.speaker ? `${s.speaker}：${s.text}` : s.text)).join('\n'),
+    gm: JSON.stringify({ segments: turn.segments, commands: [] }),
   }));
+}
+
+/**
+ * 從模型輸出取出 JSON 物件。
+ *
+ * - 全是空白視為沒有內容，回傳 null（DeepSeek 文件明載 JSON 模式偶爾會如此）。
+ * - 容忍 ```json 圍欄與前後多餘文字：取第一個 { 到最後一個 } 之間。
+ * 解析失敗丟出 SyntaxError，由呼叫端轉成對玩家的錯誤訊息。
+ */
+export function extractJsonObject(text: string | undefined | null): unknown | null {
+  const trimmed = (text ?? '').trim();
+  if (!trimmed) return null;
+  const start = trimmed.indexOf('{');
+  const end = trimmed.lastIndexOf('}');
+  const body = start !== -1 && end > start ? trimmed.slice(start, end + 1) : trimmed;
+  return JSON.parse(body);
 }

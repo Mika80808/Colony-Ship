@@ -1,6 +1,6 @@
 import { GmContext, GmError, GmResult } from '../types';
 import { GmSettings } from '../settings';
-import { GM_SYSTEM_PROMPT, buildContextBlock, buildHistoryTurns } from '../prompt';
+import { GM_SYSTEM_PROMPT, buildContextBlock, buildHistoryTurns, extractJsonObject } from '../prompt';
 import { GM_RESPONSE_SCHEMA, RawGmResponse } from './schema';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -82,15 +82,13 @@ export async function callGemini(context: GmContext, settings: GmSettings): Prom
     throw new GmError('blocked', '回應被安全政策攔下，請換個說法再試。');
   }
 
-  const text = candidate?.content?.parts?.[0]?.text;
-  if (!text) throw new GmError('format', 'Gemini 沒有回傳內容。');
-
-  let raw: RawGmResponse;
+  let raw: RawGmResponse | null;
   try {
-    raw = JSON.parse(text);
+    raw = extractJsonObject(candidate?.content?.parts?.[0]?.text) as RawGmResponse | null;
   } catch {
     throw new GmError('format', 'Gemini 回傳的不是合法 JSON。');
   }
+  if (!raw) throw new GmError('format', 'Gemini 這次沒有回傳內容，請再送一次。');
 
   // 形狀驗證交給 index.ts 的 normalize，這裡只負責把原始資料帶回去。
   return raw as unknown as GmResult;
