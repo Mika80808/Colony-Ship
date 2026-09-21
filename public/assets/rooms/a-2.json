@@ -1,0 +1,113 @@
+{
+  "id": "A-2",
+  "name": "居住區 A-2",
+  "shell": "shell.json",
+  "decals": [
+    {
+      "id": "rug-living",
+      "image": "decals/rug-living.png",
+      "x": 200,
+      "y": 380,
+      "width": 348,
+      "height": 342
+    }
+  ],
+  "objects": [
+    {
+      "id": "bed-base",
+      "image": "bed-base.png",
+      "x": 840,
+      "y": 120,
+      "width": 201,
+      "height": 232,
+      "depth": 350,
+      "label": "床鋪",
+      "solid": [
+        { "x": 844, "y": 162, "width": 190, "height": 183 }
+      ]
+    },
+    {
+      "id": "bed-blanket",
+      "image": "bed-blanket.png",
+      "x": 840,
+      "y": 184,
+      "width": 201,
+      "height": 149,
+      "depth": 352,
+      "label": "棉被"
+    },
+    {
+      "id": "sofa-west",
+      "image": "sofa-west.png",
+      "x": 300,
+      "y": 600,
+      "width": 148,
+      "height": 131,
+      "depth": 728,
+      "label": "單人沙發",
+      "solid": [
+        { "x": 315, "y": 641, "width": 113, "height": 83 }
+      ]
+    },
+    {
+      "id": "coffee-table",
+      "image": "coffee-table.png",
+      "x": 480,
+      "y": 820,
+      "width": 138,
+      "height": 153,
+      "depth": 971,
+      "solid": [
+        { "x": 484, "y": 846, "width": 130, "height": 122 }
+      ]
+    },
+    {
+      "id": "bookcase",
+      "image": "bookcase.png",
+      "x": 80,
+      "y": 847,
+      "width": 139,
+      "height": 128,
+      "depth": 973,
+      "solid": [
+        { "x": 90, "y": 885, "width": 126, "height": 85 }
+      ]
+    },
+    {
+      "id": "fridge",
+      "image": "fridge.png",
+      "x": 80,
+      "y": 354,
+      "width": 88,
+      "height": 174,
+      "depth": 528,
+      "label": "冰箱",
+      "inspectText": "幾乎都是飲料",
+      "solid": [
+        { "x": 88, "y": 390, "width": 70, "height": 130 }
+      ]
+    }
+  ],
+  "looseSolids": [],
+  "seats": [
+    {
+      "id": "sofa-west",
+      "position": { "x": 375, "y": 709 },
+      "direction": "down",
+      "access": { "x": 375, "y": 756 }
+    }
+  ],
+  "patrol": [
+    { "x": 250, "y": 400 },
+    { "x": 600, "y": 400 },
+    { "x": 660, "y": 950 },
+    { "x": 300, "y": 950 }
+  ],
+  "bed": {
+    "id": "bed-base",
+    "actorDepth": 351,
+    "restY": 258,
+    "leftX": 895,
+    "rightX": 985
+  }
+}

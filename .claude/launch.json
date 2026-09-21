@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "starport-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "5173", "--strictPort"],
+      "port": 5173,
+      "autoPort": false
+    },
+    {
+      "name": "starport-3000",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--port", "3000", "--strictPort"],
+      "port": 3000,
+      "autoPort": false
+    }
+  ]
+}

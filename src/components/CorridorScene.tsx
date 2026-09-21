@@ -1,0 +1,130 @@
+import { corridorDoorFrame, createCorridorDoorLeaves, drawCorridorDoor } from '../game/corridorDoor';
+import { useEffect, useRef, useState } from 'react';
+import { CorridorAsset, HEIGHT, WIDTH, SPAWN, Point, Interaction, findPath, move, interactions, nearby } from '../game/corridor';
+import { ACTOR_HEIGHT, fitViewport } from '../game/viewport';
+
+interface Props { paused: boolean; playerName: string; onEnterRoom: () => void; onNotice: (text: string) => void }
+const movement = new Set(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
+const normal = (key: string) => key.length === 1 ? key.toLowerCase() : key;
+export default function CorridorScene(props: Props) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const controls = useRef(props); controls.current = props;
+  const keys = useRef(new Set<string>());
+  const [status, setStatus] = useState('正在載入 A 區走廊…');
+  const state = useRef({ p: { ...SPAWN }, path: [] as Point[], direction: 'down', elapsed: 0, camera: 0, view: 1600, sitting: null as Interaction | null, entering: 0, ready: false, items: [] as Interaction[], pending: null as Interaction | null });
+  const act = () => {
+    const s = state.current;
+    if (!s.ready || controls.current.paused || s.entering) return;
+    if (s.sitting) { s.p = { ...s.sitting.point }; s.sitting = null; return; }
+    const item = nearby(s.p,s.items); if (!item) return;
+    s.path = []; s.pending = null;
+    if (item.kind === 'bench') { s.sitting = item; s.p = { x:item.point.x, y:486 }; s.direction='down'; }
+    if (item.kind === 'door') {
+      if (item.id === 'door-1') { s.entering=0.001; s.direction='up'; }
+      else controls.current.onNotice(`${item.label}：門禁尚未開放。`);
+    }
+    if (item.kind === 'sign') controls.current.onNotice(item.id === 'sign-research' ? '農業區位於走廊右側方向。' : '研究室位於走廊左側方向。');
+  };
+  const actRef = useRef(act); actRef.current = act;
+  useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);
+  useEffect(() => {
+    const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!;
+    let disposed=false, raf=0, last=0;
+    const clear = () => keys.current.clear();
+    window.addEventListener('blur',clear); document.addEventListener('visibilitychange',clear);
+    const resize = new ResizeObserver(([e]) => {
+      const s=state.current, view=fitViewport(e.contentRect.width,e.contentRect.height,WIDTH,HEIGHT);
+      s.view=view.width;
+      canvas.width=Math.round(view.width); canvas.height=Math.round(view.height);
+      canvas.style.width=`${view.width*view.scale}px`; canvas.style.height=`${view.height*view.scale}px`;
+    }); resize.observe(canvas.parentElement!);
+    const load = (src: string) => new Promise<HTMLImageElement>((resolve,reject) => { const im=new Image(); im.onload=()=>resolve(im); im.onerror=()=>reject(new Error(src)); im.src=src; });
+    async function start() {
+      const response=await fetch('/assets/corridor-a/manifest.json'); if (!response.ok) throw new Error('manifest');
+      const assets: CorridorAsset[]=await response.json();
+      const images=await Promise.all(assets.map(a=>load(`/assets/corridor-a/${a.id}.png`)));
+      const sprite=await load('/assets/player/walk.png');
+      if(disposed) return;
+      const image = (id: string) => images[assets.findIndex(a=>a.id===id)];
+      const doorLeaves = new Map(assets.filter(a => a.kind === 'door').map(a => [a.id, createCorridorDoorLeaves(image(a.id))]));
+      state.current.items=interactions(assets); state.current.ready=true; setStatus('');
+      canvas.focus({ preventScroll: true });
+      const drawAsset=(a: CorridorAsset)=>ctx.drawImage(image(a.id),a.x,a.y,a.width,a.height);
+      const drawPlayer=(moving: boolean)=>{
+        const s=state.current, sw=sprite.width/4, sh=sprite.height/3, h=ACTOR_HEIGHT, w=h*sw/sh;
+        ctx.fillStyle='#05101b66'; ctx.beginPath(); ctx.ellipse(s.p.x,s.p.y-3,23,7,0,0,Math.PI*2); ctx.fill();
+        const col=({down:0,up:1,left:2,right:3} as Record<string,number>)[s.direction];
+        const row=moving?[0,1,0,2][Math.floor(s.elapsed*8)%4]:0;
+        if(s.sitting) {
+          // Preserve head/body scale; shorten the lower-leg section for a seated preview pose.
+          ctx.drawImage(sprite,col*sw,row*sh,sw,sh*.7,s.p.x-w/2,s.p.y-h*.85+5,w,h*.7);
+          ctx.drawImage(sprite,col*sw,row*sh+sh*.7,sw,sh*.3,s.p.x-w/2,s.p.y-h*.15+5,w,h*.15);
+        } else ctx.drawImage(sprite,col*sw,row*sh,sw,sh,s.p.x-w/2,s.p.y-h+5,w,h);
+      };
+      const render=(time: number)=>{
+        if(disposed)return;
+        const s=state.current, dt=Math.min((time-(last||time))/1000,.05);last=time;
+        const frozen=controls.current.paused||document.hidden;
+        let moving=false;
+        if(!frozen) {
+          if(s.entering) { s.entering+=dt; if(corridorDoorFrame(s.entering).complete) { s.entering=0; controls.current.onEnterRoom(); return; } }
+          else {
+            let dx=Number(keys.current.has('d')||keys.current.has('ArrowRight'))-Number(keys.current.has('a')||keys.current.has('ArrowLeft'));
+            let dy=Number(keys.current.has('s')||keys.current.has('ArrowDown'))-Number(keys.current.has('w')||keys.current.has('ArrowUp'));
+            if(dx||dy) {
+              if(s.sitting) {s.p={...s.sitting.point};s.sitting=null;}
+              s.path=[];s.pending=null;
+            } else if(s.path.length&&!s.sitting) {
+              dx=s.path[0].x-s.p.x;dy=s.path[0].y-s.p.y;
+              if(Math.hypot(dx,dy)<3){s.p=s.path.shift()!;dx=0;dy=0;}
+            }
+            const distance=Math.hypot(dx,dy);
+            if(distance) {
+              const amount=Math.min(240*dt,s.path.length?distance:Infinity);
+              const p=move(s.p,dx/distance*amount,dy/distance*amount);moving=Math.hypot(p.x-s.p.x,p.y-s.p.y)>.01;s.p=p;
+              s.direction=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');
+              if(moving)s.elapsed+=dt;
+            }
+            if(!s.path.length&&s.pending) { const pending=s.pending;s.pending=null;if(nearby(s.p,[pending]))actRef.current(); }
+          }
+        }
+        s.camera=Math.max(0,Math.min(WIDTH-s.view,s.p.x-s.view/2));
+        ctx.clearRect(0,0,canvas.width,HEIGHT);ctx.imageSmoothingEnabled=false;ctx.save();ctx.translate(-s.camera,0);
+        drawAsset(assets.find(a=>a.id==='space')!);drawAsset(assets.find(a=>a.id==='floor')!);
+        drawAsset(assets.find(a=>a.id==='wall')!);
+        assets.filter(a=>a.kind==='door').forEach(a=>{
+          const open = a.id === 'door-1' ? corridorDoorFrame(s.entering).open : 0;
+          drawCorridorDoor(ctx, image(a.id), doorLeaves.get(a.id)!, a.x, a.y, a.width, a.height, open);
+        });
+        assets.filter(a=>a.kind==='sign').forEach(drawAsset);
+        const layers=assets.filter(a=>a.kind==='object'||a.kind==='bench').map(a=>({depth:a.y+a.height-7,draw:()=>drawAsset(a)}));
+        layers.push({depth:s.sitting?510:s.p.y,draw:()=>drawPlayer(moving&&!frozen)});layers.sort((a,b)=>a.depth-b.depth).forEach(a=>a.draw());
+        drawAsset(assets.find(a=>a.id==='foreground')!);
+        if(s.path.length){const p=s.path.at(-1)!;ctx.strokeStyle='#71efff';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(p.x,p.y,16,6,0,0,Math.PI*2);ctx.stroke();}
+        const item=nearby(s.p,s.items), text=s.sitting?'起身':item?.label??'';
+        if(text&&!frozen){ctx.font='bold 22px sans-serif';const w=ctx.measureText(text).width+28;ctx.fillStyle='#08192499';ctx.fillRect(s.p.x-w/2,s.p.y-192,w,36);ctx.fillStyle='#baf7ff';ctx.textAlign='center';ctx.fillText(text,s.p.x,s.p.y-166);}
+        ctx.restore();
+        if(corridorDoorFrame(s.entering).fade>0){ctx.fillStyle=`rgba(4,10,20,${corridorDoorFrame(s.entering).fade})`;ctx.fillRect(0,0,canvas.width,HEIGHT);}
+        canvas.dataset.playerPosition=`${s.p.x.toFixed(1)},${s.p.y.toFixed(1)}`;canvas.dataset.camera=s.camera.toFixed(1);canvas.dataset.sitting=String(!!s.sitting);canvas.dataset.ready='true';canvas.dataset.moving=String(moving);canvas.dataset.nearby=item?.id??'';
+        raf=requestAnimationFrame(render);
+      };raf=requestAnimationFrame(render);
+    }
+    start().catch(()=>{if(!disposed)setStatus('走廊素材載入失敗，請重新整理。');});
+    return()=>{disposed=true;state.current.ready=false;cancelAnimationFrame(raf);resize.disconnect();clear();window.removeEventListener('blur',clear);document.removeEventListener('visibilitychange',clear);};
+  },[]);
+  return <div className="corridor-scene">
+    <div className="corridor-viewport"><canvas ref={canvasRef} tabIndex={0} aria-label="A 區走廊。方向鍵或 WASD 移動，E 互動，也可以點擊地板、房門或椅子。"
+      onBlur={()=>keys.current.clear()}
+      onKeyDown={e=>{const key=normal(e.key);if(e.ctrlKey||e.altKey||e.metaKey)return;if(movement.has(key)||key==='e'){e.preventDefault();e.stopPropagation();if(!props.paused&&!state.current.entering){if(key==='e'){if(!e.repeat)act();}else {if(!keys.current.has(key)){const dx=key==='d'||key==='ArrowRight'?4:key==='a'||key==='ArrowLeft'?-4:0;const dy=key==='s'||key==='ArrowDown'?4:key==='w'||key==='ArrowUp'?-4:0;state.current.p=move(state.current.p,dx,dy);}keys.current.add(key);}}}}}
+      onKeyUp={e=>{const key=normal(e.key);if(movement.has(key)){e.preventDefault();e.stopPropagation();keys.current.delete(key);}}}
+      onClick={e=>{
+        const s=state.current;if(!s.ready||props.paused||s.entering)return;e.currentTarget.focus({preventScroll:true});
+        if(s.sitting){s.p={...s.sitting.point};s.sitting=null;}
+        const r=e.currentTarget.getBoundingClientRect(), p={x:(e.clientX-r.left)/r.width*s.view+s.camera,y:(e.clientY-r.top)/r.height*HEIGHT};
+        const item=s.items.find(i=>Math.abs(i.point.x-p.x)<(i.kind==='bench'?103:65)&&(i.kind==='bench'?p.y>=381&&p.y<=506:i.kind==='door'?p.y>=198&&p.y<=347:p.y>=160&&p.y<=230));
+        s.pending=item??null;s.path=findPath(s.p,item?.point??p);
+      }}/>
+      {status&&<p role="status" className="corridor-status">{status}</p>}
+    </div>
+  </div>;
+}

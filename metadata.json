@@ -1,0 +1,8 @@
+{
+  "name": "Remix 星際港 0820 幾乎完成版",
+  "description": "更改風格",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

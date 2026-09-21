@@ -1,0 +1,146 @@
+[
+  {
+    "id": "wall",
+    "x": 0,
+    "y": 0,
+    "width": 3560,
+    "height": 385,
+    "kind": "background"
+  },
+  {
+    "id": "space",
+    "x": 0,
+    "y": 849,
+    "width": 3560,
+    "height": 147,
+    "kind": "background"
+  },
+  {
+    "id": "floor",
+    "x": 0,
+    "y": 346,
+    "width": 3560,
+    "height": 452,
+    "kind": "background"
+  },
+  {
+    "id": "sign-greenhouse",
+    "x": 3435,
+    "y": 162,
+    "width": 105,
+    "height": 67,
+    "kind": "sign"
+  },
+  {
+    "id": "sign-research",
+    "x": 45,
+    "y": 161,
+    "width": 106,
+    "height": 68,
+    "kind": "sign"
+  },
+  {
+    "id": "cart",
+    "x": 45,
+    "y": 571,
+    "width": 155,
+    "height": 230,
+    "kind": "object"
+  },
+  {
+    "id": "foreground",
+    "x": 0,
+    "y": 746,
+    "width": 3560,
+    "height": 103,
+    "kind": "foreground"
+  },
+  {
+    "id": "door-1",
+    "x": 439,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door"
+  },
+  {
+    "id": "door-2",
+    "x": 960,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door"
+  },
+  {
+    "id": "door-3",
+    "x": 1475,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door"
+  },
+  {
+    "id": "door-4",
+    "x": 1996,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door"
+  },
+  {
+    "id": "door-5",
+    "x": 2515,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door"
+  },
+  {
+    "id": "door-6",
+    "x": 3036,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door"
+  },
+  {
+    "id": "decor-1",
+    "x": 266,
+    "y": 256,
+    "width": 160,
+    "height": 129,
+    "kind": "object"
+  },
+  {
+    "id": "decor-2",
+    "x": 1856,
+    "y": 266,
+    "width": 101,
+    "height": 109,
+    "kind": "object"
+  },
+  {
+    "id": "decor-3",
+    "x": 3386,
+    "y": 256,
+    "width": 204,
+    "height": 125,
+    "kind": "object"
+  },
+  {
+    "id": "bench-1",
+    "x": 1161,
+    "y": 381,
+    "width": 206,
+    "height": 125,
+    "kind": "bench"
+  },
+  {
+    "id": "bench-2",
+    "x": 2729,
+    "y": 381,
+    "width": 206,
+    "height": 125,
+    "kind": "bench"
+  }
+]

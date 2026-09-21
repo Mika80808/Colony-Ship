@@ -1,0 +1,182 @@
+{
+  "width": 1254,
+  "height": 1254,
+  "base": "shell/base.png",
+  "overlays": [
+    {
+      "id": "bath-side-wall",
+      "image": "bath-side-wall.png",
+      "dst": [
+        830,
+        552,
+        40,
+        386
+      ],
+      "order": "behind"
+    },
+    {
+      "id": "central-wall-lower",
+      "image": "central-wall.png",
+      "src": [
+        0,
+        502,
+        35,
+        372
+      ],
+      "dst": [
+        680,
+        552,
+        35,
+        372
+      ],
+      "order": "behind"
+    },
+    {
+      "id": "central-wall-upper",
+      "image": "central-wall.png",
+      "src": [
+        0,
+        0,
+        35,
+        502
+      ],
+      "dst": [
+        680,
+        50,
+        35,
+        502
+      ],
+      "order": "front"
+    },
+    {
+      "id": "foreground",
+      "image": "foreground.png",
+      "dst": [
+        77,
+        552,
+        1109,
+        647
+      ],
+      "order": "front"
+    }
+  ],
+  "walls": [
+    {
+      "x": 680,
+      "y": 50,
+      "width": 34,
+      "height": 872
+    },
+    {
+      "x": 830,
+      "y": 552,
+      "width": 356,
+      "height": 180
+    },
+    {
+      "x": 830,
+      "y": 552,
+      "width": 39,
+      "height": 386
+    }
+  ],
+  "floor": {
+    "minX": 82,
+    "maxX": 1186,
+    "sideClearance": 36,
+    "northY": {
+      "left": 245,
+      "right": 175,
+      "splitX": 680
+    },
+    "southWallLine": 1043,
+    "southWallOverlap": 72
+  },
+  "exit": {
+    "x": 310,
+    "y": 1020,
+    "radius": 78
+  },
+  "showerZone": {
+    "x": 1070,
+    "y": 735,
+    "width": 100,
+    "height": 58
+  },
+  "fixtures": [
+    {
+      "id": "basin",
+      "image": "basin.png",
+      "x": 955,
+      "y": 637,
+      "width": 101,
+      "height": 141,
+      "depth": 776,
+      "solid": [
+        {
+          "x": 960,
+          "y": 718,
+          "width": 87,
+          "height": 60
+        }
+      ]
+    },
+    {
+      "id": "wc",
+      "image": "wc.png",
+      "x": 891,
+      "y": 673,
+      "width": 52,
+      "height": 104,
+      "depth": 775,
+      "solid": [
+        {
+          "x": 894,
+          "y": 710,
+          "width": 47,
+          "height": 65
+        }
+      ]
+    },
+    {
+      "id": "door-a1-out",
+      "image": "door-a1-out.png",
+      "x": 220,
+      "y": 1022,
+      "width": 182,
+      "height": 184,
+      "depth": 1204,
+      "label": "房門"
+    },
+    {
+      "id": "shower",
+      "image": "shower.png",
+      "x": 1049,
+      "y": 606,
+      "width": 144,
+      "height": 210,
+      "depth": 812,
+      "label": "淋浴間",
+      "solid": [
+        {
+          "x": 1049,
+          "y": 606,
+          "width": 144,
+          "height": 80
+        },
+        {
+          "x": 1049,
+          "y": 680,
+          "width": 16,
+          "height": 120
+        },
+        {
+          "x": 1174,
+          "y": 680,
+          "width": 19,
+          "height": 120
+        }
+      ]
+    }
+  ]
+}

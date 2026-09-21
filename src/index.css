@@ -1,0 +1,711 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Noto Sans TC', sans-serif;
+    --font-hud: 'Rajdhani', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    
+    /* Neon Theme Colors */
+    --neon-cyan: #00e5ff;
+    --neon-purple: #9d4edd;
+    --neon-dark: #12141d;
+    --neon-panel: rgba(22, 24, 35, 0.75);
+    
+    --neon-gradient: linear-gradient(135deg, var(--neon-cyan) 0%, var(--neon-purple) 100%);
+
+    /*
+     * 模糊層級只有三級，全專案共用。
+     * weak = 輸入框與次要按鈕，mid = 面板與卡片，strong = 全螢幕遮罩與頂部 HUD。
+     * 新增樣式請沿用這三個變數，不要再直接寫 blur(px) 或 Tailwind 的 backdrop-blur-*。
+     */
+    --blur-weak: 8px;
+    --blur-mid: 16px;
+    --blur-strong: 24px;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--neon-dark);
+    color: #e2e8f0;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+}
+
+.font-hud {
+  font-family: 'Rajdhani', sans-serif;
+}
+
+.font-mono-code {
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* Base dark glass for panels */
+.glass-panel {
+  background: var(--neon-panel);
+  backdrop-filter: blur(var(--blur-mid));
+  -webkit-backdrop-filter: blur(var(--blur-mid));
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.8), inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Neon Glow Card (like the Modal or Card in the image) */
+.glass-card {
+  position: relative;
+  background: rgba(20, 22, 32, 0.85);
+  backdrop-filter: blur(var(--blur-mid));
+  -webkit-backdrop-filter: blur(var(--blur-mid));
+  border-radius: 12px;
+  box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.8);
+  background-clip: padding-box;
+  border: 1px solid transparent;
+  z-index: 1;
+}
+
+.glass-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.5), rgba(157, 78, 221, 0.5));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.glass-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0, 229, 255, 0.15), rgba(157, 78, 221, 0.15));
+  filter: blur(12px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/*
+ * 三級模糊工具類，取代 JSX 內散落的 Tailwind backdrop-blur sm/md/xl/2xl。
+ */
+.blur-weak {
+  backdrop-filter: blur(var(--blur-weak));
+  -webkit-backdrop-filter: blur(var(--blur-weak));
+}
+
+.blur-mid {
+  backdrop-filter: blur(var(--blur-mid));
+  -webkit-backdrop-filter: blur(var(--blur-mid));
+}
+
+.blur-strong {
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
+}
+
+/*
+ * 場景層在查不到區域背景圖時的佔位底。
+ * 純靜態多層 radial-gradient，沒有動畫也沒有 canvas，不佔主執行緒。
+ */
+.scene-fallback {
+  background-color: #050814;
+  background-image:
+    radial-gradient(ellipse 70% 55% at 68% 38%, rgba(0, 229, 255, 0.10), transparent 60%),
+    radial-gradient(ellipse 55% 45% at 22% 72%, rgba(157, 78, 221, 0.12), transparent 62%),
+    radial-gradient(ellipse 90% 70% at 50% 110%, rgba(12, 24, 58, 0.85), transparent 70%),
+    radial-gradient(circle at 50% 50%, #0a1024 0%, #050814 100%);
+}
+
+/*
+ * 地圖進入過場。
+ *
+ * 一律純 CSS，不引入 WebGL：過場只播數秒、面積不到全螢幕一半，而建立 canvas、
+ * 編譯著色器、上傳材質的固定成本正好發生在玩家最不希望卡頓的瞬間，回收不了。
+ *
+ * 以下全部走 transform / opacity / filter，交給合成器處理，不佔主執行緒。
+ * 載入時間不可預測（短則數百毫秒、長則十餘秒），所以每一則都是 infinite 循環，
+ * 不能是有頭有尾播完就結束的一次性動畫。
+ */
+@keyframes sceneTransitionZoom {
+  0%, 100% { transform: scale(1.05) translate3d(0, 0, 0); }
+  50% { transform: scale(1.14) translate3d(-1.2%, 0.8%, 0); }
+}
+
+@keyframes sceneTransitionParallax {
+  0%, 100% { transform: translate3d(-2%, 0, 0) scale(1.1); }
+  50% { transform: translate3d(2%, -1%, 0) scale(1.1); }
+}
+
+@keyframes sceneTransitionBreathe {
+  0%, 100% { filter: brightness(0.86) saturate(1.05); }
+  50% { filter: brightness(1.12) saturate(1.3); }
+}
+
+@keyframes sceneTransitionGlow {
+  0%, 100% { opacity: 0.25; transform: translate3d(-15%, 8%, 0); }
+  50% { opacity: 0.7; transform: translate3d(15%, -8%, 0); }
+}
+
+@keyframes sceneTransitionScan {
+  0% { transform: translate3d(0, -50%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+.scene-transition-zoom {
+  animation: sceneTransitionZoom 14s ease-in-out infinite,
+             sceneTransitionBreathe 6s ease-in-out infinite;
+  will-change: transform, filter;
+}
+
+.scene-transition-parallax {
+  animation: sceneTransitionParallax 22s ease-in-out infinite;
+  will-change: transform;
+}
+
+.scene-transition-glow {
+  background: radial-gradient(ellipse 55% 45% at 50% 50%, rgba(0, 229, 255, 0.35), transparent 70%),
+              radial-gradient(ellipse 40% 35% at 30% 65%, rgba(157, 78, 221, 0.3), transparent 72%);
+  animation: sceneTransitionGlow 9s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
+/* 掃描線：高度兩倍後上移一半，位移一個週期即無縫接回。 */
+.scene-transition-scan {
+  height: 200%;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  animation: sceneTransitionScan 1.4s linear infinite;
+  will-change: transform;
+}
+
+/*
+ * 彈窗遮罩。四個彈窗共用，配合 ModalShell 使用。
+ */
+.modal-scrim {
+  background: rgba(2, 6, 23, 0.75);
+  backdrop-filter: blur(var(--blur-strong));
+  -webkit-backdrop-filter: blur(var(--blur-strong));
+}
+
+/*
+ * 對話框玻璃。原本在 JSX 硬刻二十餘個工具類（含手寫 shadow 與偽元素掃描線），
+ * 整段收進這裡，改風格只要動這一處。
+ */
+.dialogue-panel {
+  position: relative;
+  border-radius: 16px;
+  background: var(--neon-panel);
+  backdrop-filter: blur(var(--blur-mid));
+  -webkit-backdrop-filter: blur(var(--blur-mid));
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), inset 0 0 32px rgba(56, 189, 248, 0.04);
+}
+
+/* 掃描線 */
+.dialogue-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+/* Glass Input */
+.glass-input {
+  background: rgba(20, 22, 32, 0.6);
+  backdrop-filter: blur(var(--blur-weak));
+  -webkit-backdrop-filter: blur(var(--blur-weak));
+  border-radius: 8px;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.glass-input:focus, .glass-input:focus-within {
+  border-color: rgba(0, 229, 255, 0.6);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 229, 255, 0.3), 0 0 12px rgba(0, 229, 255, 0.15);
+}
+
+/* Secondary Button (replaces btn-standard) */
+.btn-standard {
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 14px;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(var(--blur-weak));
+  -webkit-backdrop-filter: blur(var(--blur-weak));
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-standard:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.btn-standard:active {
+  transform: translateY(1px);
+}
+
+/* Danger Button */
+.btn-danger {
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 14px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(50, 15, 20, 0.6);
+  color: #fca5a5;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(80, 20, 28, 0.8);
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.2);
+}
+
+/* Neon Checkbox */
+.checkbox-neon {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+.checkbox-neon:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.checkbox-neon.active {
+  background: rgba(20, 22, 32, 0.9);
+  border-color: transparent;
+  color: var(--neon-cyan);
+}
+.checkbox-neon.active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  padding: 1.5px;
+  background: var(--neon-gradient);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.checkbox-neon.active::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 6px;
+  background: var(--neon-gradient);
+  filter: blur(8px);
+  opacity: 0.5;
+  z-index: -1;
+  pointer-events: none;
+}
+
+
+/* Primary Neon Button (New) */
+.btn-primary-neon {
+  position: relative;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-weight: 600;
+  font-size: 15px;
+  color: #ffffff;
+  background: var(--neon-gradient);
+  border: none;
+  cursor: pointer;
+  z-index: 1;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.btn-primary-neon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: var(--neon-gradient);
+  filter: blur(12px);
+  opacity: 0.6;
+  z-index: -1;
+  transition: opacity 0.2s ease;
+}
+.btn-primary-neon:hover::before {
+  opacity: 0.9;
+  filter: blur(16px);
+}
+.btn-primary-neon:active {
+  transform: scale(0.96);
+}
+
+/* Icon Buttons */
+.btn-icon, .sidebar-icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%; /* Image uses circular icon buttons */
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.btn-icon:hover, .sidebar-icon-btn:hover {
+  color: var(--neon-cyan);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sidebar-icon-btn.active, .btn-icon.active {
+  background: rgba(20, 22, 32, 0.9);
+  color: #fff;
+  border-color: transparent;
+  background-clip: padding-box;
+}
+
+.sidebar-icon-btn.active::before, .btn-icon.active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  padding: 1.5px;
+  background: var(--neon-gradient);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.sidebar-icon-btn.active::after, .btn-icon.active::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: var(--neon-gradient);
+  filter: blur(8px);
+  opacity: 0.4;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Animations */
+@keyframes breathingGlowOrange {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(0, 229, 255, 0.4), 0 0 8px rgba(0, 229, 255, 0.2);
+    opacity: 0.85;
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.95), 0 0 24px rgba(0, 229, 255, 0.6);
+    opacity: 1;
+  }
+}
+
+.breathing-light,
+.breathing-light-orange {
+  animation: breathingGlowOrange 2s ease-in-out infinite;
+}
+
+@keyframes pulseGlowOrange {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 4px rgba(0, 229, 255, 0.4);
+    opacity: 0.75;
+  }
+  50% {
+    transform: scale(1.2);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.95), 0 0 22px rgba(0, 229, 255, 0.5);
+    opacity: 1;
+  }
+}
+
+.hover-radar-breathe {
+  animation: pulseGlowOrange 1.2s ease-in-out infinite;
+}
+
+@keyframes radarShockwave {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(0, 229, 255, 0.9);
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0.6;
+    box-shadow: 0 0 16px 8px rgba(0, 229, 255, 0);
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.radar-shockwave-active {
+  animation: radarShockwave 0.8s ease-out forwards;
+}
+
+@keyframes circuitLinePulse {
+  0% {
+    stroke-dashoffset: 32;
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.2;
+  }
+}
+
+.circuit-flow-active {
+  stroke-dasharray: 8 16;
+  animation: circuitLinePulse 0.9s linear infinite;
+}
+
+@property --hud-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotateHudBorder {
+  to { --hud-angle: 360deg; }
+}
+
+.hud-conic-border {
+  --hud-angle: 0deg;
+}
+
+.group:hover .hud-conic-border,
+.hud-conic-border-active {
+  animation: rotateHudBorder 2s linear infinite;
+}
+
+@keyframes svgElasticJitter {
+  0% { transform: rotate(0deg) scale(1); }
+  12% { transform: rotate(-16deg) scale(0.88); }
+  28% { transform: rotate(14deg) scale(1.2); }
+  44% { transform: rotate(-10deg) scale(0.94); }
+  60% { transform: rotate(7deg) scale(1.08); }
+  76% { transform: rotate(-4deg) scale(0.98); }
+  88% { transform: rotate(2deg) scale(1.02); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+.svg-elastic-jitter {
+  animation: svgElasticJitter 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes buttonMicroPress {
+  0% { transform: scale(1); }
+  20% { transform: scale(0.92); }
+  50% { transform: scale(1.04); }
+  75% { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+
+.button-micro-press {
+  animation: buttonMicroPress 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes burstOverlayShockwave {
+  0% { transform: scale(0.2); opacity: 0; filter: brightness(2.6); }
+  15% { transform: scale(0.5); opacity: 1; filter: brightness(2.2); }
+  45% { transform: scale(1.15); opacity: 0.95; filter: brightness(1.6); }
+  75% { transform: scale(1.65); opacity: 0.5; filter: brightness(1.2); }
+  100% { transform: scale(2.2); opacity: 0; filter: brightness(1); }
+}
+
+.burst-overlay-shockwave {
+  position: absolute;
+  inset: -12px;
+  border-radius: 12px;
+  background: radial-gradient(circle, rgba(0, 229, 255, 1) 0%, rgba(157, 78, 221, 0.95) 30%, rgba(157, 78, 221, 0.7) 60%, transparent 85%);
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: burstOverlayShockwave 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  height: 5px;
+  border-radius: 4px;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #00e5ff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.85), 0 0 20px rgba(0, 229, 255, 0.4);
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 229, 255, 0.4);
+}
+
+/* Markdown Styles */
+.markdown-body {
+  font-family: var(--font-sans);
+  font-size: 0.75rem; /* text-xs */
+  line-height: 1.625; /* leading-relaxed */
+  color: #94a3b8; /* text-slate-400 */
+}
+
+.markdown-body p {
+  margin-bottom: 0.75em;
+}
+
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body strong {
+  color: #7dd3fc; /* sky-300 */
+  font-weight: 700;
+}
+
+.markdown-body em {
+  color: rgba(56, 189, 248, 0.9); /* sky-400 slightly transparent */
+  font-style: italic;
+}
+
+.markdown-body ul {
+  list-style-type: disc;
+  padding-left: 1.25em;
+  margin-bottom: 0.75em;
+}
+
+.markdown-body ol {
+  list-style-type: decimal;
+  padding-left: 1.25em;
+  margin-bottom: 0.75em;
+}
+
+.markdown-body li {
+  margin-bottom: 0.25em;
+}
+
+.markdown-body h1, 
+.markdown-body h2, 
+.markdown-body h3 {
+  font-family: var(--font-hud);
+  color: #7dd3fc; /* sky-300 */
+  font-weight: 700;
+  margin-top: 1.2em;
+  margin-bottom: 0.6em;
+}
+
+.markdown-body h1 { font-size: 1.25rem; }
+.markdown-body h2 { font-size: 1.1rem; }
+.markdown-body h3 { font-size: 0.95rem; }
+
+.markdown-body blockquote {
+  border-left: 2px solid rgba(56, 189, 248, 0.4); /* sky-400/40 */
+  padding-left: 0.75em;
+  color: #64748b; /* slate-500 */
+  font-style: italic;
+}
+
+.markdown-body code {
+  font-family: var(--font-mono);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  color: #38bdf8; /* sky-400 */
+  font-size: 0.9em;
+}
+
+/* Make last paragraph inline so cursor can sit next to it */
+.markdown-body.typewriter-content > p:last-of-type {
+  display: inline;
+}
+
+
+/* The room canvas is sized by its camera, so leave its dimensions to the script. */
+.room-scene { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.room-viewport { flex: 1; min-height: 0; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+.room-viewport canvas { display: block; max-width: 100%; cursor: crosshair; }
+@media (max-width: 760px) {
+  main > aside { display: none; }
+  #npc-stage { min-height: 220px; }
+  .dialogue-panel { margin-inline: 0; gap: 8px; }
+  .dialogue-panel > div:first-child { width: 64px; }
+  main > div > aside { width: 48px; }
+}
+
+/* Residential corridor keeps its camera and controls inside the existing stage. */
+.corridor-scene { height:100%; min-height:0; display:flex; flex-direction:column; background:#09121c; border:1px solid #44657466; border-radius:12px; overflow:hidden; }
+.corridor-viewport { flex:1; min-height:0; position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.corridor-viewport canvas { display:block; cursor:crosshair; max-width:100%; outline-offset:-2px; }
+.corridor-viewport canvas:focus-visible { outline:1px solid #7fd7e899; }
+.corridor-status { position:absolute; inset:0; display:grid; place-items:center; color:#bae6fd; }
