@@ -18,7 +18,10 @@ const store = new Map<string, string>();
   length: 0,
 } as Storage;
 
-const { readGmSettings, readGmSettingsDraft, writeGmSettings } = await import('./settings');
+const {
+  readGmSettings, readGmSettingsDraft, writeGmSettings,
+  readAiSettings, readAiSettingsDraft, writeAiSettings, writeAssistantSameAsGm,
+} = await import('./settings');
 
 // --- 全新玩家 ---
 store.clear();
@@ -102,5 +105,76 @@ store.clear();
 store.set('starport_gm_provider', 'deepseek');
 store.set('starport_gm_model_deepseek', 'deepseek-chat');
 assert.equal(readGmSettings().model, 'deepseek-flash', '已下架的 deepseek-chat 退回預設');
+
+// ================= 助理 AI =================
+
+// --- 勾選「與 GM 相同」：供應商、金鑰取自 GM，模型用助理自己為該供應商選的 ---
+store.clear();
+{
+  const gm = readGmSettingsDraft();
+  gm.provider = 'deepseek';
+  gm.keys.deepseek = 'DEEPSEEK-KEY';
+  gm.models.deepseek = 'deepseek-v4-pro';
+  writeGmSettings(gm);
+
+  const assistant = readAiSettingsDraft('assistant');
+  assistant.models.deepseek = 'deepseek-flash';
+  writeAiSettings('assistant', assistant);
+  writeAssistantSameAsGm(true);
+
+  const s = readAiSettings('assistant');
+  assert.equal(s.provider, 'deepseek', '沿用 GM 的供應商');
+  assert.equal(s.apiKey, 'DEEPSEEK-KEY', '沿用 GM 的金鑰');
+  assert.equal(s.model, 'deepseek-flash', '模型用助理自己選的（GM 用 Pro、助理用 Flash）');
+  assert.equal(readGmSettings().model, 'deepseek-v4-pro', 'GM 的模型不受影響');
+}
+
+// --- 沿用 GM 但助理從沒替該供應商選過模型：退回該供應商預設，而非 Gemini 的模型 ---
+store.clear();
+{
+  const gm = readGmSettingsDraft();
+  gm.provider = 'deepseek';
+  gm.keys.deepseek = 'DEEPSEEK-KEY';
+  writeGmSettings(gm);
+  writeAssistantSameAsGm(true);
+  assert.equal(readAiSettings('assistant').model, 'deepseek-flash', '不會拿 Gemini 的模型配 DeepSeek 的金鑰');
+}
+
+// --- 不勾選：用助理自己的供應商與金鑰，與 GM 完全獨立 ---
+store.clear();
+{
+  const gm = readGmSettingsDraft();
+  gm.keys.gemini = 'GOOGLE-KEY';
+  writeGmSettings(gm);
+
+  const assistant = readAiSettingsDraft('assistant');
+  assistant.provider = 'deepseek';
+  assistant.keys.deepseek = 'ASSISTANT-DEEPSEEK-KEY';
+  writeAiSettings('assistant', assistant);
+  writeAssistantSameAsGm(false);
+
+  const s = readAiSettings('assistant');
+  assert.equal(s.provider, 'deepseek');
+  assert.equal(s.apiKey, 'ASSISTANT-DEEPSEEK-KEY');
+  assert.equal(readAiSettingsDraft('assistant').keys.gemini, '', 'GM 的金鑰不會出現在助理的欄位');
+}
+
+// --- 舊版遷移：未勾選時，舊助理金鑰歸給 Gemini ---
+store.clear();
+store.set('starport_assistant_api_key', 'OLD-ASSISTANT-KEY');
+store.set('starport_assistant_model', 'gemini-2.5-pro');
+store.set('starport_assistant_same_as_gm', 'false');
+{
+  const s = readAiSettings('assistant');
+  assert.equal(s.provider, 'gemini');
+  assert.equal(s.apiKey, 'OLD-ASSISTANT-KEY');
+  assert.equal(s.model, 'gemini-2.5-pro');
+}
+
+// --- 舊版遷移：勾選時舊助理欄位是 GM 金鑰的複本，歸屬不明，不遷移 ---
+store.clear();
+store.set('starport_assistant_api_key', 'COPIED-GM-KEY');
+store.set('starport_assistant_same_as_gm', 'true');
+assert.equal(readAiSettingsDraft('assistant').keys.gemini, '', '舊版勾選時複製的 GM 金鑰不遷移進助理欄位');
 
 console.log('gm/settings: 全部通過');

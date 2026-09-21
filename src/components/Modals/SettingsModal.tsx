@@ -21,18 +21,17 @@ import {
 } from 'lucide-react';
 import { sound } from '../../utils/sound';
 import ModalShell from './ModalShell';
+import AiProviderFields from './AiProviderFields';
+import { GmProvider, isGmProvider, maxTokensFor, resolveModel } from '../../gm/models';
 import {
-  GEMINI_MODELS,
-  DEFAULT_GM_MODEL,
-  PROVIDERS,
-  GmProvider,
-  isGmProvider,
-  isKnownGeminiModel,
-  maxTokensFor,
-  providerInfo,
-  resolveModel,
-} from '../../gm/models';
-import { GmSettingsDraft, readGmSettingsDraft, writeGmSettings } from '../../gm/settings';
+  AiSettingsDraft,
+  readAiSettingsDraft,
+  readAssistantSameAsGm,
+  readGmSettingsDraft,
+  writeAiSettings,
+  writeAssistantSameAsGm,
+  writeGmSettings,
+} from '../../gm/settings';
 
 interface SettingsModalProps {
   isOpen?: boolean;
@@ -69,39 +68,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // GM AI
   // 設定的讀寫都經過 gm/settings.ts，這裡不直接碰 storage key。
   // 金鑰與模型依供應商分開保存：切換供應商時不會把 A 家的金鑰送去 B 家。
-  const [gm, setGm] = useState<GmSettingsDraft>(() => {
+  const [gm, setGm] = useState<AiSettingsDraft>(() => {
     const draft = readGmSettingsDraft();
     return { ...draft, maxTokens: parseStoredTokens(String(draft.maxTokens)) };
   });
-  const gmApiKey = gm.keys[gm.provider];
   const gmModel = gm.models[gm.provider];
-  const gmEndpoint = gm.endpoint;
   const gmTokens = gm.maxTokens;
-  const gmProviderInfo = providerInfo(gm.provider);
-  const setGmApiKey = (value: string) =>
-    setGm((d) => ({ ...d, keys: { ...d.keys, [d.provider]: value } }));
-  const setGmModel = (value: string) =>
-    setGm((d) => ({ ...d, models: { ...d.models, [d.provider]: value } }));
-  const setGmEndpoint = (value: string) => setGm((d) => ({ ...d, endpoint: value }));
   const setGmTokens = (value: number | ((prev: number) => number)) =>
     setGm((d) => ({ ...d, maxTokens: typeof value === 'function' ? value(d.maxTokens) : value }));
-  const [showGmKey, setShowGmKey] = useState<boolean>(false);
 
   // 助理 AI
-  const [sameAsGm, setSameAsGm] = useState<boolean>(() => {
-    return localStorage.getItem('starport_assistant_same_as_gm') === 'true';
+  // 勾選「與 GM 相同」時，供應商、金鑰與端點沿用 GM；模型與輸出上限仍各自設定
+  // （例如 GM 用 Pro、助理用 Lite 省錢）。
+  const [sameAsGm, setSameAsGm] = useState<boolean>(readAssistantSameAsGm);
+  const [assistant, setAssistant] = useState<AiSettingsDraft>(() => {
+    const draft = readAiSettingsDraft('assistant');
+    return { ...draft, maxTokens: parseStoredTokens(String(draft.maxTokens)) };
   });
-  const [assistantApiKey, setAssistantApiKey] = useState<string>(() => {
-    return localStorage.getItem('starport_assistant_api_key') || '';
-  });
-  const [assistantModel, setAssistantModel] = useState<string>(() => {
-    const stored = localStorage.getItem('starport_assistant_model') || '';
-    return isKnownGeminiModel(stored) ? stored : DEFAULT_GM_MODEL;
-  });
-  const [assistantTokens, setAssistantTokens] = useState<number>(() => {
-    return parseStoredTokens(localStorage.getItem('starport_assistant_tokens'));
-  });
-  const [showAssistantKey, setShowAssistantKey] = useState<boolean>(false);
+  const assistantProvider = sameAsGm ? gm.provider : assistant.provider;
+  const assistantModel = assistant.models[assistantProvider];
+  const setAssistantTokens = (value: number | ((prev: number) => number)) =>
+    setAssistant((d) => ({ ...d, maxTokens: typeof value === 'function' ? value(d.maxTokens) : value }));
   const [allowEmptySceneInteraction, setAllowEmptySceneInteraction] = useState<boolean>(() => localStorage.getItem('starport_empty_scene_interaction') !== 'false');
   const [passiveEventChance, setPassiveEventChance] = useState<number>(() => Number(localStorage.getItem('starport_passive_event_chance') || 0));
 
@@ -121,34 +108,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTimeout(() => setStatusNotification(null), 2500);
   };
 
-  // 模型選項
-  const modelOptions = GEMINI_MODELS;
-
-  const stepsFor = (model: string) => TOKEN_STEPS.filter((step) => step <= (modelOptions.find((option) => option.id === model)?.maxTokens ?? 4096));
-  // 自訂端點無從得知上限，開放全部級距，由玩家依該服務的規格自行調整。
-  const stepsForGm = (provider: GmProvider, model: string) => {
+  // 輸出上限的可選級距。自訂端點無從得知上限，開放全部級距，由玩家依該服務的規格調整。
+  const stepsForModel = (provider: GmProvider, model: string) => {
     const max = maxTokensFor(provider, model);
     return max === null ? TOKEN_STEPS : TOKEN_STEPS.filter((step) => step <= max);
   };
-  const gmSteps = stepsForGm(gm.provider, gmModel);
-  const switchGmProvider = (provider: GmProvider) =>
-    setGm((d) => ({
+  /** 換供應商後，把輸出上限收斂到新供應商允許的範圍。 */
+  const clampTokens = (
+    set: React.Dispatch<React.SetStateAction<AiSettingsDraft>>,
+    provider: GmProvider
+  ) =>
+    set((d) => ({
       ...d,
-      provider,
-      maxTokens: Math.min(d.maxTokens, Math.max(...stepsForGm(provider, d.models[provider]))),
+      maxTokens: Math.min(d.maxTokens, Math.max(...stepsForModel(provider, d.models[provider]))),
     }));
-  const assistantSteps = stepsFor(assistantModel);
+  const switchGmProvider = (provider: GmProvider) => {
+    setGm((d) => ({ ...d, provider }));
+    clampTokens(setGm, provider);
+  };
+  const gmSteps = stepsForModel(gm.provider, gmModel);
   const gmStepIndex = Math.max(0, gmSteps.indexOf(gmTokens));
+  // 助理沿用 GM 時，GM 換了供應商，助理原本的上限可能超出新供應商允許的範圍，
+  // 顯示與儲存都以收斂後的值為準，避免存下一個呼叫時會被拒絕的數字。
+  const assistantSteps = stepsForModel(assistantProvider, assistantModel);
+  const assistantTokens = Math.min(assistant.maxTokens, Math.max(...assistantSteps));
   const assistantStepIndex = Math.max(0, assistantSteps.indexOf(assistantTokens));
 
   // 儲存設定
   const handleSaveSettings = () => {
     sound.playSuccess();
     writeGmSettings(gm);
-    localStorage.setItem('starport_assistant_same_as_gm', sameAsGm.toString());
-    localStorage.setItem('starport_assistant_api_key', sameAsGm ? gmApiKey : assistantApiKey);
-    localStorage.setItem('starport_assistant_model', assistantModel);
-    localStorage.setItem('starport_assistant_tokens', assistantTokens.toString());
+    writeAiSettings('assistant', { ...assistant, maxTokens: assistantTokens });
+    writeAssistantSameAsGm(sameAsGm);
     localStorage.setItem('starport_empty_scene_interaction', allowEmptySceneInteraction.toString());
     localStorage.setItem('starport_passive_event_chance', passiveEventChance.toString());
     
@@ -167,7 +158,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       version: '1.0',
       timestamp: new Date().toISOString(),
       gmConfig: { provider: gm.provider, model: gmModel, maxTokens: gmTokens },
-      assistantConfig: { sameAsGm, model: assistantModel, maxTokens: assistantTokens },
+      assistantConfig: { sameAsGm, provider: assistantProvider, model: assistantModel, maxTokens: assistantTokens },
       lastAutoSave: lastAutoSaveTime,
     };
 
@@ -198,7 +189,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         }
         if (parsed.gmConfig?.maxTokens) setGmTokens(parseStoredTokens(parsed.gmConfig.maxTokens.toString()));
         else if (parsed.gmConfig?.tokenRatio) setGmTokens(parseStoredTokens(parsed.gmConfig.tokenRatio.toString()));
-        if (parsed.assistantConfig?.model) setAssistantModel(parsed.assistantConfig.model);
+        const assistantConfig = parsed.assistantConfig;
+        if (typeof assistantConfig?.sameAsGm === 'boolean') setSameAsGm(assistantConfig.sameAsGm);
+        const importedAssistantProvider = isGmProvider(assistantConfig?.provider) ? assistantConfig.provider : null;
+        if (importedAssistantProvider && !assistantConfig.sameAsGm) {
+          setAssistant((d) => ({ ...d, provider: importedAssistantProvider }));
+        }
+        if (assistantConfig?.model) {
+          const model = String(assistantConfig.model);
+          setAssistant((d) => {
+            const target = importedAssistantProvider ?? d.provider;
+            return { ...d, models: { ...d.models, [target]: resolveModel(target, model) } };
+          });
+        }
         if (parsed.assistantConfig?.maxTokens) setAssistantTokens(parseStoredTokens(parsed.assistantConfig.maxTokens.toString()));
         else if (parsed.assistantConfig?.tokenRatio) setAssistantTokens(parseStoredTokens(parsed.assistantConfig.tokenRatio.toString()));
         if (parsed.lastAutoSave) setLastAutoSaveTime(parsed.lastAutoSave);
@@ -309,127 +312,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span className="text-xs font-bold text-slate-100">GM AI 引擎</span>
             </div>
 
-            {/* 供應商 */}
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-300">
-                供應商
-              </label>
-              <select
-                value={gm.provider}
-                onChange={(e) => {
-                  sound.playBlip();
-                  if (isGmProvider(e.target.value)) switchGmProvider(e.target.value);
-                }}
-                className="w-full rounded-xl px-3 py-2 text-xs cursor-pointer font-sans bg-[#060b1c]/90 border border-white/[0.1] text-slate-100 focus:outline-none focus:border-sky-400/50"
-              >
-                {PROVIDERS.map((provider) => (
-                  <option key={provider.id} value={provider.id} className="bg-[#070e24] text-slate-200">
-                    {provider.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* API Key */}
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-300">
-                {gmProviderInfo.name} API Key
-              </label>
-              <div className="relative">
-                <input
-                  type={showGmKey ? 'text' : 'password'}
-                  value={gmApiKey}
-                  onChange={(e) => setGmApiKey(e.target.value)}
-                  placeholder="輸入 API Key"
-                  className="glass-input w-full rounded-xl px-3 py-2 pr-9 text-xs transition-all font-mono bg-[#060b1c]/80 border border-white/[0.1] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400/50"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowGmKey(!showGmKey)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
-                >
-                  {showGmKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-
-              {/* 提示字 */}
-              <p className="text-[12px] text-center leading-relaxed font-sans pt-0.5 text-slate-400">
-                API Key 只存在本機瀏覽器，不會上傳；各供應商的金鑰分開保存。
-                {gmProviderInfo.keyUrl && (
-                  <>
-                    {' '}取得：{' '}
-                    <a
-                      href={gmProviderInfo.keyUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sky-400 hover:text-sky-300 underline inline-flex items-center gap-0.5 font-mono font-bold"
-                    >
-                      <span>{gmProviderInfo.keyUrl.replace('https://', '')}</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </>
-                )}
-              </p>
-            </div>
-
-            {/* 端點網址：只有選「自訂端點」時出現 */}
-            {gm.provider === 'custom' && (
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold text-slate-300">
-                  端點網址
-                </label>
-                <input
-                  type="text"
-                  value={gmEndpoint}
-                  onChange={(e) => setGmEndpoint(e.target.value)}
-                  placeholder="例如 https://openrouter.ai/api/v1"
-                  className="glass-input w-full rounded-xl px-3 py-2 text-xs font-mono bg-[#060b1c]/80 border border-white/[0.1] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400/50"
-                />
-                <p className="text-[12px] leading-relaxed font-sans pt-0.5 text-slate-400">
-                  任何 OpenAI 相容端點皆可。對話內容會經過該服務，請自行評估；
-                  且該端點需允許瀏覽器直接呼叫（CORS）。
-                </p>
-              </div>
-            )}
-
-            {/* 模型選擇 */}
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-300">
-                模型選擇
-              </label>
-              {gmProviderInfo.models ? (
-                <select
-                  value={gmModel}
-                  onChange={(e) => {
-                    sound.playBlip();
-                    const nextModel = e.target.value;
-                    setGmModel(nextModel);
-                    setGmTokens((value) => Math.min(value, Math.max(...stepsForGm(gm.provider, nextModel))));
-                  }}
-                  className="w-full rounded-xl px-3 py-2 text-xs cursor-pointer font-sans bg-[#060b1c]/90 border border-white/[0.1] text-slate-100 focus:outline-none focus:border-sky-400/50"
-                >
-                  {gmProviderInfo.models.map((opt) => (
-                    <option key={opt.id} value={opt.id} className="bg-[#070e24] text-slate-200">
-                      {opt.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                // 自訂端點有自己的模型命名，改為自由輸入。
-                <input
-                  type="text"
-                  value={gmModel}
-                  onChange={(e) => setGmModel(e.target.value)}
-                  placeholder="例如 google/gemini-2.5-flash"
-                  className="glass-input w-full rounded-xl px-3 py-2 text-xs font-mono bg-[#060b1c]/80 border border-white/[0.1] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400/50"
-                />
-              )}
-              {gm.provider === 'deepseek' && (
-                <p className="text-[12px] leading-relaxed font-sans pt-0.5 text-slate-400">
-                  已關閉 DeepSeek 的思考模式：GM 回應較快，也不必為推理過程付費。
-                </p>
-              )}
-            </div>
+            <AiProviderFields
+              value={gm}
+              onChange={setGm}
+              onProviderChange={(provider) => clampTokens(setGm, provider)}
+              onModelChange={(provider, model) =>
+                setGmTokens((value) => Math.min(value, Math.max(...stepsForModel(provider, model))))
+              }
+            />
 
             {/* Token 上限 */}
             <div className="space-y-1.5 pt-0.5">
@@ -484,61 +374,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 }}
                 className="w-4 h-4 rounded text-sky-500 focus:ring-0 cursor-pointer accent-sky-500"
               />
-              <span className="font-medium">使用與 GM AI 相同的 API Key</span>
+              <span className="font-medium">使用與 GM AI 相同的供應商與 API Key</span>
             </label>
 
-            {/* API Key */}
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-300">
-                API Key
-              </label>
-              <div className="relative">
-                <input
-                  type={sameAsGm ? (showGmKey ? 'text' : 'password') : (showAssistantKey ? 'text' : 'password')}
-                  value={sameAsGm ? gmApiKey : assistantApiKey}
-                  onChange={(e) => setAssistantApiKey(e.target.value)}
-                  disabled={sameAsGm}
-                  placeholder={sameAsGm ? '使用與 GM AI 相同的 API Key' : '輸入 API Key'}
-                  className={`glass-input w-full rounded-xl px-3 py-2 pr-9 text-xs transition-all font-mono border focus:outline-none ${
-                    sameAsGm
-                      ? 'bg-[#060b1c]/40 text-slate-500 border-white/[0.05] cursor-not-allowed'
-                      : 'bg-[#060b1c]/80 text-slate-100 border-white/[0.1] placeholder-slate-500 focus:border-sky-400/50'
-                  }`}
-                />
-                {!sameAsGm && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAssistantKey(!showAssistantKey)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 cursor-pointer"
-                  >
-                    {showAssistantKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* 模型選擇 */}
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-300">
-                模型選擇
-              </label>
-              <select
-                value={assistantModel}
-                onChange={(e) => {
-                  sound.playBlip();
-                  const nextModel = e.target.value;
-                  setAssistantModel(nextModel);
-                  setAssistantTokens((value) => Math.min(value, Math.max(...stepsFor(nextModel))));
-                }}
-                className="w-full rounded-xl px-3 py-2 text-xs cursor-pointer font-sans bg-[#060b1c]/90 border border-white/[0.1] text-slate-100 focus:outline-none focus:border-sky-400/50"
-              >
-                {modelOptions.map((opt) => (
-                  <option key={opt.id} value={opt.id} className="bg-[#070e24] text-slate-200">
-                    {opt.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <AiProviderFields
+              value={assistant}
+              onChange={setAssistant}
+              locked={sameAsGm ? { provider: gm.provider, apiKey: gm.keys[gm.provider] } : undefined}
+              onProviderChange={(provider) => clampTokens(setAssistant, provider)}
+              onModelChange={(provider, model) =>
+                setAssistantTokens((value) => Math.min(value, Math.max(...stepsForModel(provider, model))))
+              }
+            />
 
             {/* Token 上限 */}
             <div className="space-y-1.5 pt-0.5">
