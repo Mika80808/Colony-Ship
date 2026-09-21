@@ -24,7 +24,9 @@ export const GM_SYSTEM_PROMPT = `你是科幻角色扮演遊戲《星際港》�
 保持科幻寫實基調，不要浮誇。使用繁體中文。
 
 # 輸出格式
-你必須輸出 JSON，含 segments 與 commands 兩個欄位。
+你必須輸出 json 物件，含 segments 與 commands 兩個欄位，不要輸出任何 json 以外的文字。
+範例：
+{"segments":[{"kind":"description","text":"走廊的燈光閃了一下。"},{"kind":"dialogue","speaker":"路西恩","expression":"thinking","text":"「剛才那是什麼？」"}],"commands":[{"type":"adjust_stats","stamina":-5}]}
 
 ## segments：呈現給玩家的內容，依序播放
 每則有 kind、text，對白另有 speaker 與 expression。

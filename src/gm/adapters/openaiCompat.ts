@@ -4,18 +4,29 @@ import { GM_SYSTEM_PROMPT, buildContextBlock, buildHistoryTurns } from '../promp
 import { GM_RESPONSE_SCHEMA, RawGmResponse } from './schema';
 
 /**
- * 任何 OpenAI Chat Completions 相容端點（OpenRouter、DeepSeek、
- * 自架的中轉服務等）。玩家在系統設定填入 base URL 即可使用。
- *
- * 留這條路是刻意的：要不要把對話內容交給中轉服務，是玩家的隱私決定。
- * 遊戲本身不預設任何中轉商，也不強迫玩家信任誰。
- *
- * 注意：能不能從瀏覽器直接呼叫，取決於該端點有沒有開 CORS。
- * 沒開的話會以 network 錯誤呈現，這是端點的限制，不是設定填錯。
+ * OpenAI Chat Completions 相容端點的共用轉接器。
+ * DeepSeek 與「自訂端點」都走這裡，差異由 options 帶入。
  */
+export interface OpenAiCompatOptions {
+  /** 例如 https://api.deepseek.com，不含 /chat/completions。 */
+  baseUrl: string;
+  /** 錯誤訊息中對玩家顯示的名稱。 */
+  label: string;
+  /**
+   * JSON 輸出模式。
+   * - json_object：只要求合法 JSON，形狀靠 prompt 引導（DeepSeek 只支援這個）。
+   * - schema_then_object：先要求嚴格 schema，端點回 400/422 再退回 json_object。
+   *   用在不知道對方支援什麼的自訂端點；已知供應商不要用，每次都會多浪費一次請求。
+   */
+  jsonMode: 'json_object' | 'schema_then_object';
+  /** 併入請求本文的供應商專屬參數。 */
+  extraBody?: Record<string, unknown>;
+}
+
 export async function callOpenAiCompatible(
   context: GmContext,
-  settings: GmSettings
+  settings: GmSettings,
+  options: OpenAiCompatOptions
 ): Promise<GmResult> {
   const history = buildHistoryTurns(context);
   const messages = [
@@ -30,59 +41,57 @@ export async function callOpenAiCompatible(
     },
   ];
 
-  const base = settings.endpoint.replace(/\/+$/, '');
-
-  let response: Response;
-  try {
-    response = await fetch(`${base}/chat/completions`, {
+  const url = `${options.baseUrl.replace(/\/+$/, '')}/chat/completions`;
+  const post = (responseFormat: unknown) =>
+    fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${settings.apiKey}`,
       },
       body: JSON.stringify({
+        ...options.extraBody,
         model: settings.model,
         messages,
         max_tokens: settings.maxTokens,
-        // 先要求嚴格 schema；端點不支援時下面會退回一般 JSON 模式重試。
-        response_format: {
-          type: 'json_schema',
-          json_schema: { name: 'gm_response', strict: true, schema: GM_RESPONSE_SCHEMA },
-        },
+        response_format: responseFormat,
       }),
     });
 
-    if (response.status === 400 || response.status === 422) {
-      // 不少相容端點只認得 json_object，不認得 json_schema。
-      response = await fetch(`${base}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${settings.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: settings.model,
-          messages,
-          max_tokens: settings.maxTokens,
-          response_format: { type: 'json_object' },
-        }),
+  let response: Response;
+  try {
+    if (options.jsonMode === 'schema_then_object') {
+      response = await post({
+        type: 'json_schema',
+        json_schema: { name: 'gm_response', strict: true, schema: GM_RESPONSE_SCHEMA },
       });
+      // 不少相容端點只認得 json_object，不認得 json_schema。
+      if (response.status === 400 || response.status === 422) {
+        response = await post({ type: 'json_object' });
+      }
+    } else {
+      response = await post({ type: 'json_object' });
     }
   } catch {
     throw new GmError(
       'network',
-      '連不上自訂端點。請確認網址正確，且該服務允許瀏覽器直接呼叫（CORS）。'
+      `連不上${options.label}。請確認網路連線${
+        options.jsonMode === 'schema_then_object' ? '、網址正確，且該服務允許瀏覽器直接呼叫（CORS）' : ''
+      }。`
     );
   }
 
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) {
-      throw new GmError('auth', 'API 金鑰被端點拒絕，請到系統設定確認。');
+      throw new GmError('auth', `API 金鑰被${options.label}拒絕，請到系統設定確認。`);
+    }
+    if (response.status === 402) {
+      throw new GmError('quota', `${options.label}帳戶餘額不足，請先儲值。`);
     }
     if (response.status === 429) {
-      throw new GmError('quota', '已達端點的用量上限，請稍後再試。');
+      throw new GmError('quota', `已達${options.label}的用量上限，請稍後再試。`);
     }
-    throw new GmError('unknown', `端點回應錯誤（HTTP ${response.status}）。`);
+    throw new GmError('unknown', `${options.label}回應錯誤（HTTP ${response.status}）。`);
   }
 
   const payload = await response.json().catch(() => null) as {
@@ -94,14 +103,15 @@ export async function callOpenAiCompatible(
     throw new GmError('format', '回應長度超出上限而被截斷，請到系統設定調高輸出長度。');
   }
 
+  // DeepSeek 文件明載 JSON 模式偶爾會回傳空內容，重送通常就好。
   const text = choice?.message?.content;
-  if (!text) throw new GmError('format', '端點沒有回傳內容。');
+  if (!text) throw new GmError('format', `${options.label}這次沒有回傳內容，請再送一次。`);
 
   let raw: RawGmResponse;
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new GmError('format', '端點回傳的不是合法 JSON。該模型可能不支援 JSON 輸出模式。');
+    throw new GmError('format', `${options.label}回傳的不是合法 JSON。該模型可能不支援 JSON 輸出模式。`);
   }
 
   return raw as unknown as GmResult;

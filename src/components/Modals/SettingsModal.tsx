@@ -21,7 +21,18 @@ import {
 } from 'lucide-react';
 import { sound } from '../../utils/sound';
 import ModalShell from './ModalShell';
-import { GEMINI_MODELS, DEFAULT_GM_MODEL, isKnownGeminiModel } from '../../gm/models';
+import {
+  GEMINI_MODELS,
+  DEFAULT_GM_MODEL,
+  PROVIDERS,
+  GmProvider,
+  isGmProvider,
+  isKnownGeminiModel,
+  maxTokensFor,
+  providerInfo,
+  resolveModel,
+} from '../../gm/models';
+import { GmSettingsDraft, readGmSettingsDraft, writeGmSettings } from '../../gm/settings';
 
 interface SettingsModalProps {
   isOpen?: boolean;
@@ -56,28 +67,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   // GM AI
-  const [gmApiKey, setGmApiKey] = useState<string>(() => {
-    return localStorage.getItem('starport_gm_api_key') || '';
+  // 設定的讀寫都經過 gm/settings.ts，這裡不直接碰 storage key。
+  // 金鑰與模型依供應商分開保存：切換供應商時不會把 A 家的金鑰送去 B 家。
+  const [gm, setGm] = useState<GmSettingsDraft>(() => {
+    const draft = readGmSettingsDraft();
+    return { ...draft, maxTokens: parseStoredTokens(String(draft.maxTokens)) };
   });
-  const [gmModel, setGmModel] = useState<string>(() => {
-    const stored = localStorage.getItem('starport_gm_model') || '';
-    // 有自訂端點時模型是自由輸入，不受清單限制。
-    if (localStorage.getItem('starport_gm_endpoint')) return stored || DEFAULT_GM_MODEL;
-    // 清單外的舊 ID 退回預設，否則下拉選單顯示第一項、實際卻存著舊值。
-    return isKnownGeminiModel(stored) ? stored : DEFAULT_GM_MODEL;
-  });
-  const [gmTokens, setGmTokens] = useState<number>(() => {
-    return parseStoredTokens(localStorage.getItem('starport_gm_tokens'));
-  });
+  const gmApiKey = gm.keys[gm.provider];
+  const gmModel = gm.models[gm.provider];
+  const gmEndpoint = gm.endpoint;
+  const gmTokens = gm.maxTokens;
+  const gmProviderInfo = providerInfo(gm.provider);
+  const setGmApiKey = (value: string) =>
+    setGm((d) => ({ ...d, keys: { ...d.keys, [d.provider]: value } }));
+  const setGmModel = (value: string) =>
+    setGm((d) => ({ ...d, models: { ...d.models, [d.provider]: value } }));
+  const setGmEndpoint = (value: string) => setGm((d) => ({ ...d, endpoint: value }));
+  const setGmTokens = (value: number | ((prev: number) => number)) =>
+    setGm((d) => ({ ...d, maxTokens: typeof value === 'function' ? value(d.maxTokens) : value }));
   const [showGmKey, setShowGmKey] = useState<boolean>(false);
-  /**
-   * 自訂 OpenAI 相容端點。留空 = 直接呼叫 Google Gemini。
-   * 開這個欄位是為了不把玩家綁在單一供應商：要不要把對話內容交給
-   * OpenRouter 之類的中轉服務，是玩家自己的隱私決定。
-   */
-  const [gmEndpoint, setGmEndpoint] = useState<string>(() => {
-    return localStorage.getItem('starport_gm_endpoint') || '';
-  });
 
   // 助理 AI
   const [sameAsGm, setSameAsGm] = useState<boolean>(() => {
@@ -117,7 +125,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const modelOptions = GEMINI_MODELS;
 
   const stepsFor = (model: string) => TOKEN_STEPS.filter((step) => step <= (modelOptions.find((option) => option.id === model)?.maxTokens ?? 4096));
-  const gmSteps = stepsFor(gmModel);
+  // 自訂端點無從得知上限，開放全部級距，由玩家依該服務的規格自行調整。
+  const stepsForGm = (provider: GmProvider, model: string) => {
+    const max = maxTokensFor(provider, model);
+    return max === null ? TOKEN_STEPS : TOKEN_STEPS.filter((step) => step <= max);
+  };
+  const gmSteps = stepsForGm(gm.provider, gmModel);
+  const switchGmProvider = (provider: GmProvider) =>
+    setGm((d) => ({
+      ...d,
+      provider,
+      maxTokens: Math.min(d.maxTokens, Math.max(...stepsForGm(provider, d.models[provider]))),
+    }));
   const assistantSteps = stepsFor(assistantModel);
   const gmStepIndex = Math.max(0, gmSteps.indexOf(gmTokens));
   const assistantStepIndex = Math.max(0, assistantSteps.indexOf(assistantTokens));
@@ -125,10 +144,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // 儲存設定
   const handleSaveSettings = () => {
     sound.playSuccess();
-    localStorage.setItem('starport_gm_api_key', gmApiKey);
-    localStorage.setItem('starport_gm_model', gmModel.trim());
-    localStorage.setItem('starport_gm_endpoint', gmEndpoint.trim());
-    localStorage.setItem('starport_gm_tokens', gmTokens.toString());
+    writeGmSettings(gm);
     localStorage.setItem('starport_assistant_same_as_gm', sameAsGm.toString());
     localStorage.setItem('starport_assistant_api_key', sameAsGm ? gmApiKey : assistantApiKey);
     localStorage.setItem('starport_assistant_model', assistantModel);
@@ -150,7 +166,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const saveData = {
       version: '1.0',
       timestamp: new Date().toISOString(),
-      gmConfig: { model: gmModel, maxTokens: gmTokens },
+      gmConfig: { provider: gm.provider, model: gmModel, maxTokens: gmTokens },
       assistantConfig: { sameAsGm, model: assistantModel, maxTokens: assistantTokens },
       lastAutoSave: lastAutoSaveTime,
     };
@@ -174,7 +190,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        if (parsed.gmConfig?.model) setGmModel(parsed.gmConfig.model);
+        // 先切供應商再設模型：setGm 的 updater 依序套用，模型才會存進正確的供應商。
+        if (isGmProvider(parsed.gmConfig?.provider)) switchGmProvider(parsed.gmConfig.provider);
+        if (parsed.gmConfig?.model) {
+          const model = String(parsed.gmConfig.model);
+          setGm((d) => ({ ...d, models: { ...d.models, [d.provider]: resolveModel(d.provider, model) } }));
+        }
         if (parsed.gmConfig?.maxTokens) setGmTokens(parseStoredTokens(parsed.gmConfig.maxTokens.toString()));
         else if (parsed.gmConfig?.tokenRatio) setGmTokens(parseStoredTokens(parsed.gmConfig.tokenRatio.toString()));
         if (parsed.assistantConfig?.model) setAssistantModel(parsed.assistantConfig.model);
@@ -288,10 +309,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <span className="text-xs font-bold text-slate-100">GM AI 引擎</span>
             </div>
 
+            {/* 供應商 */}
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-300">
+                供應商
+              </label>
+              <select
+                value={gm.provider}
+                onChange={(e) => {
+                  sound.playBlip();
+                  if (isGmProvider(e.target.value)) switchGmProvider(e.target.value);
+                }}
+                className="w-full rounded-xl px-3 py-2 text-xs cursor-pointer font-sans bg-[#060b1c]/90 border border-white/[0.1] text-slate-100 focus:outline-none focus:border-sky-400/50"
+              >
+                {PROVIDERS.map((provider) => (
+                  <option key={provider.id} value={provider.id} className="bg-[#070e24] text-slate-200">
+                    {provider.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* API Key */}
             <div className="space-y-1">
               <label className="block text-xs font-semibold text-slate-300">
-                API Key
+                {gmProviderInfo.name} API Key
               </label>
               <div className="relative">
                 <input
@@ -312,26 +354,68 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {/* 提示字 */}
               <p className="text-[12px] text-center leading-relaxed font-sans pt-0.5 text-slate-400">
-                API Key 只存在本機瀏覽器，不會上傳。取得：{' '}
-                <a
-                  href="https://aistudio.google.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sky-400 hover:text-sky-300 underline inline-flex items-center gap-0.5 font-mono font-bold"
-                >
-                  <span>aistudio.google.com</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+                API Key 只存在本機瀏覽器，不會上傳；各供應商的金鑰分開保存。
+                {gmProviderInfo.keyUrl && (
+                  <>
+                    {' '}取得：{' '}
+                    <a
+                      href={gmProviderInfo.keyUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-400 hover:text-sky-300 underline inline-flex items-center gap-0.5 font-mono font-bold"
+                    >
+                      <span>{gmProviderInfo.keyUrl.replace('https://', '')}</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </>
+                )}
               </p>
             </div>
+
+            {/* 端點網址：只有選「自訂端點」時出現 */}
+            {gm.provider === 'custom' && (
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-300">
+                  端點網址
+                </label>
+                <input
+                  type="text"
+                  value={gmEndpoint}
+                  onChange={(e) => setGmEndpoint(e.target.value)}
+                  placeholder="例如 https://openrouter.ai/api/v1"
+                  className="glass-input w-full rounded-xl px-3 py-2 text-xs font-mono bg-[#060b1c]/80 border border-white/[0.1] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400/50"
+                />
+                <p className="text-[12px] leading-relaxed font-sans pt-0.5 text-slate-400">
+                  任何 OpenAI 相容端點皆可。對話內容會經過該服務，請自行評估；
+                  且該端點需允許瀏覽器直接呼叫（CORS）。
+                </p>
+              </div>
+            )}
 
             {/* 模型選擇 */}
             <div className="space-y-1">
               <label className="block text-xs font-semibold text-slate-300">
                 模型選擇
               </label>
-              {gmEndpoint.trim() ? (
-                // 自訂端點有自己的模型命名，下拉選單幫不上忙，改為自由輸入。
+              {gmProviderInfo.models ? (
+                <select
+                  value={gmModel}
+                  onChange={(e) => {
+                    sound.playBlip();
+                    const nextModel = e.target.value;
+                    setGmModel(nextModel);
+                    setGmTokens((value) => Math.min(value, Math.max(...stepsForGm(gm.provider, nextModel))));
+                  }}
+                  className="w-full rounded-xl px-3 py-2 text-xs cursor-pointer font-sans bg-[#060b1c]/90 border border-white/[0.1] text-slate-100 focus:outline-none focus:border-sky-400/50"
+                >
+                  {gmProviderInfo.models.map((opt) => (
+                    <option key={opt.id} value={opt.id} className="bg-[#070e24] text-slate-200">
+                      {opt.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                // 自訂端點有自己的模型命名，改為自由輸入。
                 <input
                   type="text"
                   value={gmModel}
@@ -339,43 +423,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   placeholder="例如 google/gemini-2.5-flash"
                   className="glass-input w-full rounded-xl px-3 py-2 text-xs font-mono bg-[#060b1c]/80 border border-white/[0.1] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400/50"
                 />
-              ) : (
-                <select
-                  value={gmModel}
-                  onChange={(e) => {
-                    sound.playBlip();
-                    const nextModel = e.target.value;
-                    setGmModel(nextModel);
-                    setGmTokens((value) => Math.min(value, Math.max(...stepsFor(nextModel))));
-                  }}
-                  className="w-full rounded-xl px-3 py-2 text-xs cursor-pointer font-sans bg-[#060b1c]/90 border border-white/[0.1] text-slate-100 focus:outline-none focus:border-sky-400/50"
-                >
-                  {modelOptions.map((opt) => (
-                    <option key={opt.id} value={opt.id} className="bg-[#070e24] text-slate-200">
-                      {opt.name}
-                    </option>
-                  ))}
-                </select>
               )}
-            </div>
-
-            {/* 自訂端點 */}
-            <div className="space-y-1">
-              <label className="block text-xs font-semibold text-slate-300">
-                自訂端點（選填）
-              </label>
-              <input
-                type="text"
-                value={gmEndpoint}
-                onChange={(e) => setGmEndpoint(e.target.value)}
-                placeholder="留空則直接使用 Google Gemini"
-                className="glass-input w-full rounded-xl px-3 py-2 text-xs font-mono bg-[#060b1c]/80 border border-white/[0.1] text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400/50"
-              />
-              <p className="text-[12px] leading-relaxed font-sans pt-0.5 text-slate-400">
-                填入 OpenAI 相容端點可改用其他供應商，例如 OpenRouter 的{' '}
-                <span className="font-mono text-slate-300">https://openrouter.ai/api/v1</span>。
-                對話內容會經過該服務，請自行評估；且該端點需允許瀏覽器直接呼叫（CORS）。
-              </p>
+              {gm.provider === 'deepseek' && (
+                <p className="text-[12px] leading-relaxed font-sans pt-0.5 text-slate-400">
+                  已關閉 DeepSeek 的思考模式：GM 回應較快，也不必為推理過程付費。
+                </p>
+              )}
             </div>
 
             {/* Token 上限 */}

@@ -1,6 +1,7 @@
 import { DialogueSegment, DialogueExpression, GmCommand, Quest } from '../types';
 import { GmContext, GmError, GmResult } from './types';
 import { readGmSettings } from './settings';
+import { providerInfo } from './models';
 import { callGemini } from './adapters/gemini';
 import { callOpenAiCompatible } from './adapters/openaiCompat';
 
@@ -121,14 +122,42 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
  */
 export async function runGm(context: GmContext): Promise<GmResult> {
   const settings = readGmSettings();
+  const provider = providerInfo(settings.provider);
 
   if (!settings.apiKey) {
-    throw new GmError('no-key', '尚未設定 API 金鑰。請開啟系統設定填入你的金鑰。');
+    throw new GmError('no-key', `尚未設定 ${provider.name} 的 API 金鑰。請開啟系統設定填入你的金鑰。`);
   }
 
-  const raw = settings.endpoint
-    ? await callOpenAiCompatible(context, settings)
-    : await callGemini(context, settings);
+  let raw: GmResult;
+  switch (settings.provider) {
+    case 'gemini':
+      raw = await callGemini(context, settings);
+      break;
+    case 'deepseek':
+      raw = await callOpenAiCompatible(context, settings, {
+        baseUrl: 'https://api.deepseek.com',
+        label: 'DeepSeek',
+        // DeepSeek 不支援 json_schema，直接用 json_object，省掉每次一個註定失敗的請求。
+        jsonMode: 'json_object',
+        // 思考模式預設開啟。GM 對延遲敏感，推理過程又按輸出計費，
+        // 玩家每送一句都要多等、多付錢，所以關掉。
+        extraBody: { thinking: { type: 'disabled' } },
+      });
+      break;
+    case 'custom':
+      if (!settings.endpoint) {
+        throw new GmError('no-key', '已選擇自訂端點，但尚未填寫端點網址。請到系統設定填寫。');
+      }
+      if (!settings.model) {
+        throw new GmError('no-key', '已選擇自訂端點，但尚未填寫模型名稱。請到系統設定填寫。');
+      }
+      raw = await callOpenAiCompatible(context, settings, {
+        baseUrl: settings.endpoint,
+        label: '自訂端點',
+        jsonMode: 'schema_then_object',
+      });
+      break;
+  }
 
   const segments = normalizeSegments(raw.segments);
   if (!segments.length) {
