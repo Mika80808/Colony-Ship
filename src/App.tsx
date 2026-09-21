@@ -50,7 +50,7 @@ import {
 } from './data/initialGameData';
 import { loadGameSave, writeGameSave, clearGameSave } from './data/persistence';
 import { sound } from './utils/audio';
-import { runMockGm } from './gm/mockGm';
+import { runGm, GmError } from './gm';
 
 export default function App() {
   // 掛載時讀一次存檔。沒有存檔／格式不符時為 null，各項 state 退回新遊戲的初始值。
@@ -254,17 +254,56 @@ export default function App() {
     if (command.type === 'adjust_affection') setNpcs((prev) => prev.map((npc) => npc.id === command.npcId ? { ...npc, affection: npc.affection + command.amount, relationship: command.relationship ?? npc.relationship } : npc));
   });
 
+  const currentSector = sectors.find((s) => s.id === currentSectorId) ?? null;
+
+  const currentSectorName =
+    (currentSector?.name || '1. 艦橋') + (currentRoomId ? ` (${currentRoomId})` : '');
+
+  /**
+   * 在場 NPC。GM 只能讓這些角色說話與調整好感。
+   * 目前只有 A-1 房間有實際在場的角色，其他場景之後各自供給。
+   */
+  const presentNpcs =
+    currentSectorId === 'residential_a' && currentRoomId === 'A-1'
+      ? npcs.filter((npc) => npc.id === 'lucian')
+      : [];
+
+  // GM 呼叫狀態。錯誤不寫進對話歷史 —— 那是遊戲紀錄，不是錯誤日誌。
+  const [gmPending, setGmPending] = useState<boolean>(false);
+  const [gmError, setGmError] = useState<string | null>(null);
+
   /** 20 回合窗口；滿額後批次捨棄最早 10 回。 */
-  const sendToGm = (text: string) => {
+  const sendToGm = async (text: string) => {
     const playerInput = text.trim();
-    if (!playerInput) return;
-    const result = runMockGm(playerInput, currentSectorId === 'residential_a' && currentRoomId === 'A-1' ? npcs.find(npc => npc.id === 'lucian') : undefined);
-    applyCommands(result.commands);
-    setDialogueHistory((prev) => {
-      const next = [...prev, { playerInput, segments: result.segments }];
-      return next.length > 20 ? next.slice(10) : next;
-    });
-    triggerToast('GM 已處理此行動');
+    // 等待回應期間擋掉重複送出，否則玩家連按會疊出多筆平行請求，
+    // 回來的順序不保證，對話歷史會亂掉，而且每一筆都在花玩家的額度。
+    if (!playerInput || gmPending) return;
+
+    setGmPending(true);
+    setGmError(null);
+    try {
+      const result = await runGm({
+        playerInput,
+        profile,
+        stats,
+        quests,
+        items,
+        presentNpcs,
+        locationName: currentSectorName,
+        dialogueHistory,
+      });
+      applyCommands(result.commands);
+      setDialogueHistory((prev) => {
+        const next = [...prev, { playerInput, segments: result.segments }];
+        return next.length > 20 ? next.slice(10) : next;
+      });
+    } catch (error) {
+      setGmError(
+        error instanceof GmError ? error.message : 'GM 呼叫失敗，請稍後再試。'
+      );
+    } finally {
+      setGmPending(false);
+    }
   };
 
   const handleUseItem = (item: InventoryItem) => sendToGm(`我使用【${item.name}】`);
@@ -348,11 +387,6 @@ export default function App() {
     setDiaryEntries((prev) => prev.filter((entry) => entry.id !== id));
   };
 
-  const currentSector = sectors.find((s) => s.id === currentSectorId) ?? null;
-
-  const currentSectorName =
-    (currentSector?.name || '1. 艦橋') + (currentRoomId ? ` (${currentRoomId})` : '');
-
   return (
     <div className="h-screen w-screen flex flex-col justify-between relative overflow-hidden select-none bg-[#050814] text-slate-100">
       {/* 場景層：所有介面之下的底圖 */}
@@ -407,6 +441,8 @@ export default function App() {
           onSendMessage={handleSendMessage}
           dialogueHistory={dialogueHistory}
           quickReplies={quickReplies}
+          gmPending={gmPending}
+          gmError={gmError}
           toast={toast}
           npcs={npcs}
           stage={currentSectorId === 'residential_a' && currentRoomId === 'A-1' ? (

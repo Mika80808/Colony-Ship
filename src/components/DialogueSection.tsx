@@ -12,9 +12,13 @@ interface DialogueSectionProps {
   toast?: ToastMessage | null;
   stage?: React.ReactNode;
   npcs: NPCData[];
+  /** GM 回應中。期間停用輸入，避免疊出多筆平行請求。 */
+  gmPending?: boolean;
+  /** GM 呼叫失敗的訊息。顯示到下一次送出為止，不進對話歷史。 */
+  gmError?: string | null;
 }
 
-export default function DialogueSection({ onOpenModal, onSendMessage, dialogueHistory, quickReplies, toast, stage, npcs }: DialogueSectionProps) {
+export default function DialogueSection({ onOpenModal, onSendMessage, dialogueHistory, quickReplies, toast, stage, npcs, gmPending = false, gmError = null }: DialogueSectionProps) {
   const [inputText, setInputText] = useState('');
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -31,7 +35,7 @@ export default function DialogueSection({ onOpenModal, onSendMessage, dialogueHi
   const speakerNpc = npcs.find(npc => npc.name === lastSpeaker);
   useEffect(() => setSegmentIndex(0), [latestTurn]);
   useEffect(() => { const el = textareaRef.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(Math.max(el.scrollHeight, 28), 120)}px`; } }, [inputText]);
-  const send = (text = inputText) => { if (!text.trim()) return; sound.playClick(); onSendMessage(text.trim()); setInputText(''); setShowQuickReplies(false); };
+  const send = (text = inputText) => { if (!text.trim() || gmPending) return; sound.playClick(); onSendMessage(text.trim()); setInputText(''); setShowQuickReplies(false); };
   const advance = () => { if (segmentIndex < segments.length - 1) { sound.playClick(); setSegmentIndex((value) => value + 1); } };
 
   return <div className="flex-1 flex flex-row gap-3.5 h-full min-w-0 overflow-hidden">
@@ -44,8 +48,8 @@ export default function DialogueSection({ onOpenModal, onSendMessage, dialogueHi
         </div>
         <div className="flex-1 flex flex-col gap-3 min-w-0 h-[160px] relative">
           {showHistory && <div className="mb-1 p-3 bg-[#060a16]/95 border border-sky-500/30 rounded-xl max-h-40 overflow-y-auto text-xs space-y-3 absolute bottom-[100%] left-0 w-full z-40 shadow-xl"><div className="text-[12px] font-hud text-sky-400 font-bold border-b border-sky-500/30 pb-1">系統日誌</div>{dialogueHistory.map((turn, idx) => <div key={idx}><div className="text-sky-300">[你] {turn.playerInput}</div>{turn.segments.map((item, i) => <div key={i} className="text-slate-300 pl-2">[{item.speaker ?? '描述'}] {item.text}</div>)}</div>)}</div>}
-          <div className="flex-1 rounded-xl bg-[#050914]/70 border border-white/[0.08] p-4 relative min-h-[70px] flex flex-col justify-center overflow-hidden"><button id="btn-dialogue-history" onClick={() => setShowHistory(!showHistory)} className="absolute top-2 right-2 p-1.5 text-slate-500 hover:text-sky-300"><History className="w-4 h-4" /></button><button onClick={advance} className="text-left text-[15px] text-slate-100 leading-relaxed pl-2 pr-8 markdown-body" title={segmentIndex < segments.length - 1 ? '點擊繼續' : undefined}><Markdown>{segment?.text ?? '輸入訊息以開始互動。'}</Markdown>{segmentIndex < segments.length - 1 && <span className="text-sky-400 text-xs">　▸</span>}</button></div>
-          <div className="w-full relative">{showQuickReplies && <div className="absolute bottom-full mb-2 left-0 z-30 w-72 glass-panel border border-sky-500/30 flex flex-col p-1.5 gap-1 rounded-xl bg-[#060a16]">{quickReplies.map((reply) => <button key={reply} onClick={() => send(reply)} className="text-left px-3.5 py-2 text-[13px] text-slate-200 hover:bg-sky-500/20 rounded-lg">{reply}</button>)}</div>}<div className="w-full flex items-end glass-input rounded-xl px-2.5 py-1.5 border-white/[0.12]"><button onClick={() => setShowQuickReplies(!showQuickReplies)} className="p-1.5 text-amber-400 mr-1"><Zap className="w-4 h-4" /></button><textarea id="dialogue-input-field" ref={textareaRef} value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} placeholder="[輸入指令或回覆訊息... (Shift + Enter 發送)]" rows={1} className="bg-transparent text-[14px] text-sky-50 placeholder-sky-200/30 focus:outline-none flex-1 px-2 resize-none py-1 min-h-[28px] max-h-[120px]" /><button id="btn-send-message" onClick={() => send()} className="p-1.5 text-sky-400 hover:text-sky-200"><SendHorizontal className="w-4 h-4" /></button></div></div>
+          <div className="flex-1 rounded-xl bg-[#050914]/70 border border-white/[0.08] p-4 relative min-h-[70px] flex flex-col justify-center overflow-hidden"><button id="btn-dialogue-history" onClick={() => setShowHistory(!showHistory)} className="absolute top-2 right-2 p-1.5 text-slate-500 hover:text-sky-300"><History className="w-4 h-4" /></button>{gmError ? <div className="text-left text-[15px] text-rose-300 leading-relaxed pl-2 pr-8">{gmError}</div> : gmPending ? <div className="text-left text-[15px] text-sky-300/80 leading-relaxed pl-2 pr-8 animate-pulse">GM 思考中…</div> : <button onClick={advance} className="text-left text-[15px] text-slate-100 leading-relaxed pl-2 pr-8 markdown-body" title={segmentIndex < segments.length - 1 ? '點擊繼續' : undefined}><Markdown>{segment?.text ?? '輸入訊息以開始互動。'}</Markdown>{segmentIndex < segments.length - 1 && <span className="text-sky-400 text-xs">　▸</span>}</button>}</div>
+          <div className="w-full relative">{showQuickReplies && <div className="absolute bottom-full mb-2 left-0 z-30 w-72 glass-panel border border-sky-500/30 flex flex-col p-1.5 gap-1 rounded-xl bg-[#060a16]">{quickReplies.map((reply) => <button key={reply} onClick={() => send(reply)} className="text-left px-3.5 py-2 text-[13px] text-slate-200 hover:bg-sky-500/20 rounded-lg">{reply}</button>)}</div>}<div className="w-full flex items-end glass-input rounded-xl px-2.5 py-1.5 border-white/[0.12]"><button onClick={() => setShowQuickReplies(!showQuickReplies)} className="p-1.5 text-amber-400 mr-1"><Zap className="w-4 h-4" /></button><textarea id="dialogue-input-field" ref={textareaRef} value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} disabled={gmPending} placeholder={gmPending ? '[GM 回應中，請稍候...]' : '[輸入指令或回覆訊息... (Shift + Enter 發送)]'} rows={1} className="bg-transparent text-[14px] text-sky-50 placeholder-sky-200/30 focus:outline-none flex-1 px-2 resize-none py-1 min-h-[28px] max-h-[120px]" /><button id="btn-send-message" disabled={gmPending} onClick={() => send()} className="p-1.5 text-sky-400 hover:text-sky-200 disabled:text-slate-600 disabled:hover:text-slate-600"><SendHorizontal className="w-4 h-4" /></button></div></div>
         </div>
       </div>
     </section>
