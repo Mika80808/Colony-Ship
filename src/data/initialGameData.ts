@@ -13,14 +13,22 @@ import {
 /**
  * 遊戲初始資料。
  *
- * 這裡只是「目前的讀取來源」，之後接資料庫時換掉的是這個檔案的內容，
- * App 不需要跟著改。本輪純粹把寫死在 useState 初始值裡的資料搬過來，
- * 結構一律維持原樣。
+ * 這裡分兩種東西，改動時請先分清楚：
+ *
+ * 1. 「新遊戲的起點」— 玩家進度相關的項目一律為空，靠遊玩累積。
+ *    測試用的假資料（艾倫·沃克、q1-q3 任務、i1-i3 物品、d1-d2 日記、
+ *    ch1-ch2 章節、三條區域記憶）已於 Phase 0 清除。
+ *
+ * 2. 「世界觀設定」— 星圖區域與 NPC 是遊戲的實際內容，不是假資料，保留。
+ *    這些之後可由玩家在故事書內編輯，編輯結果存在存檔裡（見 persistence.ts）。
  */
 
 export const START_SECTOR_ID = 'residential_a';
 
-/** 重置進度時要回到的起點。與初始 state 共用同一份定義，避免兩邊漂移。 */
+/**
+ * 新遊戲的起始數值，同時也是重置進度時的回歸點。
+ * 兩邊共用同一份定義，避免漂移。
+ */
 export const INITIAL_STATS: PlayerStats = {
   stamina: 85,
   maxStamina: 100,
@@ -30,7 +38,7 @@ export const INITIAL_STATS: PlayerStats = {
   conditions: [],
 };
 
-/** 重置後個人資料清空，由玩家自行重填。 */
+/** 個人資料由玩家自行填寫，不預設內容。 */
 export const EMPTY_PROFILE: PlayerProfile = {
   name: '',
   gender: '',
@@ -41,85 +49,19 @@ export const EMPTY_PROFILE: PlayerProfile = {
   profession: '',
 };
 
-export const INITIAL_PROFILE: PlayerProfile = {
-  name: '艾倫·沃克',
-  gender: '男',
-  age: '24',
-  appearance: '黑髮藍眼，身穿實習領航員制服',
-  personality: '冷靜沉著、富好奇心',
-  other: '出身於地球聯邦星空學院；喜好黑咖啡；持有 LV1 通行憑證。',
-  profession: '實習領航員',
-};
+/** 任務全部由 GM 發放。 */
+export const INITIAL_QUESTS: Quest[] = [];
 
-export const INITIAL_QUESTS: Quest[] = [
-  {
-    id: 'q1',
-    category: '主要',
-    title: '熟悉星際港環境',
-    status: '進行中',
-    description: '前往中央公園，與物資官布雷茲交流以獲取配給情報。',
-    target: '2. 中央公園',
-    reward: '150 星幣、熱咖啡 x1',
-    acceptedDate: '2154-10-24',
-    deadlineDays: 3,
-  },
-  {
-    id: 'q2',
-    category: '次要',
-    title: '檢查工程電路',
-    status: '待回報',
-    description: '協助工程部檢查次級維生動力源的輔助電源線路。',
-    target: '工程部',
-    reward: '80 星幣',
-    acceptedDate: '2154-10-24',
-    deadlineDays: 5,
-  },
-  {
-    id: 'q3',
-    category: '次要',
-    title: '領取巡航航圖',
-    status: '已完成',
-    description: '已於艦橋領航台取得獵戶座第四星區最新航道圖冊。',
-    reward: '50 星幣、獵戶座星圖',
-    acceptedDate: '2154-10-22',
-    deadlineDays: 0,
-  },
-];
+/** 設定集的物品定義，由玩家在故事書的物品分頁建立。 */
+export const INITIAL_ITEM_DEFINITIONS: ItemDefinition[] = [];
+
+/** 玩家背包，靠遊玩取得。 */
+export const INITIAL_INVENTORY: InventoryItem[] = [];
 
 /**
- * 設定集的物品定義。故事書物品分頁編輯這一份，與下面的玩家背包分開。
+ * 世界觀設定：NPC。
+ * 路西恩有實際立繪素材；布雷茲目前只有文字設定。
  */
-export const INITIAL_ITEM_DEFINITIONS: ItemDefinition[] = [
-  {
-    id: 'i1',
-    name: '熱咖啡',
-    category: '消耗品',
-    effectText: '+15 體力、-5 飢餓',
-    description: '剛從配給機煮出的濃縮黑咖啡，提神效果極佳。',
-  },
-  {
-    id: 'i2',
-    name: '通行憑證',
-    category: '裝備',
-    effectText: 'LV 1',
-    description: '星際港基礎通行權限卡，可開啟中央生活區各艙門。',
-  },
-  {
-    id: 'i3',
-    name: '應急維修套件',
-    category: '裝備',
-    effectText: '耐久 +30',
-    description: '內含標準通用螺絲、絕緣膠帶與簡易電路檢測筆。',
-  },
-];
-
-/** 玩家背包：實際持有的物品與數量。 */
-export const INITIAL_INVENTORY: InventoryItem[] = [
-  { ...INITIAL_ITEM_DEFINITIONS[0], count: 2 },
-  { ...INITIAL_ITEM_DEFINITIONS[1], count: 1 },
-  { ...INITIAL_ITEM_DEFINITIONS[2], count: 1 },
-];
-
 export const INITIAL_NPCS: NPCData[] = [
   {
     id: 'lucian', name: '路西恩', age: '', gender: '男', position: '',
@@ -140,62 +82,25 @@ export const INITIAL_NPCS: NPCData[] = [
       '曾在前線服役，退役後負責中央生活區與倉庫的物資調度，對艦艇各處秘聞瞭若指掌。',
     other: '喜好高度數酒精飲料',
     location: '2. 中央公園',
-    affection: 10,
-    relationship: '初識的物資官',
+    affection: 0,
+    relationship: '尚未建立',
   },
 ];
 
+/** 開場敘述。這是遊戲的起始旁白與操作提示，不是測試資料。 */
 export const INITIAL_DIALOGUE_HISTORY = [{
   playerInput: '進入居住區 A 的走廊',
   segments: [{ kind: 'description' as const, text: '居住區 A 的走廊亮著柔和燈光，欄牆外是寂靜的星海。點擊地板或使用方向鍵、WASD 移動；點選房門或座椅會自動走近互動。路西恩在 A-1 房間等候。' }],
 }];
 
-export const INITIAL_CHAPTERS: StoryChapter[] = [
-  {
-    id: 'ch1',
-    title: '啟航：獵戶座邊緣',
-    summary: '星際港脫離母星軌道，航向未知星域的第一天紀錄。',
-    fullText:
-      '星曆 2154 年秋，巨大的星際港推進器點火，深藍色的離子光芒劃破永夜般的深空。\n\n全體駐艦人員在主生活區集合完畢，廣播中傳來指揮官平穩的聲音。這是一場為期十年的跨星系探勘旅程，每位領航員與技術官都懷抱著對未知星塵的敬畏與熱情。',
-    unlocked: true,
-  },
-  {
-    id: 'ch2',
-    title: '迷霧星雲的微光',
-    summary: '穿透第七電磁風暴區時所遭遇的神秘電波回傳。',
-    fullText:
-      '在巡航至第七星區邊界時，艦載雷達接收到了規律的脈衝信號。\n\n那並非天然脈衝星的雜訊，而是帶有邏輯編碼的十六進位指令流。布雷茲與工程團隊正在物資區加固電磁屏蔽層，以防儀器受到副波干擾。',
-    unlocked: true,
-  },
-];
+/** 故事書章節，由玩家在故事書內建立。 */
+export const INITIAL_CHAPTERS: StoryChapter[] = [];
 
-export const INITIAL_DIARY_ENTRIES: DiaryEntry[] = [
-  {
-    id: 'd1',
-    date: '2154-10-24',
-    title: '登艦日誌',
-    summary: '初抵星際港，確認通行證',
-    enabled: true,
-    content:
-      '登艦的第一天，這座星際港比想像中還要宏偉。順利在中央公園遇到了布雷茲物資官，手頭的通行憑證已完成認證。',
-    author: '艾倫·沃克',
-    tags: ['登艦', '星際港', '物資官'],
-  },
-  {
-    id: 'd2',
-    date: '2154-10-23',
-    title: '準備啟航記事',
-    summary: '行前準備，整理隨身物品',
-    enabled: true,
-    content:
-      '整理了隨身攜帶的個人物品與通行憑證，準備前往中央公園確認今日配給清單。',
-    author: '艾倫·沃克',
-    tags: ['啟航', '通行憑證', '配給'],
-  },
-];
+/** 日記由玩家撰寫或 GM 生成。 */
+export const INITIAL_DIARY_ENTRIES: DiaryEntry[] = [];
 
 /**
- * 星圖區域。
+ * 世界觀設定：星圖區域。
  * 中上方: 研究室 / 右方: 溫室 / 下方: 醫療區 / 左方: 工程部 / 正中間: 艦橋、中央公園
  */
 export const INITIAL_SECTORS: MapSector[] = [
@@ -291,38 +196,24 @@ export const INITIAL_SECTORS: MapSector[] = [
   },
 ];
 
-/**
- * HeaderHUD 的區域記憶。原本寫在元件 props 預設值裡、App 根本沒傳。
- * 之後由 AI 或資料庫供給。
- */
-export const INITIAL_AREA_MEMORIES: string[] = [
-  '艦橋指揮台掌握最新躍遷星圖，準備啟動躍遷星門。',
-  '中央公園人造陽光排程運作正常，提供船員休閒交流空間。',
-  '研究室量子光譜分析儀校準中，請各部門暫勿進入干擾。',
-];
+/** HeaderHUD 的區域記憶。由 GM 依所在區域生成（Phase 3）。 */
+export const INITIAL_AREA_MEMORIES: string[] = [];
 
-/** LeftSidebar 的當前目標。原本整段寫死在 JSX 裡。 */
+/** LeftSidebar 的當前目標。由 GM 依任務進度生成（Phase 3）。 */
 export const INITIAL_OBJECTIVES: {
   id: string;
   text: string;
   location?: string;
   done?: boolean;
-}[] = [
-  {
-    id: 'o1',
-    text: '與布雷茲交流，掌握物資分配現況',
-    location: '2. 中央公園',
-  },
-  { id: 'o2', text: '前往中央公園', done: true },
-];
+}[] = [];
 
-/** LeftSidebar 的當前摘要。原本寫死在 JSX 裡。 */
-export const INITIAL_SUMMARY =
-  '初次抵達星際港，需透過物資官布雷茲取得初級通行許可，並熟悉星港的日常物資調度。';
+/** LeftSidebar 的當前摘要。由 GM 生成（Phase 3）。 */
+export const INITIAL_SUMMARY = '';
 
 /**
  * DialogueSection 的快速回覆。
- * 這三則正好對應 handleSendMessage 裡的三個 if 分支，接 AI 時一併換掉。
+ * 這三則是通用的中性回應，不綁定任何劇情，先保留為靜態預設值。
+ * Phase 3 會改為依當下情境由 GM 生成。
  */
 export const INITIAL_QUICK_REPLIES: string[] = [
   '收到，明白！',

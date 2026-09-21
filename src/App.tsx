@@ -32,7 +32,7 @@ import {
   START_SECTOR_ID,
   INITIAL_STATS,
   EMPTY_PROFILE,
-  INITIAL_PROFILE,
+
   INITIAL_QUESTS,
   INITIAL_ITEM_DEFINITIONS,
   INITIAL_INVENTORY,
@@ -77,7 +77,7 @@ export default function App() {
   const [storybookTargetNpcId, setStorybookTargetNpcId] = useState<string | null>(null);
 
   // Player Profile State
-  const [profile, setProfile] = useState<PlayerProfile>(INITIAL_PROFILE);
+  const [profile, setProfile] = useState<PlayerProfile>(EMPTY_PROFILE);
 
   // Player Stats State
   const [stats, setStats] = useState<PlayerStats>(INITIAL_STATS);

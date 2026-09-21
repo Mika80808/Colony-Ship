@@ -106,12 +106,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite', maxTokens: 32768 },
     { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', maxTokens: 65536 },
     { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', maxTokens: 32768 },
-    { id: 'claude-3-7-sonnet-20250219', name: 'Claude 3.7 Sonnet', maxTokens: 32768 },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', maxTokens: 16384 },
-    { id: 'deepseek-chat', name: 'DeepSeek V3', maxTokens: 8192 },
-    { id: 'deepseek-reasoner', name: 'DeepSeek R1', maxTokens: 32768 },
-    { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 (70B)', maxTokens: 16384 },
-    { id: 'qwen/qwen-2.5-72b-instruct', name: 'Qwen 2.5 (72B)', maxTokens: 32768 },
   ];
 
   const stepsFor = (model: string) => TOKEN_STEPS.filter((step) => step <= (modelOptions.find((option) => option.id === model)?.maxTokens ?? 4096));
