@@ -1,30 +1,23 @@
-import { GmContext, GmError, GmResult } from '../types';
-import { GmSettings } from '../settings';
-import { GM_SYSTEM_PROMPT, buildContextBlock, buildHistoryTurns, extractJsonObject } from '../prompt';
-import { GM_RESPONSE_SCHEMA, RawGmResponse } from './schema';
+import { GmError } from '../types';
+import { AiSettings } from '../settings';
+import { extractJsonObject } from '../prompt';
+import { JsonRequest } from './request';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /**
- * 直接從瀏覽器呼叫 Google Gemini。
+ * 直接從瀏覽器呼叫 Google Gemini，取回 JSON。
  *
  * 金鑰走 x-goog-api-key 標頭而不是網址的 ?key= 參數：兩者 Gemini 都接受，
  * 但放在網址會讓金鑰出現在瀏覽器歷史、referrer 與任何中間層的存取紀錄裡。
  *
  * Gemini 支援 CORS，所以純前端可以直接呼叫，不需要後端代理。
  */
-export async function callGemini(context: GmContext, settings: GmSettings): Promise<GmResult> {
-  const history = buildHistoryTurns(context);
-  const contents = [
-    ...history.flatMap((turn) => [
-      { role: 'user', parts: [{ text: turn.player }] },
-      { role: 'model', parts: [{ text: turn.gm }] },
-    ]),
-    {
-      role: 'user',
-      parts: [{ text: `${buildContextBlock(context)}\n\n# 玩家的行動\n${context.playerInput}` }],
-    },
-  ];
+export async function callGemini(settings: AiSettings, request: JsonRequest): Promise<unknown> {
+  const contents = request.messages.map((message) => ({
+    role: message.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: message.content }],
+  }));
 
   let response: Response;
   try {
@@ -35,11 +28,11 @@ export async function callGemini(context: GmContext, settings: GmSettings): Prom
         'x-goog-api-key': settings.apiKey,
       },
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: GM_SYSTEM_PROMPT }] },
+        systemInstruction: { parts: [{ text: request.system }] },
         contents,
         generationConfig: {
           responseMimeType: 'application/json',
-          responseSchema: GM_RESPONSE_SCHEMA,
+          responseSchema: request.schema,
           maxOutputTokens: settings.maxTokens,
         },
       }),
@@ -82,14 +75,14 @@ export async function callGemini(context: GmContext, settings: GmSettings): Prom
     throw new GmError('blocked', '回應被安全政策攔下，請換個說法再試。');
   }
 
-  let raw: RawGmResponse | null;
+  let raw: unknown;
   try {
-    raw = extractJsonObject(candidate?.content?.parts?.[0]?.text) as RawGmResponse | null;
+    raw = extractJsonObject(candidate?.content?.parts?.[0]?.text);
   } catch {
     throw new GmError('format', 'Gemini 回傳的不是合法 JSON。');
   }
   if (!raw) throw new GmError('format', 'Gemini 這次沒有回傳內容，請再送一次。');
 
-  // 形狀驗證交給 index.ts 的 normalize，這裡只負責把原始資料帶回去。
-  return raw as unknown as GmResult;
+  // 形狀驗證交給呼叫端，這裡只負責把原始資料帶回去。
+  return raw;
 }

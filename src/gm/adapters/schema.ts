@@ -56,9 +56,3 @@ export const GM_RESPONSE_SCHEMA = {
   },
   required: ['segments', 'commands'],
 } as const;
-
-/** 模型回傳、尚未經過驗證的原始形狀。 */
-export interface RawGmResponse {
-  segments?: Array<{ kind?: string; speaker?: string; expression?: string; text?: string }>;
-  commands?: Array<Record<string, unknown>>;
-}

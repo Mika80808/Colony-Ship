@@ -1,11 +1,12 @@
-import { GmContext, GmError, GmResult } from '../types';
-import { GmSettings } from '../settings';
-import { GM_SYSTEM_PROMPT, buildContextBlock, buildHistoryTurns, extractJsonObject } from '../prompt';
-import { GM_RESPONSE_SCHEMA, RawGmResponse } from './schema';
+import { GmError } from '../types';
+import { AiSettings } from '../settings';
+import { extractJsonObject } from '../prompt';
+import { JsonRequest } from './request';
 
 /**
  * OpenAI Chat Completions 相容端點的共用轉接器。
  * DeepSeek 與「自訂端點」都走這裡，差異由 options 帶入。
+ * 取回的是未驗證的 JSON，形狀由呼叫端檢查。
  */
 export interface OpenAiCompatOptions {
   /** 例如 https://api.deepseek.com，不含 /chat/completions。 */
@@ -24,22 +25,11 @@ export interface OpenAiCompatOptions {
 }
 
 export async function callOpenAiCompatible(
-  context: GmContext,
-  settings: GmSettings,
+  settings: AiSettings,
+  request: JsonRequest,
   options: OpenAiCompatOptions
-): Promise<GmResult> {
-  const history = buildHistoryTurns(context);
-  const messages = [
-    { role: 'system', content: GM_SYSTEM_PROMPT },
-    ...history.flatMap((turn) => [
-      { role: 'user', content: turn.player },
-      { role: 'assistant', content: turn.gm },
-    ]),
-    {
-      role: 'user',
-      content: `${buildContextBlock(context)}\n\n# 玩家的行動\n${context.playerInput}`,
-    },
-  ];
+): Promise<unknown> {
+  const messages = [{ role: 'system', content: request.system }, ...request.messages];
 
   const url = `${options.baseUrl.replace(/\/+$/, '')}/chat/completions`;
   const post = (responseFormat: unknown) =>
@@ -63,7 +53,7 @@ export async function callOpenAiCompatible(
     if (options.jsonMode === 'schema_then_object') {
       response = await post({
         type: 'json_schema',
-        json_schema: { name: 'gm_response', strict: true, schema: GM_RESPONSE_SCHEMA },
+        json_schema: { name: request.schemaName, strict: true, schema: request.schema },
       });
       // 不少相容端點只認得 json_object，不認得 json_schema。
       if (response.status === 400 || response.status === 422) {
@@ -103,14 +93,14 @@ export async function callOpenAiCompatible(
     throw new GmError('format', '回應長度超出上限而被截斷，請到系統設定調高輸出長度。');
   }
 
-  let raw: RawGmResponse | null;
+  let raw: unknown;
   try {
-    raw = extractJsonObject(choice?.message?.content) as RawGmResponse | null;
+    raw = extractJsonObject(choice?.message?.content);
   } catch {
     throw new GmError('format', `${options.label}回傳的不是合法 JSON。該模型可能不支援 JSON 輸出模式。`);
   }
   // DeepSeek 文件明載 JSON 模式偶爾會回傳空內容（實測會是一整串空白），重送通常就好。
   if (!raw) throw new GmError('format', `${options.label}這次沒有回傳內容，請再送一次。`);
 
-  return raw as unknown as GmResult;
+  return raw;
 }

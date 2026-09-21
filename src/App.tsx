@@ -51,6 +51,7 @@ import {
 import { loadGameSave, writeGameSave, clearGameSave } from './data/persistence';
 import { sound } from './utils/audio';
 import { runGm, GmError } from './gm';
+import { suggestQuickReplies, generateDiaryDraft } from './gm/assistant';
 
 export default function App() {
   // 掛載時讀一次存檔。沒有存檔／格式不符時為 null，各項 state 退回新遊戲的初始值。
@@ -126,11 +127,11 @@ export default function App() {
 
   // 以下四項原本寫死在各元件內部，現在改由這裡供給。
   // 前三項屬於遊戲進度、會進存檔，但目前還沒有 setter：內容要等 Phase 3
-  // 由 GM 生成後才會變動。quickReplies 是靜態的通用回應，不進存檔。
+  // 由 GM 生成後才會變動。
   const [areaMemories] = useState<string[]>(saved?.areaMemories ?? INITIAL_AREA_MEMORIES);
   const [objectives] = useState<Objective[]>(saved?.objectives ?? INITIAL_OBJECTIVES);
   const [summary] = useState<string>(saved?.summary ?? INITIAL_SUMMARY);
-  const [quickReplies] = useState<string[]>(INITIAL_QUICK_REPLIES);
+  // 快速回覆由助理 AI 依對話產生，見下方 requestQuickReplies。
 
   // 遊戲時間。不抓現實系統時間，也不每秒 setState 重繪整個 header。
   const [gameDate] = useState<string>(saved?.gameDate ?? GAME_START_DATE);
@@ -306,6 +307,43 @@ export default function App() {
     }
   };
 
+  /**
+   * 快速回覆：玩家打開選單時才請助理 AI 產生，並以「最新一回合」為快取鍵。
+   * 同一回合內反覆開關選單不會重複計費；GM 回應後才會產生新的建議。
+   * 助理沒設定或失敗時退回通用回覆，選單仍然可用。
+   */
+  const latestTurn = dialogueHistory.at(-1);
+  const [quickReplies, setQuickReplies] = useState<string[]>(INITIAL_QUICK_REPLIES);
+  const [quickRepliesFor, setQuickRepliesFor] = useState<DialogueTurn | undefined>(undefined);
+  const [quickRepliesPending, setQuickRepliesPending] = useState<boolean>(false);
+  const [quickRepliesError, setQuickRepliesError] = useState<string | null>(null);
+
+  const requestQuickReplies = async () => {
+    if (quickRepliesPending || !latestTurn || quickRepliesFor === latestTurn) return;
+    setQuickRepliesPending(true);
+    setQuickRepliesError(null);
+    try {
+      setQuickReplies(await suggestQuickReplies({ profile, presentNpcs, locationName: currentSectorName, dialogueHistory }));
+    } catch (error) {
+      setQuickReplies(INITIAL_QUICK_REPLIES);
+      setQuickRepliesError(error instanceof Error ? error.message : '助理 AI 呼叫失敗。');
+    } finally {
+      // 失敗也記下這一回合，避免每次開選單都重打一次注定失敗的請求；
+      // 玩家修好設定後，下一回合自然會重新產生。
+      setQuickRepliesFor(latestTurn);
+      setQuickRepliesPending(false);
+    }
+  };
+
+  const requestDiaryDraft = () =>
+    generateDiaryDraft({
+      profile,
+      locationName: currentSectorName,
+      gameDate,
+      dialogueHistory,
+      existingTitles: diaryEntries.map((entry) => entry.title),
+    });
+
   const handleUseItem = (item: InventoryItem) => sendToGm(`我使用【${item.name}】`);
   const handleGiftItem = (item: InventoryItem) => sendToGm(`我把【${item.name}】送出`);
 
@@ -441,6 +479,9 @@ export default function App() {
           onSendMessage={handleSendMessage}
           dialogueHistory={dialogueHistory}
           quickReplies={quickReplies}
+          quickRepliesPending={quickRepliesPending}
+          quickRepliesError={quickRepliesError}
+          onRequestQuickReplies={requestQuickReplies}
           gmPending={gmPending}
           gmError={gmError}
           toast={toast}
@@ -516,6 +557,9 @@ export default function App() {
         onAddEntry={handleAddDiaryEntry}
         onUpdateEntry={handleUpdateDiaryEntry}
         onDeleteEntry={handleDeleteDiaryEntry}
+        playerName={profile.name}
+        gameDate={gameDate}
+        onGenerateDraft={requestDiaryDraft}
       />
 
       {/* 5. 系統設定 */}

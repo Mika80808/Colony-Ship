@@ -12,6 +12,12 @@ interface DiaryModalProps {
   onAddEntry: (entry: Omit<DiaryEntry, 'id'>) => void;
   onUpdateEntry?: (entry: DiaryEntry) => void;
   onDeleteEntry?: (id: string) => void;
+  /** 日記作者，即玩家角色的名字。 */
+  playerName: string;
+  /** 遊戲內日期。日記記的是星曆，不是現實時間。 */
+  gameDate: string;
+  /** 請助理 AI 依對話紀錄寫一份草稿。回傳的草稿會填進編輯表單，由玩家確認後才儲存。 */
+  onGenerateDraft?: () => Promise<{ title: string; summary: string; content: string; tags: string[] }>;
 }
 
 export default function DiaryModal({
@@ -21,6 +27,9 @@ export default function DiaryModal({
   onAddEntry,
   onUpdateEntry,
   onDeleteEntry,
+  playerName,
+  gameDate,
+  onGenerateDraft,
 }: DiaryModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -36,6 +45,34 @@ export default function DiaryModal({
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   // 表單有未儲存內容時，遮罩點擊與 Esc 先跳這個確認，不直接關閉。
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+
+  /**
+   * 自動生成日記：請助理 AI 寫草稿，填進編輯表單。
+   * 不直接存檔 —— AI 可能寫錯細節，讓玩家看過、改過再存。
+   */
+  const handleAutoGenerate = async () => {
+    if (!onGenerateDraft || isGenerating) return;
+    sound.playClick();
+    setIsGenerating(true);
+    setGenerateError(null);
+    try {
+      const draft = await onGenerateDraft();
+      setEditingId(null);
+      setTitle(draft.title);
+      setSummary(draft.summary);
+      setContent(draft.content);
+      setTags(draft.tags);
+      setTagInput('');
+      setEnabled(true);
+      setIsWriting(true);
+    } catch (error) {
+      setGenerateError(error instanceof Error ? error.message : '日記生成失敗，請稍後再試。');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const handleToggleCheck = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -143,9 +180,9 @@ export default function DiaryModal({
         title: title.trim() || '未命名筆記',
         summary: summary.trim() || undefined,
         content: content.trim() || '（無內容）',
-        date: existing?.date || new Date().toISOString().split('T')[0],
+        date: existing?.date || gameDate,
         enabled,
-        author: existing?.author || '艾倫·沃克',
+        author: existing?.author || playerName || '未具名',
         tags: finalTags.length > 0 ? finalTags : undefined,
       });
     } else {
@@ -153,9 +190,9 @@ export default function DiaryModal({
         title: title.trim() || '未命名筆記',
         summary: summary.trim() || undefined,
         content: content.trim() || '（無內容）',
-        date: new Date().toISOString().split('T')[0],
+        date: gameDate,
         enabled,
-        author: '艾倫·沃克',
+        author: playerName || '未具名',
         tags: finalTags.length > 0 ? finalTags : undefined,
       });
     }
@@ -277,11 +314,10 @@ export default function DiaryModal({
                 <>
                   <button
                     id="btn-diary-auto-generate"
-                    onClick={() => {
-                      sound.playClick();
-                    }}
-                    className="w-7 h-7 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 active:scale-95 text-indigo-300 hover:text-white border border-indigo-400/40 flex items-center justify-center transition cursor-pointer shadow-sm flex-shrink-0"
-                    title="自動生成日記"
+                    onClick={handleAutoGenerate}
+                    disabled={isGenerating}
+                    className={`w-7 h-7 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 active:scale-95 text-indigo-300 hover:text-white border border-indigo-400/40 flex items-center justify-center transition cursor-pointer shadow-sm flex-shrink-0 disabled:cursor-wait ${isGenerating ? 'animate-pulse' : ''}`}
+                    title={isGenerating ? '助理 AI 撰寫中…' : '自動生成日記（由助理 AI 依對話紀錄撰寫草稿）'}
                     aria-label="自動生成日記"
                   >
                     <Sparkles className="w-4 h-4" />
@@ -309,6 +345,13 @@ export default function DiaryModal({
               </button>
             </div>
           </div>
+
+          {/* 自動生成失敗的原因。下次按下生成時清除。 */}
+          {generateError && !isWriting && (
+            <div className="mb-2.5 px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-400/30 text-[12px] leading-relaxed text-rose-300">
+              {generateError}
+            </div>
+          )}
 
           {/* Active Tag Filter Indicator */}
           {selectedTag && !isWriting && (
@@ -341,7 +384,8 @@ export default function DiaryModal({
                     <span>{editingId ? '修改日誌' : '新增日誌'}</span>
                   </span>
                   <span className="font-hud text-[12px] text-slate-400">
-                    {new Date().toISOString().split('T')[0]}
+                    {/* 顯示的是星曆，不是現實時間；修改時顯示該篇原本的日期。 */}
+                    {(editingId && entries.find((entry) => entry.id === editingId)?.date) || gameDate}
                   </span>
                 </div>
 

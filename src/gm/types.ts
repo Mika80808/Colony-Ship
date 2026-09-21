@@ -50,8 +50,3 @@ export class GmError extends Error {
     this.kind = kind;
   }
 }
-
-/** 供應商轉接器。新增供應商只需實作這個函式。 */
-export interface GmAdapter {
-  (context: GmContext, settings: import('./settings').GmSettings): Promise<GmResult>;
-}
