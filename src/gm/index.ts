@@ -8,7 +8,7 @@ export { GmError } from './types';
 export type { GmContext, GmResult } from './types';
 
 const EXPRESSIONS: DialogueExpression[] = [
-  'neutral', 'happy', 'sad', 'angry', 'surprised', 'thinking',
+  'neutral', 'happy', 'sad', 'angry', 'surprised', 'shy', 'thinking',
 ];
 const QUEST_STATUSES: Quest['status'][] = ['進行中', '待回報', '已完成'];
 
@@ -57,6 +57,15 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
   const itemIds = new Set(context.items.map((item) => item.id));
   const questIds = new Set(context.quests.map((quest) => quest.id));
   const npcIds = new Set(context.presentNpcs.map((npc) => npc.id));
+  const openObjectiveIds = new Set(
+    context.objectives.filter((objective) => !objective.done).map((objective) => objective.id)
+  );
+
+  /** 取一段非空字串，超長就截掉 —— 側欄的版面是固定的。 */
+  const text = (value: unknown, max: number): string | undefined => {
+    const trimmed = typeof value === 'string' ? value.trim() : '';
+    return trimmed ? trimmed.slice(0, max) : undefined;
+  };
 
   const commands: GmCommand[] = [];
   for (const item of raw) {
@@ -104,6 +113,28 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
           command.relationship = entry.relationship.trim();
         }
         commands.push(command);
+        break;
+      }
+      case 'set_summary': {
+        const body = text(entry.text, 200);
+        if (body) commands.push({ type: 'set_summary', text: body });
+        break;
+      }
+      case 'add_objective': {
+        const body = text(entry.text, 40);
+        if (!body) break;
+        const command: GmCommand = { type: 'add_objective', text: body };
+        const location = text(entry.location, 20);
+        if (location) command.location = location;
+        commands.push(command);
+        break;
+      }
+      case 'complete_objective': {
+        // 只認還沒結案的目標：重複結案是模型常見的慣性動作，放過去會讓
+        // 側欄每回合重畫一次同一則刪除線。
+        const objectiveId = typeof entry.objectiveId === 'string' ? entry.objectiveId : '';
+        if (!openObjectiveIds.has(objectiveId)) break;
+        commands.push({ type: 'complete_objective', objectiveId });
         break;
       }
       default:

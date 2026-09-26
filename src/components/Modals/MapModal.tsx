@@ -15,7 +15,7 @@ import {
   Brain,
   RotateCcw,
 } from 'lucide-react';
-import { MapSector, NPCData } from '../../types';
+import { MapSector, NPCData, RoomDef } from '../../types';
 import { sound } from '../../utils/audio';
 import ModalShell from './ModalShell';
 import spaceStationBg from '../../assets/images/space_station_map.webp';
@@ -32,6 +32,8 @@ interface MapModalProps {
   onClose: () => void;
   sectors: MapSector[];
   npcs: NPCData[];
+  /** 內建房號清單。居住區的房號按鈕依這裡列出，住戶由 NPC 的 roomId 反查。 */
+  rooms: RoomDef[];
   currentSectorId: string;
   /**
    * 執行 AI 世界模擬與場景初始化。
@@ -190,6 +192,7 @@ export default function MapModal({
   onClose,
   sectors,
   npcs,
+  rooms,
   currentSectorId,
   onEnterSector,
 }: MapModalProps) {
@@ -700,16 +703,12 @@ export default function MapModal({
                         <div className="text-[12px] font-bold text-slate-300 mb-1.5">
                           選擇房號
                         </div>
-                        <div className="grid grid-cols-4 gap-1.5">
-                          {Array.from({ length: 8 }).map((_, i) => {
-                            const areaLetter = selectedSector.id
-                              .split('_')[1]
-                              .toUpperCase();
-                            const roomNumber = `${areaLetter}-${i + 1}`;
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {rooms.filter((room) => room.sectorId === selectedSector.id).map((room) => {
+                            const roomNumber = room.id;
                             const isRoomSelected = selectedRoomId === roomNumber;
-                            const resident = npcs.find(npc =>
-                              npc.portraitUrl && npc.location === `${selectedSector.name} (${roomNumber})`
-                            );
+                            // 住戶由 NPC 的房號欄位反查；沒有頭像的住戶不在按鈕上顯示。
+                            const resident = npcs.find(npc => npc.portraitUrl && npc.roomId === roomNumber);
                             return (
                               <button
                                 key={roomNumber}

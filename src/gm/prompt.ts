@@ -23,6 +23,10 @@ export const GM_SYSTEM_PROMPT = `你是科幻角色扮演遊戲《星際港》�
 依玩家的行動推進劇情，扮演在場的 NPC，描述環境與事件結果。
 保持科幻寫實基調，不要浮誇。使用繁體中文。
 
+NPC 若有「日常活動」，請對照目前時間來演：該在值班就別讓他閒著，
+深夜找上門就該有被打擾的反應。玩家問起某人行蹤時，依作息回答他大概在哪，
+不要憑空給一個地點。
+
 # 輸出格式
 你必須輸出 json 物件，含 segments 與 commands 兩個欄位，不要輸出任何 json 以外的文字。
 範例：
@@ -32,24 +36,32 @@ export const GM_SYSTEM_PROMPT = `你是科幻角色扮演遊戲《星際港》�
 每則有 kind、text，對白另有 speaker 與 expression。
 - kind 為 "description" 時是環境或事件敘述，不要填 speaker。
 - kind 為 "dialogue" 時是角色說話，speaker 必須是在場 NPC 的名字，
-  expression 從 neutral / happy / sad / angry / surprised / thinking 擇一。
+  expression 從 neutral / happy / sad / angry / surprised / shy / thinking 擇一。
 - 一次回應以 1 到 4 則為宜。對白請加上引號。
 
 ## commands：對遊戲狀態的變更，沒有要改就給空陣列
-只有這四種，且**只能引用下方局勢中真實存在的 id**，不可自行發明：
+只有這七種，且**只能引用下方局勢中真實存在的 id**，不可自行發明：
 - adjust_stats：調整數值。stamina／hunger／credits 為增減量（可為負），
   addCondition／removeCondition 為狀態字串。
 - consume_item：消耗玩家背包中的物品。itemId 必須是背包裡既有的 id，count 預設 1。
 - set_quest_status：改任務狀態。questId 必須是既有任務的 id，
   status 為 "進行中"／"待回報"／"已完成"。
 - adjust_affection：調整 NPC 好感。npcId 必須是在場 NPC 的 id，amount 為增減量。
+- set_summary：改寫左欄的當前摘要。text 為 40 到 80 字的一段話，寫「玩家現在
+  的處境」，不是流水帳。劇情有實質推進才下，每次都改會洗掉玩家剛讀過的內容。
+- add_objective：新增一則當前目標。text 為 20 字內的祈使句（例如「找布雷茲問
+  補給的事」），location 選填。只在玩家有了明確的下一步時才下。
+- complete_objective：結束一則目標。objectiveId 必須是上方「當前目標」裡既有的 id。
 
 沒有對應 id 時就不要下該指令，改用敘述帶過。
-不要發放新任務或新物品 —— 目前的指令集還不支援，硬下指令只會失效。`;
+不要發放新任務或新物品 —— 目前的指令集還不支援，硬下指令只會失效。
+
+當前目標與當前摘要是玩家隨時看得到的側欄，不是每回合都要動。
+多數回合的 commands 應該是空的或只有一則。`;
 
 /** 把局勢整理成模型看得懂的一段文字。 */
 export function buildContextBlock(context: GmContext): string {
-  const { profile, stats, quests, items, presentNpcs, locationName } = context;
+  const { profile, stats, quests, items, presentNpcs, locationName, objectives, summary, gameDate, gameTime } = context;
 
   const profileLines = profile.name
     ? [
@@ -71,6 +83,7 @@ export function buildContextBlock(context: GmContext): string {
         npc.appearance && `  外貌：${npc.appearance}`,
         npc.personality && `  性格：${npc.personality}`,
         npc.background && `  背景：${npc.background}`,
+        npc.routine && npc.routine !== '無' && `  日常活動：\n${npc.routine.split('\n').map((line) => `    ${line.trim()}`).join('\n')}`,
         npc.other && `  其他：${npc.other}`,
         `  好感度：${npc.affection}（${npc.relationship}）`,
       ].filter(Boolean).join('\n')).join('\n')
@@ -81,10 +94,17 @@ export function buildContextBlock(context: GmContext): string {
     : '（目前沒有任務。）';
 
   const itemBlock = items.length
-    ? items.map((i) => `- id: ${i.id}｜${i.name} x${i.count}（${i.effectText}）`).join('\n')
+    ? items.map((i) => `- id: ${i.id}｜${i.name} x${i.count}${i.effectText ? `（${i.effectText}）` : ''}`).join('\n')
     : '（背包是空的。）';
 
+  const objectiveBlock = objectives.length
+    ? objectives.map((o) => `- id: ${o.id}｜[${o.done ? '已完成' : '進行中'}] ${o.text}${o.location ? `（${o.location}）` : ''}`).join('\n')
+    : '（目前沒有目標。）';
+
   return `# 目前局勢
+
+## 時間
+星曆 ${gameDate} ${gameTime}
 
 ## 所在位置
 ${locationName}
@@ -101,7 +121,13 @@ ${npcBlock}
 ${questBlock}
 
 ## 背包
-${itemBlock}`;
+${itemBlock}
+
+## 當前目標
+${objectiveBlock}
+
+## 當前摘要
+${summary || '（尚未寫過摘要。）'}`;
 }
 
 /**

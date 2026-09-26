@@ -1,0 +1,21 @@
+{
+  "tool": "built-in image_gen",
+  "assets": [
+    {
+      "name": "captain-chair-v2",
+      "prompt": "Use case background-extraction. Attached full scene is EDIT TARGET. Isolate ONLY the small captain chair at upper center, around x627 y210. It faces down. Its silhouette is a simple compact rectangular seat, short black backrest and white armrests. Exactly the original proportions. Do not invent a throne base, pedestal, extra lighting or armor. Enlarge as needed but preserve the exact source camera and simple geometry. No redesign. Do not use a front-on product photo angle. Match the high overhead RPG room view of the reference. Dark charcoal upholstery with simple white armrests. Entire chair, transparent alpha background, no ground shadow, no other objects, centered with modest margin. No text."
+    },
+    {
+      "name": "left-chair-v2",
+      "prompt": "Use case background-extraction. Attached full scene is EDIT TARGET. Isolate ONLY the small LEFT station chair around x191 y594, facing RIGHT. Very high overhead oblique camera (about 65 degrees down): visible broad horizontal seat top and top of short backrest on left; compact almost square silhouette, barely visible feet. The original chair is roughly 85 px wide and 115 px tall including perspective. No tall side profile, no office-chair wheels, no added cyan lights, no elongated backrest. Enlarge as needed but preserve the exact source camera and simple geometry. No redesign. Do not use a front-on product photo angle. Match the high overhead RPG room view of the reference. Dark charcoal upholstery with simple white armrests. Entire chair, transparent alpha background, no ground shadow, no other objects, centered with modest margin. No text."
+    },
+    {
+      "name": "right-chair-v2",
+      "prompt": "Use case background-extraction. Attached full scene is EDIT TARGET. Isolate ONLY the small RIGHT station chair around x1060 y594, facing LEFT. Very high overhead oblique camera (about 65 degrees down): visible broad horizontal seat top and top of short backrest on right; compact almost square silhouette, barely visible feet. The original chair is roughly 85 px wide and 115 px tall including perspective. No tall side profile, no office-chair wheels, no added cyan lights, no elongated backrest. Enlarge as needed but preserve the exact source camera and simple geometry. No redesign. Do not use a front-on product photo angle. Match the high overhead RPG room view of the reference. Dark charcoal upholstery with simple white armrests. Entire chair, transparent alpha background, no ground shadow, no other objects, centered with modest margin. No text."
+    },
+    {
+      "name": "elevator-ring-v2",
+      "prompt": "Use case precise-object-edit. Edit target is this exact isolated elevator ring sprite. Preserve same 1254x1254 canvas, object bounding box, overhead camera, inner opening, center, cyan lamps and white segmented metal design. Change ONLY the FRONT BOTTOM central sector (roughly between 5 and 7 o'clock) into a flat walkable threshold: remove the thick stepped protrusion with stacked blue lights; replace it with a smooth thin flat white-gray metal inset tread, a single narrow cyan line, flush to the inner platform plane with NO raised lip. Adjacent rim blends down gently into it. This is where a person walks across the rim toward bottom. Keep the rest of the ring unchanged. Transparent alpha outside AND in the central hole. No platform, floor, characters, text or shadow. Do not recenter or rotate."
+    }
+  ]
+}

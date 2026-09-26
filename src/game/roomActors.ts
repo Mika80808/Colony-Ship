@@ -7,6 +7,23 @@ export interface RoomActor {
 export function createActor(position: Point, direction: Direction = 'down'): RoomActor {
   return { position, direction, path: [], target: null, elapsed: 0, moving: false, idle: 0.8, patrol: 0 };
 }
+/**
+ * Where the index-th NPC in the room starts. The first spot is where Lucian has
+ * always stood in A-1; the rest spread out so several visitors do not stack.
+ * A spot blocked by this room's furniture falls back to the nearest open floor.
+ */
+const NPC_SPAWNS: Point[] = [{ x: 600, y: 700 }, { x: 420, y: 560 }, { x: 250, y: 420 }, { x: 560, y: 900 }, { x: 250, y: 760 }];
+export function npcSpawnPoint(index: number): Point {
+  const wanted = NPC_SPAWNS[index % NPC_SPAWNS.length];
+  if (isWalkable(wanted)) return { ...wanted };
+  for (let radius = 20; radius <= 400; radius += 20) {
+    for (let angle = 0; angle < 360; angle += 30) {
+      const p = { x: Math.round(wanted.x + radius * Math.cos(angle * Math.PI / 180)), y: Math.round(wanted.y + radius * Math.sin(angle * Math.PI / 180)) };
+      if (isWalkable(p)) return p;
+    }
+  }
+  return { ...wanted };
+}
 export function setDestination(actor: RoomActor, point: Point): boolean {
   const path = findPath(actor.position, point);
   if (!path.length) return false;
@@ -46,7 +63,8 @@ export function advancePath(actor: RoomActor, dt: number, speed: number) {
   actor.elapsed = actor.moving ? actor.elapsed + dt : 0;
 }
 export function updateNpc(actor: RoomActor, dt: number) {
-  if (!actor.path.length) {
+  // A room without furnishings has no patrol route; the NPC just stands.
+  if (!actor.path.length && PATROL_POINTS.length) {
     actor.idle -= dt;
     if (actor.idle <= 0) {
       setDestination(actor, PATROL_POINTS[actor.patrol]);

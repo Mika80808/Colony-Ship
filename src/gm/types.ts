@@ -4,6 +4,7 @@ import {
   GmCommand,
   InventoryItem,
   NPCData,
+  Objective,
   PlayerProfile,
   PlayerStats,
   Quest,
@@ -19,7 +20,14 @@ export interface GmContext {
   /** 目前場景在場、可被指涉的 NPC。 */
   presentNpcs: NPCData[];
   locationName: string;
+  /** 星曆日期與時刻。NPC 的日常活動要對得上時間才有意義。 */
+  gameDate: string;
+  gameTime: string;
   dialogueHistory: DialogueTurn[];
+  /** 左欄的當前目標。GM 要能看見才不會重複開一樣的目標，也才敢引用 id 結案。 */
+  objectives: Objective[];
+  /** 左欄的當前摘要。改寫前要先知道現在寫了什麼。 */
+  summary: string;
 }
 
 /** GM 的回應。與先前 mock 的形狀相同，App 的套用邏輯不需要改。 */

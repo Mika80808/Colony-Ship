@@ -1,0 +1,21 @@
+{
+  "tool": "built-in image_gen",
+  "references": [
+    "prompts-v1.json",
+    "prompts-v2.json"
+  ],
+  "crew": [
+    {
+      "name": "crew-command",
+      "prompt": "Create ONE 4-direction idle character sprite sheet for a high resolution pixel RPG. Reference image is style and proportion reference ONLY (existing game player sprite sheet). Subject: unnamed adult command duty officer with short silver hair, charcoal uniform, muted lavender rank accents. Same appealing high-detail chibi proportions and crisp pixel edge language as reference, visible head/top surfaces for top-down RPG. Horizontal layout EXACTLY FOUR equally spaced full-body standing idle views, one single row, in this exact order: front/down, back/up, left profile, right profile. Same character, same scale, aligned feet baseline, no equipment in hands. Each figure centered within its own equal-width cell, generous transparent margins and no overlap. Entire background genuine transparent alpha. No ground shadow, no labels, no text, no extra rows. This is one consistent animation-ready sprite strip, not concept art."
+    },
+    {
+      "name": "crew-navigation",
+      "prompt": "Create ONE 4-direction idle character sprite sheet for a high resolution pixel RPG. Reference image is style and proportion reference ONLY (existing game player sprite sheet). Subject: unnamed adult navigation duty officer with short chestnut bob haircut, charcoal uniform, muted teal accents. Same appealing high-detail chibi proportions and crisp pixel edge language as reference, visible head/top surfaces for top-down RPG. Horizontal layout EXACTLY FOUR equally spaced full-body standing idle views, one single row, in this exact order: front/down, back/up, left profile, right profile. Same character, same scale, aligned feet baseline, no equipment in hands. Each figure centered within its own equal-width cell, generous transparent margins and no overlap. Entire background genuine transparent alpha. No ground shadow, no labels, no text, no extra rows. This is one consistent animation-ready sprite strip, not concept art."
+    },
+    {
+      "name": "crew-comms",
+      "prompt": "Create ONE 4-direction idle character sprite sheet for a high resolution pixel RPG. Reference image is style and proportion reference ONLY (existing game player sprite sheet). Subject: unnamed adult communications duty officer with neat dark auburn hair, charcoal uniform, muted sage accents. Same appealing high-detail chibi proportions and crisp pixel edge language as reference, visible head/top surfaces for top-down RPG. Horizontal layout EXACTLY FOUR equally spaced full-body standing idle views, one single row, in this exact order: front/down, back/up, left profile, right profile. Same character, same scale, aligned feet baseline, no equipment in hands. Each figure centered within its own equal-width cell, generous transparent margins and no overlap. Entire background genuine transparent alpha. No ground shadow, no labels, no text, no extra rows. This is one consistent animation-ready sprite strip, not concept art."
+    }
+  ]
+}

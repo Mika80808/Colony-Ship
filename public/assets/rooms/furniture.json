@@ -1,0 +1,295 @@
+{
+  "rug-living": {
+    "kind": "decal"
+  },
+  "rug-bedroom": {
+    "kind": "decal"
+  },
+  "mat-bath": {
+    "kind": "decal"
+  },
+  "basin": {
+    "solid": [
+      {
+        "dx": 3,
+        "dy": 79,
+        "width": 87,
+        "height": 60
+      }
+    ]
+  },
+  "wc": {
+    "solid": [
+      {
+        "dx": 1,
+        "dy": 35,
+        "width": 47,
+        "height": 65
+      }
+    ]
+  },
+  "room-door": {
+    "depthOffset": -1,
+    "label": "房門"
+  },
+  "shower": {
+    "depthOffset": 1,
+    "label": "淋浴間",
+    "solid": [
+      {
+        "dx": -7,
+        "dy": 0,
+        "width": 144,
+        "height": 80
+      },
+      {
+        "dx": -7,
+        "dy": 74,
+        "width": 16,
+        "height": 120
+      },
+      {
+        "dx": 118,
+        "dy": 74,
+        "width": 19,
+        "height": 120
+      }
+    ]
+  },
+  "wall-shelf": {},
+  "tall-wardrobe": {
+    "solid": [
+      {
+        "dx": 7,
+        "dy": 103,
+        "width": 65,
+        "height": 184
+      }
+    ]
+  },
+  "wall-skateboard": {
+    "depthOffset": 2
+  },
+  "bedside": {
+    "solid": [
+      {
+        "dx": 1,
+        "dy": 35,
+        "width": 73,
+        "height": 55
+      }
+    ]
+  },
+  "gaming-desk": {
+    "solid": [
+      {
+        "dx": -2,
+        "dy": 55,
+        "width": 275,
+        "height": 96
+      }
+    ]
+  },
+  "cat-lounge": {
+    "solid": [
+      {
+        "dx": 0,
+        "dy": 36,
+        "width": 116,
+        "height": 70
+      }
+    ]
+  },
+  "bin": {
+    "solid": [
+      {
+        "dx": 0,
+        "dy": 22,
+        "width": 47,
+        "height": 50
+      }
+    ]
+  },
+  "console-stack": {
+    "solid": [
+      {
+        "dx": -1,
+        "dy": 43,
+        "width": 40,
+        "height": 62
+      }
+    ]
+  },
+  "drinks-trolley": {
+    "solid": [
+      {
+        "dx": 0,
+        "dy": 24,
+        "width": 70,
+        "height": 54
+      }
+    ]
+  },
+  "coffee-table": {
+    "solid": [
+      {
+        "dx": 2,
+        "dy": 24,
+        "width": 130,
+        "height": 122
+      }
+    ]
+  },
+  "appliance-plant": {
+    "depthOffset": -1,
+    "solid": [
+      {
+        "dx": 15,
+        "dy": 18,
+        "width": 50,
+        "height": 107
+      },
+      {
+        "dx": 5,
+        "dy": 155,
+        "width": 60,
+        "height": 72
+      }
+    ]
+  },
+  "drawers": {
+    "solid": [
+      {
+        "dx": 1,
+        "dy": 42,
+        "width": 275,
+        "height": 80
+      }
+    ]
+  },
+  "bath-storage": {
+    "solid": [
+      {
+        "dx": 57,
+        "dy": 14,
+        "width": 185,
+        "height": 170
+      }
+    ]
+  },
+  "bookcase": {
+    "solid": [
+      {
+        "dx": 8,
+        "dy": 36,
+        "width": 126,
+        "height": 85
+      }
+    ]
+  },
+  "fridge": {
+    "depthOffset": 5,
+    "label": "冰箱",
+    "inspectText": "幾乎都是飲料",
+    "solid": [
+      {
+        "dx": 4,
+        "dy": 25,
+        "width": 70,
+        "height": 130
+      }
+    ]
+  },
+  "skateboard": {
+    "depthOffset": 3,
+    "label": "滑板",
+    "inspectText": "四周磨損嚴重",
+    "solid": [
+      {
+        "dx": 3,
+        "dy": 8,
+        "width": 36,
+        "height": 98
+      }
+    ]
+  },
+  "game-cabinet": {
+    "label": "遊戲櫃",
+    "inspectText": "許多復古遊戲",
+    "solid": [
+      {
+        "dx": 2,
+        "dy": 27,
+        "width": 97,
+        "height": 64
+      }
+    ]
+  },
+  "sofa-west": {
+    "depthOffset": 3,
+    "label": "單人沙發",
+    "solid": [
+      {
+        "dx": 4,
+        "dy": 32,
+        "width": 113,
+        "height": 83
+      }
+    ]
+  },
+  "sofa-center": {
+    "depthOffset": -4,
+    "label": "懶骨頭沙發",
+    "solid": [
+      {
+        "dx": 14,
+        "dy": 55,
+        "width": 125,
+        "height": 90
+      }
+    ]
+  },
+  "sofa-south": {
+    "depthOffset": 6,
+    "label": "單人沙發",
+    "solid": [
+      {
+        "dx": 5,
+        "dy": 32,
+        "width": 75,
+        "height": 92
+      }
+    ]
+  },
+  "desk-chair": {
+    "depthOffset": 7,
+    "label": "電腦椅",
+    "solid": [
+      {
+        "dx": 6,
+        "dy": 73,
+        "width": 78,
+        "height": 75
+      }
+    ]
+  },
+  "bed-base": {
+    "depthOffset": 2,
+    "label": "床鋪",
+    "solid": [
+      {
+        "dx": 4,
+        "dy": 39,
+        "width": 190,
+        "height": 183
+      }
+    ]
+  },
+  "bed-blanket": {
+    "depthOffset": 23,
+    "label": "棉被"
+  },
+  "vr-headset": {
+    "label": "VR 頭戴裝置"
+  }
+}

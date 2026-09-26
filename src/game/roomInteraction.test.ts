@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { canExitRoom, ROOM_EXIT_POINT } from './roomNavigation';
+import { canExitRoom, nearRoomDoor, ROOM_EXIT_POINT } from './roomNavigation';
 import { canInteract, createActor, setDestination, updatePlayer } from './roomActors';
 import { FURNITURE, isShowering } from './roomFurniture';
 import { findPath, isWalkable } from './roomNavigation';
@@ -27,3 +27,7 @@ assert.ok(findPath(player.position, { x: 800, y: 320 }).length, 'Bathroom exit a
 console.log('Furniture, interaction distance/line of sight, shower entry/exit and bedroom access passed.');
 assert.equal(canExitRoom(ROOM_EXIT_POINT), true);
 assert.equal(canExitRoom({ x: ROOM_EXIT_POINT.x, y: ROOM_EXIT_POINT.y - 100 }), false);
+let deepest = ROOM_EXIT_POINT.y; while (isWalkable({ x: ROOM_EXIT_POINT.x, y: deepest + 1 })) deepest++;
+assert.ok(deepest > 1090, 'Feet can stand past the old door range');
+assert.ok(nearRoomDoor({ x: ROOM_EXIT_POINT.x, y: deepest }), 'E opens the door when pressed flush against the parapet');
+

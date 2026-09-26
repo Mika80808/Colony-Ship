@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { createActor, setDestination, updatePlayer } from './roomActors';
-import { approachSeat, cancelSeatApproach, createSeatState, finishSeatApproach, interactSeat, leaveSeat, ROOM_SEATS } from './roomSeats';
+import { approachSeat, cancelSeatApproach, createSeatState, finishSeatApproach, interactSeat, leaveSeat, roomSeats } from './roomSeats';
 import { isWalkable, ROOM_EXIT_POINT } from './roomNavigation';
 
-for (const seat of ROOM_SEATS) {
+for (const seat of roomSeats()) {
   const actor = createActor({ ...ROOM_EXIT_POINT }), state = createSeatState();
   assert.equal(interactSeat(actor, state), false, 'Cannot sit from across the room');
   assert.equal(setDestination(actor, seat.position), false, 'Chair remains solid during ordinary movement');

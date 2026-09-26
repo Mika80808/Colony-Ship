@@ -106,6 +106,18 @@ export default function ProfileDrawer({
             />
           </div>
 
+          {/* 房號由劇情分發，玩家唯讀查看。 */}
+          <div>
+            <label className="block text-slate-400 mb-1 text-[12px]">房號（劇情分發）</label>
+            <input
+              type="text"
+              value={formData.roomId ?? ''}
+              readOnly
+              placeholder="尚未分配"
+              className="w-full glass-input rounded-lg px-3 py-1.5 text-slate-400 text-xs focus:outline-none cursor-not-allowed"
+            />
+          </div>
+
           {/* 外貌 */}
           <div>
             <label className="block text-slate-400 mb-1 text-[12px]">外貌</label>

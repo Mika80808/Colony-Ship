@@ -1,20 +1,28 @@
 import { approachSeat, cancelSeatApproach, clickedSeat, createSeatState, finishSeatApproach, interactSeat, leaveSeat } from '../game/roomSeats';
-import { approachBed, bedSideAt, BED_ACTOR_DEPTH, cancelBedApproach, clickedBed, createBedState, finishBedApproach, interactBed, leaveBed } from '../game/roomBed';
+import { approachBed, bedSideAt, bedActorDepth, cancelBedApproach, clickedBed, createBedState, finishBedApproach, interactBed, leaveBed } from '../game/roomBed';
 import { useEffect, useRef, useState } from 'react';
 import { NPCData } from '../types';
-import { canExitRoom, ROOM_EXIT_POINT, ROOM_HEIGHT, ROOM_WIDTH } from '../game/roomNavigation';
-import { canInteract, createActor, RoomActor, setDestination, updateNpc, updatePlayer } from '../game/roomActors';
+import { canExitRoom, nearRoomDoor, ROOM_EXIT_POINT, ROOM_HEIGHT, ROOM_WIDTH } from '../game/roomNavigation';
+import { canInteract, createActor, npcSpawnPoint, RoomActor, setDestination, updateNpc, updatePlayer } from '../game/roomActors';
 
 import { ACTOR_HEIGHT, approach, cameraTarget, fitViewport } from '../game/viewport';
 import { nearbyInspection } from '../game/roomInspection';
 import { isShowering } from '../game/roomFurniture';
-import { DECALS, PIECES, SHELL } from '../game/roomRuntime';
+import { DECALS, PIECES, RoomFurnishing, SHELL, setActiveRoom } from '../game/roomRuntime';
 
-interface Props { npc?: NPCData; paused: boolean; onInteract: (npc: NPCData) => void; onExit: () => void }
+interface Props {
+  /** Which room this is. Mount a new RoomScene (key by room id) to change rooms. */
+  roomId: string;
+  /** The occupant's belongings laid over the shared shell; the empty furnishing shows the bare shell. */
+  furnishing: RoomFurnishing;
+  /** Everyone whose schedule puts them in this room right now. Each walks with their own walkUrl. */
+  npcs: NPCData[];
+  paused: boolean; onInteract: (npc: NPCData) => void; onExit: () => void;
+}
 const MOVEMENT_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd']);
 const normalizeKey = (key: string) => key.length === 1 ? key.toLowerCase() : key;
 
-export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
+export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract, onExit }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
@@ -24,7 +32,34 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
     const timer = window.setTimeout(() => setInspection(null), 4500);
     return () => window.clearTimeout(timer);
   }, [inspection]);
-  const actors = useRef({ npc: createActor({ x: 600, y: 700 }), player: createActor({ ...ROOM_EXIT_POINT }, 'up') });
+  const actors = useRef({ player: createActor({ ...ROOM_EXIT_POINT }, 'up'), npcs: new Map<string, RoomActor>() });
+  // NPCs can arrive while the room is open (a schedule change), so actors and
+  // sprites are created on first sight rather than only at mount.
+  const npcActor = (npc: NPCData, index: number) => {
+    let actor = actors.current.npcs.get(npc.id);
+    if (!actor) {
+      actor = createActor(npcSpawnPoint(index));
+      actor.patrol = index; // start at different patrol points so visitors do not walk in a line
+      actors.current.npcs.set(npc.id, actor);
+    }
+    return actor;
+  };
+  const sprites = useRef(new Map<string, HTMLImageElement>());
+  const npcSprite = (npc: NPCData) => {
+    if (!npc.walkUrl) return undefined;
+    let sprite = sprites.current.get(npc.id);
+    if (!sprite) { sprite = new Image(); sprite.src = npc.walkUrl; sprites.current.set(npc.id, sprite); }
+    return sprite.complete && sprite.naturalWidth ? sprite : undefined;
+  };
+  /** The present NPC the player is close enough to talk to, nearest first. */
+  const nearestNpc = () => {
+    const player = actors.current.player;
+    return controls.current.npcs
+      .map((npc, index) => ({ npc, actor: npcActor(npc, index) }))
+      .filter(({ actor }) => canInteract(player, actor))
+      .sort((a, b) => Math.hypot(a.actor.position.x - player.position.x, a.actor.position.y - player.position.y)
+        - Math.hypot(b.actor.position.x - player.position.x, b.actor.position.y - player.position.y))[0];
+  };
   const view = useRef(fitViewport(ROOM_WIDTH, ROOM_HEIGHT, ROOM_WIDTH, ROOM_HEIGHT));
   const camera = useRef({ x: 0, y: 0, settled: false });
   const exiting = useRef(false);
@@ -32,11 +67,14 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
   const bed = useRef(createBedState());
   const seating = useRef(createSeatState());
   const keys = useRef(new Set<string>());
-  const controls = useRef({ paused, npc, onInteract, onExit });
-  controls.current = { paused, npc, onInteract, onExit };
+  const controls = useRef({ paused, npcs, onInteract, onExit });
+  controls.current = { paused, npcs, onInteract, onExit };
   useEffect(() => { if (paused) keys.current.clear(); }, [paused]);
 
   useEffect(() => {
+    // Collision, seats and the bed all read the active room, so it has to be in
+    // place before anything below captures PIECES or DECALS.
+    setActiveRoom(roomId, furnishing);
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext('2d')!;
     const resize = new ResizeObserver(([entry]) => {
@@ -54,7 +92,7 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
     window.addEventListener('blur', clearKeys);
     document.addEventListener('visibilitychange', clearKeys);
     const ASSETS = '/assets/rooms/';
-    const room = new Image(), npcSprite = new Image(), playerSprite = new Image();
+    const room = new Image(), playerSprite = new Image();
     const objects = PIECES;
     const furnitureImages = objects.map(() => new Image());
     const decalImages = DECALS.map(() => new Image());
@@ -113,11 +151,15 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
     const render = (time: number) => {
       if (disposed) return;
       const dt = Math.min((time - (last || time)) / 1000, 0.05); last = time;
-      const { npc: npcActor, player } = actors.current;
+      const { player } = actors.current;
+      const present = controls.current.npcs.map((npc, index) => ({ npc, actor: npcActor(npc, index) }));
       const frozen = controls.current.paused || document.hidden;
       if (!frozen) {
-        if (controls.current.npc && !canInteract(player, npcActor)) updateNpc(npcActor, dt);
-        else npcActor.moving = false;
+        // An NPC stops walking while the player is close enough to talk to them.
+        for (const { actor } of present) {
+          if (!canInteract(player, actor)) updateNpc(actor, dt);
+          else actor.moving = false;
+        }
         if (!doorElapsed.current && bed.current.phase !== 'resting' && seating.current.phase !== 'sitting') {
           updatePlayer(player, dt, keys.current);
           finishBedApproach(player, bed.current);
@@ -155,11 +197,14 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
         ctx.beginPath(); ctx.ellipse(player.target.x, player.target.y, 18, 8, 0, 0, Math.PI * 2); ctx.stroke();
       }
       const visibleActors = [{ actor: player, sprite: playerSprite, player: true }];
-      if (controls.current.npc) visibleActors.push({ actor: npcActor, sprite: npcSprite, player: false });
+      for (const { npc, actor } of present) {
+        const sprite = npcSprite(npc);
+        if (sprite) visibleActors.push({ actor, sprite, player: false });
+      }
       const layers = objects.map((item, index) => ({ depth: item.depth, draw: () => {
         const picture = furnitureImages[index];
         ctx.drawImage(picture, item.x, item.y, item.width, item.height);
-        if (item.id === 'door-a1-out' && doorElapsed.current > 0) {
+        if (item.id === 'room-door' && doorElapsed.current > 0) {
           // Keep the outer frame stationary while both door leaves retract.
           const t = Math.min(1, doorElapsed.current / 0.7);
           const offset = 65 * t * t * (3 - 2 * t);
@@ -172,7 +217,7 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
           ctx.restore();
         }
       }}));
-      visibleActors.forEach(entry => layers.push({ depth: entry.player && bed.current.phase === 'resting' ? BED_ACTOR_DEPTH : entry.player && seating.current.phase === 'sitting' ? seating.current.seat!.furniture.depth + 0.5 : entry.player && isShowering(entry.actor.position) ? 813 : entry.actor.position.y, draw: () => drawActor(entry.actor, entry.sprite, entry.player, frozen) }));
+      visibleActors.forEach(entry => layers.push({ depth: entry.player && bed.current.phase === 'resting' ? bedActorDepth() : entry.player && seating.current.phase === 'sitting' ? seating.current.seat!.furniture.depth + 0.5 : entry.player && isShowering(entry.actor.position) ? 813 : entry.actor.position.y, draw: () => drawActor(entry.actor, entry.sprite, entry.player, frozen) }));
       layers.sort((a, b) => a.depth - b.depth).forEach(layer => layer.draw());
       const bathing = isShowering(player.position);
       if (bathing) {
@@ -189,7 +234,7 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
           ctx.fill();
         }
       }
-      const nearby = !!controls.current.npc && canInteract(player, npcActor);
+      const nearby = !!nearestNpc();
       drawOverlays('front');
       ctx.restore();
       if (doorElapsed.current > 0.85) {
@@ -206,14 +251,21 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
       canvas.dataset.seatState = seating.current.phase;
       canvas.dataset.seatId = seating.current.seat?.id ?? '';
       canvas.dataset.playerPosition = `${player.position.x.toFixed(1)},${player.position.y.toFixed(1)}`;
-      canvas.dataset.npcPosition = `${npcActor.position.x.toFixed(1)},${npcActor.position.y.toFixed(1)}`;
+      canvas.dataset.npcPosition = present[0] ? `${present[0].actor.position.x.toFixed(1)},${present[0].actor.position.y.toFixed(1)}` : '';
+      canvas.dataset.npcs = present.map(({ npc }) => npc.id).join(',');
       canvas.dataset.playerDirection = player.direction;
       canvas.dataset.playerMoving = String(player.moving && !frozen);
       raf = requestAnimationFrame(render);
     };
     Promise.all([
       load(room, ASSETS + SHELL.base),
-      load(npcSprite, '/assets/lucian/walk.png'),
+      // Wait for the sheets of whoever is here on arrival, so nobody pops in a frame late.
+      ...npcs.flatMap(npc => {
+        if (!npc.walkUrl) return [];
+        const sprite = new Image();
+        sprites.current.set(npc.id, sprite);
+        return [load(sprite, npc.walkUrl)];
+      }),
       load(playerSprite, '/assets/player/walk.png'),
       ...SHELL.overlays.map((overlay, index) => load(overlayImages[index], ASSETS + overlay.image)),
       ...DECALS.map((decal, index) => load(decalImages[index], ASSETS + decal.image)),
@@ -238,7 +290,7 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
     <div className="room-viewport">
       <canvas ref={canvasRef} tabIndex={0}
         className="focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400/50"
-        aria-label="房間。點擊地板或聚焦後使用方向鍵、WASD 控制玩家；靠近路西恩按 E 交談。"
+        aria-label={`房間。點擊地板或聚焦後使用方向鍵、WASD 控制玩家${npcs.length ? `；靠近${npcs.map(npc => npc.name).join('、')}按 E 交談` : ''}。`}
         onBlur={() => keys.current.clear()}
         onKeyDown={(e) => {
           const key = normalizeKey(e.key);
@@ -246,6 +298,19 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
           if (key === 'e' && !e.ctrlKey && !e.altKey && !e.metaKey) {
             e.preventDefault(); e.stopPropagation();
             if (ready && !paused && !e.repeat) {
+              if (nearRoomDoor(actors.current.player.position)) {
+                leaveSeat(actors.current.player, seating.current);
+                leaveBed(actors.current.player, bed.current);
+                cancelSeatApproach(seating.current);
+                cancelBedApproach(bed.current);
+                actors.current.player.path = []; actors.current.player.target = null;
+                keys.current.clear(); setInspection(null);
+                exiting.current = true;
+                actors.current.player.direction = 'down';
+                actors.current.player.moving = false;
+                doorElapsed.current = 0.001;
+                return;
+              }
               if (interactSeat(actors.current.player, seating.current)) {
                 cancelBedApproach(bed.current);
                 keys.current.clear(); exiting.current = false; setInspection(null);
@@ -265,9 +330,12 @@ export default function RoomScene({ npc, paused, onInteract, onExit }: Props) {
                 actors.current.player.path = []; actors.current.player.target = null;
                 keys.current.clear();
                 exiting.current = setDestination(actors.current.player, ROOM_EXIT_POINT);
-              } else if (npc && canInteract(actors.current.player, actors.current.npc)) {
-                actors.current.player.path = []; actors.current.player.target = null;
-                controls.current.onInteract(npc);
+              } else {
+                const near = nearestNpc();
+                if (near) {
+                  actors.current.player.path = []; actors.current.player.target = null;
+                  controls.current.onInteract(near.npc);
+                }
               }
             }
             return;

@@ -14,10 +14,27 @@ import {
   Calendar,
   AlertTriangle,
 } from 'lucide-react';
-import { StoryChapter, NPCData, ItemDefinition, MapSector } from '../../types';
+import {
+  StoryChapter,
+  NPCData,
+  StoryItem,
+  MapSector,
+  MergedStory,
+  NpcSchedule,
+  RoomDef,
+  SectorEntry,
+  StoryKind,
+  ItemDefinition,
+  SCHEDULE_KIND_LABEL,
+  SCHEDULE_NATURE_LABEL,
+} from '../../types';
 import { sound } from '../../utils/audio';
 import ModalShell from './ModalShell';
 import StoryForm, { FieldDef, FormValues } from './StoryForm';
+import ScheduleEditor from './ScheduleEditor';
+import { INITIAL_AFFECTION, INITIAL_RELATIONSHIP } from '../../data/initialGameData';
+import { departmentOptions, makeBuiltinId, scheduleLocationIds, scheduleLocationName } from '../../data/story';
+import { NpcFormErrors, validateRoom, validateSchedules } from '../../data/storyValidation';
 
 type StoryTabType = 'character' | 'item' | 'event' | 'location';
 
@@ -27,15 +44,21 @@ interface StoryModalProps {
   /*
    * 資料與更新函式都由外部傳入。元件本身不持有這些清單，
    * 避免故事書內的新增或編輯傳不回 App、App 的變動故事書也收不到。
+   * story 是內建內容 + 本局條目 + 覆寫的合併結果；交回的清單由 App 依來源拆回各層。
    */
-  chapters: StoryChapter[];
-  npcs: NPCData[];
-  itemDefinitions: ItemDefinition[];
-  sectors: MapSector[];
+  story: MergedStory;
+  /** 內建地點。日程的地點與部門只能從這裡選。 */
+  builtinSectors: SectorEntry[];
+  /** 內建房號清單。 */
+  rooms: RoomDef[];
+  /** 玩家的房號。NPC 不能選這間。 */
+  playerRoomId?: string;
   onChangeChapters: (next: StoryChapter[]) => void;
   onChangeNpcs: (next: NPCData[]) => void;
-  onChangeItemDefinitions: (next: ItemDefinition[]) => void;
+  onChangeItems: (next: StoryItem[]) => void;
   onChangeSectors: (next: MapSector[]) => void;
+  /** 切換條目的啟用狀態（存在存檔的覆寫裡）。 */
+  onToggleEnabled: (kind: StoryKind, id: string) => void;
   initialTab?: StoryTabType;
   initialCharacterId?: string | null;
 }
@@ -54,16 +77,31 @@ const TAB_LABEL: Record<StoryTabType, string> = {
   location: '地點',
 };
 
-/** 四個分頁的表單欄位定義，共用同一套表單元件渲染。 */
+/** 分頁對應的資料種類。 */
+const TAB_KIND: Record<StoryTabType, StoryKind> = {
+  character: 'npcs',
+  item: 'items',
+  event: 'chapters',
+  location: 'sectors',
+};
+
+/**
+ * 四個分頁的表單欄位定義，共用同一套表單元件渲染。
+ * 角色的部門與房號選項來自內建清單，由 fieldsFor 在執行時補上。
+ */
 const FORM_SCHEMA: Record<StoryTabType, FieldDef[]> = {
   character: [
     { key: 'name', label: '姓名', kind: 'text', placeholder: '角色名稱', span: 'half', autoFocus: true },
     { key: 'gender', label: '性別', kind: 'select', options: ['男', '女', '其他', '無'], span: 'half' },
     { key: 'age', label: '年齡', kind: 'text', placeholder: '年齡', span: 'half' },
     { key: 'position', label: '職位', kind: 'text', placeholder: '角色職位', span: 'half' },
+    { key: 'department', label: '所屬部門', kind: 'select', span: 'half' },
+    { key: 'roomId', label: '房號', kind: 'select', span: 'half' },
     { key: 'appearance', label: '外貌', kind: 'text', placeholder: '外貌特徵', span: 'full' },
     { key: 'personality', label: '性格', kind: 'text', placeholder: '性格描述', span: 'full' },
     { key: 'background', label: '背景', kind: 'textarea', placeholder: '角色背景故事', span: 'full', rows: 2 },
+    // 提示刻意寫成「時間 地點 活動」的條列：GM 這樣讀最準。結構化的日程在下方另外編輯。
+    { key: 'routine', label: '日常活動', kind: 'textarea', placeholder: '08:00 工程部值班\n13:00 中央公園吃午餐\n20:00 多半待在 A-1 房裡打電動', span: 'full', rows: 3 },
     { key: 'other', label: '其他', kind: 'textarea', placeholder: '備註或其他情報', span: 'full', rows: 2 },
   ],
   // 設定集的物品定義沒有「數量」：持有幾個屬於玩家背包，不屬於設定集。
@@ -106,20 +144,31 @@ const matches = (query: string, ...fields: (string | undefined)[]) => {
   return fields.some((f) => f?.toLowerCase().includes(q));
 };
 
+/** 一組日程的簡述，例如「00–08 A-1 房（睡眠）」。 */
+function describeSchedule(group: NpcSchedule, locationName: (id: string) => string): string {
+  const hh = (h: number) => String(h).padStart(2, '0');
+  return group.slots
+    .map((slot) => `${hh(slot.start)}–${hh(slot.end)} ${locationName(slot.locationId)}（${SCHEDULE_NATURE_LABEL[slot.nature]}）`)
+    .join('、');
+}
+
 export default function StoryModal({
   isOpen,
   onClose,
-  chapters,
-  npcs,
-  itemDefinitions,
-  sectors,
+  story,
+  builtinSectors,
+  rooms,
+  playerRoomId,
   onChangeChapters,
   onChangeNpcs,
-  onChangeItemDefinitions,
+  onChangeItems,
   onChangeSectors,
+  onToggleEnabled,
   initialTab = 'character',
   initialCharacterId = null,
 }: StoryModalProps) {
+  const { npcs, items: itemDefinitions, chapters, sectors } = story;
+
   const [activeTab, setActiveTab] = useState<StoryTabType>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCharacterId, setSelectedCharacterId] = useState<string | null>(null);
@@ -132,8 +181,12 @@ export default function StoryModal({
   const [form, setForm] = useState<FormValues>({});
   // 表單開啟時的原始值，用來判斷玩家是否真的改過東西。
   const pristineFormRef = useRef<FormValues>({});
+  // 日程是巢狀資料，不塞進字串表單，另外保存。
+  const [schedules, setSchedules] = useState<NpcSchedule[]>([]);
+  const pristineSchedulesRef = useRef<string>('[]');
+  // 儲存校驗失敗時的錯誤，依欄位標示在表單上。
+  const [formErrors, setFormErrors] = useState<NpcFormErrors>({});
 
-  const [checkedIds, setCheckedIds] = useState<Record<string, boolean>>({});
   const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<{
     type: StoryTabType;
     id: string;
@@ -161,26 +214,57 @@ export default function StoryModal({
     ? npcs.find((c) => c.id === selectedCharacterId) ?? null
     : null;
 
+  const departments = departmentOptions(builtinSectors);
+  const sectorName = (id: string) => builtinSectors.find((s) => s.id === id)?.name ?? `（不存在的地點：${id}）`;
+  const locationName = (id: string) => scheduleLocationName(id, builtinSectors, rooms);
+
+  /** 角色表單的部門與房號選項。房號旁標出目前住戶，選之前就看得到有沒有人住。 */
+  const fieldsFor = (tab: StoryTabType): FieldDef[] => {
+    if (tab !== 'character') return FORM_SCHEMA[tab];
+    return FORM_SCHEMA.character.map((field) => {
+      if (field.key === 'department') {
+        return { ...field, options: [{ value: '', label: '（無）' }, ...departments.map((d) => ({ value: d.id, label: d.name }))] };
+      }
+      if (field.key === 'roomId') {
+        return {
+          ...field,
+          options: [
+            { value: '', label: '（不住居住區）' },
+            ...rooms.map((room) => {
+              const occupant = room.id === playerRoomId ? '玩家' : npcs.find((npc) => npc.roomId === room.id && npc.id !== editingId)?.name;
+              return { value: room.id, label: occupant ? `${room.id}・${occupant}` : room.id };
+            }),
+          ],
+        };
+      }
+      return field;
+    });
+  };
+
   const setField = (key: string, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const isDirty =
     isEditing &&
-    FORM_SCHEMA[activeTab].some(
+    (FORM_SCHEMA[activeTab].some(
       (f) => (form[f.key] ?? '') !== (pristineFormRef.current[f.key] ?? '')
-    );
+    ) ||
+      (activeTab === 'character' && JSON.stringify(schedules) !== pristineSchedulesRef.current));
 
-  const openForm = (values: FormValues, id: string | null) => {
+  const openForm = (values: FormValues, id: string | null, initialSchedules: NpcSchedule[] = []) => {
     setForm(values);
     pristineFormRef.current = values;
+    setSchedules(initialSchedules);
+    pristineSchedulesRef.current = JSON.stringify(initialSchedules);
+    setFormErrors({});
     setEditingId(id);
     setIsEditing(true);
   };
 
-  const handleToggleCheck = (id: string, e?: React.MouseEvent) => {
+  const handleToggleEnabled = (tab: StoryTabType, id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     sound.playClick();
-    setCheckedIds((prev) => ({ ...prev, [id]: !prev[id] }));
+    onToggleEnabled(TAB_KIND[tab], id);
   };
 
   const handleStartAdd = () => {
@@ -190,7 +274,7 @@ export default function StoryModal({
 
   const handleStartEdit = (
     type: StoryTabType,
-    entity: NPCData | ItemDefinition | StoryChapter | MapSector
+    entity: NPCData | StoryItem | StoryChapter | MapSector
   ) => {
     sound.playClick();
     setActiveTab(type);
@@ -199,7 +283,8 @@ export default function StoryModal({
       const raw = (entity as unknown as Record<string, unknown>)[field.key];
       values[field.key] = raw == null ? '' : String(raw);
     }
-    openForm(values, entity.id);
+    const entitySchedules = type === 'character' ? (entity as NPCData).schedules ?? [] : [];
+    openForm(values, entity.id, entitySchedules);
     setSelectedCharacterId(type === 'character' ? entity.id : null);
   };
 
@@ -217,7 +302,7 @@ export default function StoryModal({
       onChangeNpcs(npcs.filter((c) => c.id !== id));
       if (selectedCharacterId === id) { setSelectedCharacterId(null); closeForm(); }
     } else if (type === 'item') {
-      onChangeItemDefinitions(itemDefinitions.filter((i) => i.id !== id));
+      onChangeItems(itemDefinitions.filter((i) => i.id !== id));
     } else if (type === 'event') {
       onChangeChapters(chapters.filter((e) => e.id !== id));
     } else if (type === 'location') {
@@ -235,6 +320,7 @@ export default function StoryModal({
     setIsEditing(false);
     setEditingId(null);
     setShowDiscardConfirm(false);
+    setFormErrors({});
   };
 
   const handleSave = (e: React.FormEvent) => {
@@ -242,63 +328,93 @@ export default function StoryModal({
     const value = (key: string) => (form[key] ?? '').trim();
 
     if (activeTab === 'character') {
-      const patch = {
-        name: value('name') || `船員 ${npcs.length + 1}`,
-        age: value('age') || '未知',
-        gender: form.gender || '男',
-        position: value('position') || '未知',
-        appearance: value('appearance') || '無',
-        personality: value('personality') || '無',
-        background: value('background') || '無',
-        affection: 0,
-        relationship: '陌生人',
-        other: value('other') || '無',
+      // 校驗失敗不儲存，錯誤標在對應欄位上。
+      const errors: NpcFormErrors = {
+        ...(value('name') ? {} : { name: '姓名必填' }),
+        ...validateSchedules(schedules, scheduleLocationIds(builtinSectors, rooms)),
+        ...validateRoom(value('roomId'), editingId, npcs, rooms, playerRoomId),
       };
+      if (Object.keys(errors).length) {
+        setFormErrors(errors);
+        return;
+      }
+      // 空白就存空白，不再代填「未知」「無」：代填的字會被 GM 當成設定讀進去。
+      const patch = {
+        name: value('name'),
+        age: value('age'),
+        gender: form.gender || '男',
+        position: value('position'),
+        department: value('department') || undefined,
+        roomId: value('roomId') || undefined,
+        appearance: value('appearance'),
+        personality: value('personality'),
+        background: value('background'),
+        routine: value('routine'),
+        // 好感門檻只屬於好感解鎖組；組的類型改過之後殘留的門檻不存。
+        schedules: schedules.map(({ affectionThreshold, ...group }) =>
+          group.kind === 'affection' ? { ...group, affectionThreshold } : group
+        ),
+        other: value('other'),
+      };
+      // 好感、關係、啟用狀態屬於本局進度，不在 patch 裡；新角色帶的預設值
+      // 只是為了符合型別，App 拆回內建內容時會剝掉。
       onChangeNpcs(
         editingId
           ? npcs.map((c) => (c.id === editingId ? { ...c, ...patch } : c))
-          : [{ id: `char-${Date.now()}`, ...patch }, ...npcs]
+          : [
+              {
+                id: makeBuiltinId('npcs'),
+                source: 'builtin',
+                ...patch,
+                affection: INITIAL_AFFECTION,
+                relationship: INITIAL_RELATIONSHIP,
+                enabled: true,
+              },
+              ...npcs,
+            ]
       );
     } else if (activeTab === 'item') {
       if (!value('name')) return;
       const patch = {
         name: value('name'),
         category: (form.category === '裝備' ? '裝備' : '消耗品') as ItemDefinition['category'],
-        effectText: value('effectText') || '+0',
-        description: value('description') || '尚無描述。',
+        effectText: value('effectText'),
+        description: value('description'),
       };
-      onChangeItemDefinitions(
+      onChangeItems(
         editingId
           ? itemDefinitions.map((i) => (i.id === editingId ? { ...i, ...patch } : i))
-          : [{ id: `item-${Date.now()}`, ...patch }, ...itemDefinitions]
+          : [{ id: makeBuiltinId('items'), source: 'builtin', enabled: true, ...patch }, ...itemDefinitions]
       );
     } else if (activeTab === 'event') {
       if (!value('title')) return;
       const patch = {
         title: value('title'),
-        summary: value('summary') || '尚無摘要。',
-        fullText: value('fullText') || '尚無紀錄內容。',
+        summary: value('summary'),
+        fullText: value('fullText'),
       };
       onChangeChapters(
         editingId
           ? chapters.map((ev) => (ev.id === editingId ? { ...ev, ...patch } : ev))
-          : [{ id: `ev-${Date.now()}`, unlocked: true, ...patch }, ...chapters]
+          : [{ id: makeBuiltinId('chapters'), source: 'builtin', enabled: true, unlocked: true, ...patch }, ...chapters]
       );
     } else if (activeTab === 'location') {
       if (!value('name')) return;
       const patch = {
-        code: value('code') || 'SEC-00',
+        code: value('code'),
         name: value('name'),
-        description: value('description') || '尚無區域描述。',
+        description: value('description'),
       };
       onChangeSectors(
         editingId
           ? sectors.map((l) => (l.id === editingId ? { ...l, ...patch } : l))
           : [
               {
-                id: `loc-${Date.now()}`,
+                id: makeBuiltinId('sectors'),
+                source: 'builtin',
                 isCurrent: false,
                 status: '正常' as MapSector['status'],
+                enabled: true,
                 connectedTo: [],
                 ...patch,
               },
@@ -346,7 +462,11 @@ export default function StoryModal({
 
   // Filtered datasets
   const filteredCharacters = npcs.filter((c) =>
-    matches(searchQuery, c.name, c.position, c.appearance, c.personality, c.background, c.location)
+    matches(
+      searchQuery,
+      c.name, c.position, c.appearance, c.personality, c.background, c.roomId,
+      c.department ? sectorName(c.department) : undefined
+    )
   );
   const filteredItems = itemDefinitions.filter((i) =>
     matches(searchQuery, i.name, i.category, i.description, i.effectText)
@@ -358,17 +478,31 @@ export default function StoryModal({
     matches(searchQuery, loc.name, loc.code, loc.description)
   );
 
-  /** 物品 / 事件 / 地點三個分頁共用的列樣式。 */
-  const rowClass = (isChecked: boolean) =>
-    `p-3.5 glass-card rounded-xl relative transition-all group flex items-start gap-3 cursor-pointer ${
-      isChecked
-        ? 'bg-[#0e1c3b]/90 border-sky-400/60 shadow-[0_0_15px_rgba(56,189,248,0.18)]'
-        : 'hover:border-white/[0.2] hover:bg-white/[0.04]'
+  /** 物品 / 事件 / 地點三個分頁共用的列樣式。停用的條目淡化顯示。 */
+  const rowClass = (enabled: boolean) =>
+    `p-3.5 glass-card rounded-xl relative transition-all group flex items-start gap-3 hover:border-white/[0.2] hover:bg-white/[0.04] ${
+      enabled ? '' : 'opacity-50'
     }`;
+
+  /** 啟用勾選框。預設啟用；停用後 AI 之後不會讀到這則條目。 */
+  const renderEnabledToggle = (tab: StoryTabType, id: string, enabled: boolean, extraClass = '') => (
+    <button
+      type="button"
+      onClick={(e) => handleToggleEnabled(tab, id, e)}
+      className={`checkbox-neon ${enabled ? 'active' : ''} ${extraClass}`}
+      title={enabled ? '已啟用（點擊停用）' : '已停用（點擊啟用）'}
+      aria-pressed={enabled}
+      aria-label="啟用"
+    >
+      <Check
+        className={`w-3.5 h-3.5 stroke-[3] transition-transform ${enabled ? 'scale-100' : 'scale-0'}`}
+      />
+    </button>
+  );
 
   const renderRowActions = (
     type: StoryTabType,
-    entity: NPCData | ItemDefinition | StoryChapter | MapSector,
+    entity: NPCData | StoryItem | StoryChapter | MapSector,
     name: string
   ) => (
     <div className="flex items-center gap-[7px] pl-1">
@@ -397,14 +531,10 @@ export default function StoryModal({
     </div>
   );
 
-  const renderRowTitle = (isChecked: boolean, title: string, suffix?: React.ReactNode) => (
+  const renderRowTitle = (title: string, suffix?: React.ReactNode) => (
     <span className="text-slate-100 flex items-center gap-1.5 font-sans min-w-0 truncate">
-      <span
-        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors ${
-          isChecked ? 'bg-sky-300 shadow-[0_0_6px_#38bdf8]' : 'bg-sky-400'
-        }`}
-      />
-      <span className={`font-bold text-sm truncate ${isChecked ? 'text-sky-200' : 'text-slate-100'}`}>
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 bg-sky-400" />
+      <span className="font-bold text-sm truncate text-slate-100">
         {title}
       </span>
       {suffix}
@@ -439,10 +569,25 @@ export default function StoryModal({
 
               <StoryForm
                 compact={!!selectedCharacter}
-                fields={FORM_SCHEMA[activeTab]}
+                fields={fieldsFor(activeTab)}
                 values={form}
                 onChange={setField}
+                errors={formErrors}
               />
+
+              {activeTab === 'character' && (
+                <ScheduleEditor
+                  schedules={schedules}
+                  onChange={setSchedules}
+                  locations={builtinSectors}
+                  rooms={rooms}
+                  errors={formErrors}
+                />
+              )}
+
+              {Object.keys(formErrors).length > 0 && (
+                <div className="text-[12px] text-rose-300">有欄位未通過檢查，尚未儲存。</div>
+              )}
 
               <div className="flex justify-end items-center gap-2 pt-1">
                 <button type="button" onClick={handleCancel} className="btn-standard text-xs py-1 px-3">
@@ -558,18 +703,24 @@ export default function StoryModal({
                         sound.playClick();
                         setSelectedCharacterId(npc.id);
                       }}
-                      className="bg-white p-[10px] pb-0 rounded-sm border border-white/40 hover:border-white transition-all duration-200 cursor-pointer group shadow-[0_8px_20px_rgba(0,0,0,0.6)] hover:shadow-[0_14px_28px_rgba(0,229,255,0.25)] flex flex-col relative text-center hover:-translate-y-1 transform-gpu"
-                      style={{ height: '196px', width: '220px' }}
+                      className={`bg-white p-[10px] pb-0 rounded-sm border border-white/40 hover:border-white transition-all duration-200 cursor-pointer group shadow-[0_8px_20px_rgba(0,0,0,0.6)] hover:shadow-[0_14px_28px_rgba(0,229,255,0.25)] flex flex-col relative text-center hover:-translate-y-1 transform-gpu ${
+                        npc.enabled ? '' : 'opacity-50'
+                      }`}
+                      /* 高度 = 上緣留白 10 + 照片 200 + 名字 28，三者要一起改 */
+                      style={{ height: '238px', width: '220px' }}
                       title={`點擊查看 ${npc.name}`}
                     >
                       {/* Photo Area */}
-                      <div className="bg-black relative overflow-hidden flex-shrink-0 w-[200px] h-[158px]">
+                      {/* 頭像素材是 1:1，這一格也必須是 1:1 —— 之前是 200×158，
+                          object-cover 會把頭頂和下巴裁掉。 */}
+                      <div className="bg-black relative overflow-hidden flex-shrink-0 w-[200px] h-[200px]">
                         <div className="absolute inset-0 bg-gradient-to-b from-sky-950/30 via-transparent to-slate-950/90 pointer-events-none" />
 
-                        {/* 卡片使用頭像；完整立繪保留在詳情左側。 */}
-                        {(npc.portraitUrl || npc.fullBodyUrl) ? (
+                        {/* 優先用專為卡片準備的細節圖 —— 一整排卡片裡要能一眼認人。
+                            沒有就退回對話框頭像，再沒有才用立繪。 */}
+                        {(npc.cardUrl || npc.portraitUrl || npc.fullBodyUrl) ? (
                           <img
-                            src={npc.portraitUrl || npc.fullBodyUrl}
+                            src={npc.cardUrl || npc.portraitUrl || npc.fullBodyUrl}
                             alt={npc.name}
                             className="absolute inset-0 w-full h-full object-cover object-top"
                             referrerPolicy="no-referrer"
@@ -579,6 +730,11 @@ export default function StoryModal({
                             <User className="w-12 h-12 sm:w-14 sm:h-14 text-sky-400 drop-shadow-[0_0_12px_rgba(56,189,248,0.6)]" />
                           </div>
                         )}
+
+                        {/* 啟用勾選框：常駐顯示，停用的卡片看得出來 */}
+                        <div className="absolute top-2 left-2 z-20">
+                          {renderEnabledToggle('character', npc.id, npc.enabled)}
+                        </div>
 
                         {/* Top Action Buttons (Edit / Delete) */}
                         <div className="absolute top-2 right-2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition z-20">
@@ -624,32 +780,15 @@ export default function StoryModal({
                   {filteredItems.length === 0
                     ? emptyState(Package, '物品')
                     : filteredItems.map((item) => {
-                        const isChecked = !!checkedIds[item.id];
                         return (
-                          <div
-                            key={item.id}
-                            onClick={() => handleToggleCheck(item.id)}
-                            className={rowClass(isChecked)}
-                          >
+                          <div key={item.id} className={rowClass(item.enabled)}>
                             <div className="pt-0.5 flex-shrink-0">
-                              <button
-                                type="button"
-                                onClick={(e) => handleToggleCheck(item.id, e)}
-                                className={`checkbox-neon ${isChecked ? 'active' : ''}`}
-                                title={isChecked ? '取消選取' : '選取'}
-                              >
-                                <Check
-                                  className={`w-3.5 h-3.5 stroke-[3] transition-transform ${
-                                    isChecked ? 'scale-100' : 'scale-0'
-                                  }`}
-                                />
-                              </button>
+                              {renderEnabledToggle('item', item.id, item.enabled)}
                             </div>
 
                             <div className="flex-1 min-w-0 space-y-1.5">
                               <div className="flex items-center justify-between text-xs font-semibold gap-2">
                                 {renderRowTitle(
-                                  isChecked,
                                   item.name,
                                   <span className="text-[12px] font-normal text-slate-400 flex-shrink-0">
                                     ({item.category})
@@ -657,9 +796,11 @@ export default function StoryModal({
                                 )}
 
                                 <div className="flex items-center gap-2 flex-shrink-0">
-                                  <span className="font-hud font-bold px-2 py-0.5 rounded text-[12px] text-emerald-400 bg-emerald-950/40 border border-emerald-500/30">
-                                    {item.effectText}
-                                  </span>
+                                  {item.effectText && (
+                                    <span className="font-hud font-bold px-2 py-0.5 rounded text-[12px] text-emerald-400 bg-emerald-950/40 border border-emerald-500/30">
+                                      {item.effectText}
+                                    </span>
+                                  )}
                                   {renderRowActions('item', item, item.name)}
                                 </div>
                               </div>
@@ -680,31 +821,15 @@ export default function StoryModal({
                   {filteredEvents.length === 0
                     ? emptyState(Calendar, '事件')
                     : filteredEvents.map((ev) => {
-                        const isChecked = !!checkedIds[ev.id];
                         return (
-                          <div
-                            key={ev.id}
-                            onClick={() => handleToggleCheck(ev.id)}
-                            className={rowClass(isChecked)}
-                          >
+                          <div key={ev.id} className={rowClass(ev.enabled)}>
                             <div className="pt-0.5 flex-shrink-0">
-                              <button
-                                type="button"
-                                onClick={(e) => handleToggleCheck(ev.id, e)}
-                                className={`checkbox-neon ${isChecked ? 'active' : ''}`}
-                                title={isChecked ? '取消選取' : '選取'}
-                              >
-                                <Check
-                                  className={`w-3.5 h-3.5 stroke-[3] transition-transform ${
-                                    isChecked ? 'scale-100' : 'scale-0'
-                                  }`}
-                                />
-                              </button>
+                              {renderEnabledToggle('event', ev.id, ev.enabled)}
                             </div>
 
                             <div className="flex-1 min-w-0 space-y-1.5">
                               <div className="flex items-center justify-between text-xs font-semibold gap-2">
-                                {renderRowTitle(isChecked, ev.title)}
+                                {renderRowTitle(ev.title)}
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   {renderRowActions('event', ev, ev.title)}
                                 </div>
@@ -733,35 +858,21 @@ export default function StoryModal({
                   {filteredLocations.length === 0
                     ? emptyState(MapPin, '地點')
                     : filteredLocations.map((loc) => {
-                        const isChecked = !!checkedIds[loc.id];
                         return (
-                          <div
-                            key={loc.id}
-                            onClick={() => handleToggleCheck(loc.id)}
-                            className={rowClass(isChecked)}
-                          >
+                          <div key={loc.id} className={rowClass(loc.enabled)}>
                             <div className="pt-0.5 flex-shrink-0">
-                              <button
-                                type="button"
-                                onClick={(e) => handleToggleCheck(loc.id, e)}
-                                className={`checkbox-neon ${isChecked ? 'active' : ''}`}
-                                title={isChecked ? '取消選取' : '選取'}
-                              >
-                                <Check
-                                  className={`w-3.5 h-3.5 stroke-[3] transition-transform ${
-                                    isChecked ? 'scale-100' : 'scale-0'
-                                  }`}
-                                />
-                              </button>
+                              {renderEnabledToggle('location', loc.id, loc.enabled)}
                             </div>
 
                             <div className="flex-1 min-w-0 space-y-1.5">
                               <div className="flex items-center justify-between text-xs font-semibold gap-2">
-                                {renderRowTitle(isChecked, loc.name)}
+                                {renderRowTitle(loc.name)}
                                 <div className="flex items-center gap-2 flex-shrink-0">
-                                  <span className="font-hud font-bold px-2 py-0.5 rounded text-[12px] text-sky-400 bg-sky-950/40 border border-sky-500/30">
-                                    {loc.code}
-                                  </span>
+                                  {loc.code && (
+                                    <span className="font-hud font-bold px-2 py-0.5 rounded text-[12px] text-sky-400 bg-sky-950/40 border border-sky-500/30">
+                                      {loc.code}
+                                    </span>
+                                  )}
                                   {renderRowActions('location', loc, loc.name)}
                                 </div>
                               </div>
@@ -873,7 +984,32 @@ export default function StoryModal({
                         <span className="text-slate-400">職位：</span>
                         {selectedCharacter.position}
                       </div>
+                      <div>
+                        <span className="text-slate-400">部門：</span>
+                        {selectedCharacter.department ? sectorName(selectedCharacter.department) : '無'}
+                      </div>
+                      <div>
+                        <span className="text-slate-400">房號：</span>
+                        {selectedCharacter.roomId ?? '不住居住區'}
+                      </div>
                     </div>
+
+                    {!!selectedCharacter.schedules?.length && (
+                      <div>
+                        <div className="text-slate-400 mb-0.5 text-[12px]">日程</div>
+                        <div className="space-y-0.5">
+                          {selectedCharacter.schedules.map((group, index) => (
+                            <div key={index}>
+                              <span className="text-sky-300">
+                                {SCHEDULE_KIND_LABEL[group.kind]}
+                                {group.kind === 'affection' ? `（好感 ≥ ${group.affectionThreshold}）` : ''}：
+                              </span>
+                              {describeSchedule(group, locationName)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {selectedCharacter.appearance && (
                       <div>

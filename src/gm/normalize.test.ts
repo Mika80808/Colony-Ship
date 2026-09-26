@@ -17,11 +17,19 @@ const context: GmContext = {
   quests: [{ id: 'q_real', category: '主要', title: '真任務', status: '進行中', description: '' }],
   items: [{ id: 'i_real', name: '真道具', category: '消耗品', effectText: '', description: '', count: 2 }],
   presentNpcs: [{
-    id: 'npc_real', name: '真角色', age: '', gender: '', position: '', appearance: '',
+    id: 'npc_real', source: 'builtin', enabled: true, name: '真角色', age: '', gender: '', position: '', appearance: '',
     personality: '', background: '', other: '', affection: 0, relationship: '尚未建立',
+    routine: '08:00 工程部值班\n20:00 回房間',
   }],
   locationName: '測試區',
+  gameDate: '2154-10-24',
+  gameTime: '08:45',
   dialogueHistory: [],
+  objectives: [
+    { id: 'obj_open', text: '還沒完成的目標' },
+    { id: 'obj_done', text: '已經完成的目標', done: true },
+  ],
+  summary: '目前的摘要。',
 };
 
 // --- segments ---
@@ -117,6 +125,49 @@ assert.deepEqual(
   '狀態字串應去除前後空白'
 );
 
+// --- commands：側欄的摘要與目標 ---
+
+assert.deepEqual(
+  normalizeCommands([{ type: 'set_summary', text: '  剛抵達 A-1。  ' }], context),
+  [{ type: 'set_summary', text: '剛抵達 A-1。' }],
+  '摘要應去除前後空白'
+);
+assert.equal(
+  normalizeCommands([{ type: 'set_summary', text: '   ' }], context).length,
+  0,
+  '空白摘要應被丟棄'
+);
+assert.equal(
+  (normalizeCommands([{ type: 'set_summary', text: '字'.repeat(500) }], context)[0] as { text: string }).text.length,
+  200,
+  '過長的摘要應被截斷，側欄版面是固定的'
+);
+assert.deepEqual(
+  normalizeCommands([{ type: 'add_objective', text: '找布雷茲', location: '物資站' }], context),
+  [{ type: 'add_objective', text: '找布雷茲', location: '物資站' }],
+  '合法的新目標應通過'
+);
+assert.deepEqual(
+  normalizeCommands([{ type: 'add_objective', text: '沒有地點' }], context),
+  [{ type: 'add_objective', text: '沒有地點' }],
+  'location 選填，未給時不應出現在指令裡'
+);
+assert.deepEqual(
+  normalizeCommands([{ type: 'complete_objective', objectiveId: 'obj_open' }], context),
+  [{ type: 'complete_objective', objectiveId: 'obj_open' }],
+  '結束進行中的目標應通過'
+);
+assert.equal(
+  normalizeCommands([{ type: 'complete_objective', objectiveId: 'obj_fake' }], context).length,
+  0,
+  '不存在的 objectiveId 應被丟棄'
+);
+assert.equal(
+  normalizeCommands([{ type: 'complete_objective', objectiveId: 'obj_done' }], context).length,
+  0,
+  '已完成的目標不應被重複結案'
+);
+
 console.log('gm/normalize: 全部通過');
 
 // --- extractJsonObject：實測 DeepSeek 會回 HTTP 200 但內容全是空白 ---
@@ -127,6 +178,18 @@ assert.equal(extractJsonObject(undefined), null);
 assert.deepEqual(extractJsonObject('```json\n{"segments":[],"commands":[]}\n```'), { segments: [], commands: [] }, '容忍 json 圍欄');
 assert.deepEqual(extractJsonObject('好的，以下是回應：{"a":1}'), { a: 1 }, '容忍前綴文字');
 assert.throws(() => extractJsonObject('這不是 json'), SyntaxError);
+
+// 局勢區塊：日常活動與時間要一起送出，只給其中一個 GM 沒辦法用
+const { buildContextBlock } = await import('./prompt');
+const block = buildContextBlock(context);
+assert.ok(block.includes('2154-10-24 08:45'), '局勢要帶上目前時間');
+assert.ok(block.includes('日常活動'), '在場 NPC 的日常活動要送進局勢');
+assert.ok(block.includes('08:00 工程部值班'), '作息的每一行都要保留');
+assert.ok(block.includes('20:00 回房間'), '多行作息不能只送第一行');
+assert.ok(
+  !buildContextBlock({ ...context, presentNpcs: [{ ...context.presentNpcs[0], routine: '無' }] }).includes('日常活動'),
+  '沒填作息時（表單存成「無」）不應佔用 prompt 篇幅'
+);
 
 // 歷史回合必須是與輸出要求相同的 JSON，不能攤成散文
 const turns = buildHistoryTurns({

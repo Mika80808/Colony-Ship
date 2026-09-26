@@ -1,0 +1,401 @@
+{
+  "version": 2,
+  "scene": {
+    "width": 1254,
+    "height": 1090
+  },
+  "elevator": {
+    "x": 627,
+    "y": 601,
+    "rx": 115,
+    "ry": 96,
+    "ring": [
+      462,
+      452,
+      330,
+      300
+    ],
+    "splitY": 601
+  },
+  "furniture": [
+    {
+      "id": "captain-chair-v2",
+      "rect": [
+        588,
+        164,
+        78,
+        97
+      ],
+      "kind": "chair"
+    },
+    {
+      "id": "left-chair-v2",
+      "rect": [
+        148,
+        533,
+        84,
+        118
+      ],
+      "kind": "chair"
+    },
+    {
+      "id": "right-chair-v2",
+      "rect": [
+        1022,
+        533,
+        84,
+        118
+      ],
+      "kind": "chair"
+    },
+    {
+      "id": "right_planter",
+      "rect": [
+        154,
+        151,
+        74,
+        115
+      ],
+      "kind": "plant"
+    },
+    {
+      "id": "right_planter",
+      "rect": [
+        1026,
+        151,
+        74,
+        115
+      ],
+      "kind": "plant"
+    },
+    {
+      "id": "command_console",
+      "rect": [
+        458,
+        210,
+        338,
+        147
+      ],
+      "kind": "desk"
+    },
+    {
+      "id": "left_console",
+      "rect": [
+        207,
+        458,
+        112,
+        302
+      ],
+      "kind": "desk"
+    },
+    {
+      "id": "right_console",
+      "rect": [
+        935,
+        458,
+        112,
+        302
+      ],
+      "kind": "desk"
+    }
+  ],
+  "collision": [
+    {
+      "name": "指揮台",
+      "rect": [
+        458,
+        267,
+        338,
+        90
+      ]
+    },
+    {
+      "name": "左工作台",
+      "rect": [
+        213,
+        484,
+        108,
+        268
+      ]
+    },
+    {
+      "name": "右工作台",
+      "rect": [
+        933,
+        484,
+        108,
+        268
+      ]
+    },
+    {
+      "name": "左椅",
+      "rect": [
+        148,
+        567,
+        84,
+        79
+      ]
+    },
+    {
+      "name": "右椅",
+      "rect": [
+        1022,
+        567,
+        84,
+        79
+      ]
+    },
+    {
+      "name": "左盆栽",
+      "rect": [
+        163,
+        218,
+        57,
+        46
+      ]
+    },
+    {
+      "name": "右盆栽",
+      "rect": [
+        1035,
+        218,
+        57,
+        46
+      ]
+    }
+  ],
+  "layers": [
+    "background",
+    "well",
+    "ring-rear",
+    "platform",
+    "player-below-deck",
+    "ring-front",
+    "player-on-deck",
+    "projection-reserved"
+  ],
+  "ringLayerRule": "Both halves sample elevator-ring-v2 at identical bounds/scale; screen clip y=601. No separately regenerated semicircles.",
+  "platformSourceRect": [
+    290,
+    331,
+    675,
+    525
+  ],
+  "platformTargetAtRest": [
+    508,
+    503,
+    238,
+    196
+  ],
+  "timeline": {
+    "wait": [
+      0,
+      0.8
+    ],
+    "rise": [
+      0.8,
+      4
+    ],
+    "hold": [
+      4,
+      4.8
+    ],
+    "walk": [
+      4.8,
+      7.5
+    ],
+    "done": [
+      7.5,
+      8
+    ]
+  },
+  "assets": {
+    "bridge-background-clean": {
+      "file": "assets/bridge-background-clean.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bounds": [
+        0,
+        0,
+        1254,
+        1254
+      ],
+      "alpha": [
+        255,
+        255
+      ]
+    },
+    "elevator-ring-v2": {
+      "file": "assets/elevator-ring-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bounds": [
+        76,
+        72,
+        1179,
+        1107
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    },
+    "elevator_platform": {
+      "file": "assets/elevator_platform.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bounds": [
+        164,
+        251,
+        1089,
+        1010
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    },
+    "elevator_well_clean": {
+      "file": "assets/elevator_well_clean.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bounds": [
+        313,
+        354,
+        942,
+        894
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    },
+    "captain-chair-v2": {
+      "file": "assets/captain-chair-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bounds": [
+        356,
+        314,
+        898,
+        911
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    },
+    "left-chair-v2": {
+      "file": "assets/left-chair-v2.png",
+      "size": [
+        1199,
+        1312
+      ],
+      "bounds": [
+        286,
+        260,
+        903,
+        984
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    },
+    "right-chair-v2": {
+      "file": "assets/right-chair-v2.png",
+      "size": [
+        1181,
+        1331
+      ],
+      "bounds": [
+        347,
+        245,
+        999,
+        1006
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    },
+    "right_planter": {
+      "file": "assets/right_planter.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bounds": [
+        271,
+        179,
+        1008,
+        1066
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    },
+    "command_console": {
+      "file": "assets/command_console.png",
+      "size": [
+        1774,
+        887
+      ],
+      "bounds": [
+        269,
+        164,
+        1505,
+        704
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    },
+    "left_console": {
+      "file": "assets/left_console.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bounds": [
+        411,
+        79,
+        876,
+        1160
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    },
+    "right_console": {
+      "file": "assets/right_console.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "bounds": [
+        467,
+        125,
+        862,
+        1083
+      ],
+      "alpha": [
+        0,
+        255
+      ]
+    }
+  }
+}

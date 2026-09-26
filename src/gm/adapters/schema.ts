@@ -21,7 +21,7 @@ export const GM_RESPONSE_SCHEMA = {
           speaker: { type: 'string' },
           expression: {
             type: 'string',
-            enum: ['neutral', 'happy', 'sad', 'angry', 'surprised', 'thinking'],
+            enum: ['neutral', 'happy', 'sad', 'angry', 'surprised', 'shy', 'thinking'],
           },
           text: { type: 'string' },
         },
@@ -35,7 +35,10 @@ export const GM_RESPONSE_SCHEMA = {
         properties: {
           type: {
             type: 'string',
-            enum: ['adjust_stats', 'consume_item', 'set_quest_status', 'adjust_affection'],
+            enum: [
+              'adjust_stats', 'consume_item', 'set_quest_status', 'adjust_affection',
+              'set_summary', 'add_objective', 'complete_objective',
+            ],
           },
           stamina: { type: 'number' },
           hunger: { type: 'number' },
@@ -49,6 +52,9 @@ export const GM_RESPONSE_SCHEMA = {
           npcId: { type: 'string' },
           amount: { type: 'number' },
           relationship: { type: 'string' },
+          text: { type: 'string' },
+          location: { type: 'string' },
+          objectiveId: { type: 'string' },
         },
         required: ['type'],
       },

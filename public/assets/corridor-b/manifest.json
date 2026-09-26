@@ -1,0 +1,110 @@
+[
+  {
+    "id": "wall",
+    "x": 0,
+    "y": 0,
+    "width": 3560,
+    "height": 385,
+    "kind": "background",
+    "src": "/assets/corridor-a/wall.webp"
+  },
+  {
+    "id": "space",
+    "x": 0,
+    "y": 849,
+    "width": 3560,
+    "height": 147,
+    "kind": "background",
+    "src": "/assets/corridor-a/space.webp"
+  },
+  {
+    "id": "floor",
+    "x": 0,
+    "y": 346,
+    "width": 3560,
+    "height": 452,
+    "kind": "background",
+    "src": "/assets/corridor-a/floor.webp"
+  },
+  {
+    "id": "foreground",
+    "x": 0,
+    "y": 746,
+    "width": 3560,
+    "height": 103,
+    "kind": "foreground",
+    "src": "/assets/corridor-a/foreground.webp"
+  },
+  {
+    "id": "door-1",
+    "x": 439,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door",
+    "src": "/assets/corridor-a/door-1.webp"
+  },
+  {
+    "id": "door-2",
+    "x": 960,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door",
+    "src": "/assets/corridor-a/door-2.webp"
+  },
+  {
+    "id": "door-3",
+    "x": 1475,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door",
+    "src": "/assets/corridor-a/door-3.webp"
+  },
+  {
+    "id": "door-4",
+    "x": 1996,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door",
+    "src": "/assets/corridor-a/door-4.webp"
+  },
+  {
+    "id": "door-5",
+    "x": 2515,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door",
+    "src": "/assets/corridor-a/door-5.webp"
+  },
+  {
+    "id": "door-6",
+    "x": 3036,
+    "y": 198,
+    "width": 121,
+    "height": 149,
+    "kind": "door",
+    "src": "/assets/corridor-a/door-6.webp"
+  },
+  {
+    "id": "sign-greenhouse",
+    "x": 45,
+    "y": 160,
+    "width": 105,
+    "height": 70,
+    "kind": "sign",
+    "src": "/assets/corridor-a/sign-greenhouse.webp"
+  },
+  {
+    "id": "sign-medical",
+    "x": 3436,
+    "y": 160,
+    "width": 104,
+    "height": 71,
+    "kind": "sign",
+    "src": "/assets/corridor-signs/sign-medical.webp"
+  }
+]

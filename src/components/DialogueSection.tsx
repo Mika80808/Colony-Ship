@@ -1,8 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Markdown from 'react-markdown';
 import { History, Map as MapIcon, SendHorizontal, User, Zap } from 'lucide-react';
-import { DialogueTurn, ModalType, ToastMessage, NPCData } from '../types';
+import { DialogueTurn, DialogueExpression, ModalType, ToastMessage, NPCData } from '../types';
 import { sound } from '../utils/audio';
+
+/**
+ * 對話框頭像要用哪張圖。
+ *
+ * 退路是有意的：表情列舉裡有些值不一定備了圖（thinking 目前就沒有），
+ * 而 GM 想標什麼表情不該被素材進度綁住。找不到就退回預設頭像，
+ * 絕不回傳拼出來的路徑 —— 那會變成畫面上一個破圖。
+ */
+export function resolvePortrait(npc: NPCData | undefined, expression?: DialogueExpression) {
+  if (!npc) return undefined;
+  return (expression && npc.expressionUrls?.[expression]) || npc.portraitUrl;
+}
 
 interface DialogueSectionProps {
   onOpenModal: (type: ModalType) => void;
@@ -33,12 +45,16 @@ export default function DialogueSection({ onOpenModal, onSendMessage, dialogueHi
   const latestTurn = dialogueHistory.at(-1);
   const segments = latestTurn?.segments ?? [];
   const segment = segments[segmentIndex];
-  const lastSpeaker = useMemo(() => {
-    for (let index = segmentIndex; index >= 0; index--) if (segments[index]?.speaker) return segments[index].speaker;
-    return '系統';
+  // 目前這格若是敘述，說話者與表情都沿用前一句對白 —— 頭像不該因為插了一段
+  // 環境描寫就跳回預設，那會讓角色看起來在對話中途突然收起表情。
+  const speaking = useMemo(() => {
+    for (let index = segmentIndex; index >= 0; index--) if (segments[index]?.speaker) return segments[index];
+    return undefined;
   }, [segmentIndex, segments]);
 
+  const lastSpeaker = speaking?.speaker ?? '系統';
   const speakerNpc = npcs.find(npc => npc.name === lastSpeaker);
+  const portrait = resolvePortrait(speakerNpc, speaking?.expression);
   useEffect(() => setSegmentIndex(0), [latestTurn]);
   useEffect(() => { const el = textareaRef.current; if (el) { el.style.height = 'auto'; el.style.height = `${Math.min(Math.max(el.scrollHeight, 28), 120)}px`; } }, [inputText]);
   const send = (text = inputText) => { if (!text.trim() || gmPending) return; sound.playClick(); onSendMessage(text.trim()); setInputText(''); setShowQuickReplies(false); };
@@ -50,7 +66,7 @@ export default function DialogueSection({ onOpenModal, onSendMessage, dialogueHi
       <div className="dialogue-panel w-full max-w-[900px] mx-[10px] p-3 flex gap-4 z-30 items-stretch">
         {/* 頭像框固定 1:1，對應 1024×1024 的頭像素材；不跟右側對話區一起拉高，否則 object-cover 會裁掉左右。 */}<div className="w-[140px] flex-shrink-0 relative self-center">
           {toast && <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white text-slate-900 px-3 py-1.5 rounded-sm text-[13px] font-bold shadow whitespace-nowrap z-50">{toast.text}</div>}
-          <div className="w-full aspect-square rounded-xl bg-[#081024]/80 border border-sky-500/30 flex flex-col justify-end p-2 relative overflow-hidden text-center">{/* 半透明只套在「沒有頭像」的佔位圖示上；套在外層會連真頭像一起變淡、透出底色而發灰。 */}<div className="absolute inset-0 flex items-center justify-center pb-5">{speakerNpc?.portraitUrl ? <><img src={speakerNpc.portraitUrl} alt={speakerNpc.name} className="absolute inset-0 w-full h-full object-cover" />{/* 頭像恢復全亮後，底部名字需要一層漸層襯底才讀得清楚。 */}<div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#081024]/90 to-transparent" /></> : <User className="w-11 h-11 text-sky-400 opacity-60" />}</div><span className="relative text-xs font-hud font-bold text-sky-100 tracking-[0.1em] truncate">{lastSpeaker}</span></div>
+          <div className="w-full aspect-square rounded-xl bg-[#081024]/80 border border-sky-500/30 flex flex-col justify-end p-2 relative overflow-hidden text-center">{/* 半透明只套在「沒有頭像」的佔位圖示上；套在外層會連真頭像一起變淡、透出底色而發灰。 */}<div className="absolute inset-0 flex items-center justify-center pb-5">{portrait ? <><img src={portrait} alt={speakerNpc?.name ?? lastSpeaker} className="absolute inset-0 w-full h-full object-cover" />{/* 頭像恢復全亮後，底部名字需要一層漸層襯底才讀得清楚。 */}<div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#081024]/90 to-transparent" /></> : <User className="w-11 h-11 text-sky-400 opacity-60" />}</div><span className="relative text-xs font-hud font-bold text-sky-100 tracking-[0.1em] truncate">{lastSpeaker}</span></div>
         </div>
         <div className="flex-1 flex flex-col gap-3 min-w-0 h-[160px] relative">
           {showHistory && <div className="mb-1 p-3 bg-[#060a16]/95 border border-sky-500/30 rounded-xl max-h-40 overflow-y-auto text-xs space-y-3 absolute bottom-[100%] left-0 w-full z-40 shadow-xl"><div className="text-[12px] font-hud text-sky-400 font-bold border-b border-sky-500/30 pb-1">系統日誌</div>{dialogueHistory.map((turn, idx) => <div key={idx}><div className="text-sky-300">[你] {turn.playerInput}</div>{turn.segments.map((item, i) => <div key={i} className="text-slate-300 pl-2">[{item.speaker ?? '描述'}] {item.text}</div>)}</div>)}</div>}

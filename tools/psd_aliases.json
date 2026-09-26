@@ -1,0 +1,30 @@
+{
+  "_comment": "PSD layer name -> piece id, for layers not already named after their id. A list means the PSD has two layers by that name; ids are consumed in document order. Delete an entry once the layer itself is renamed.",
+
+  "OBJ_地毯3": "rug-bedroom",
+  "OBJ_地毯3 拷貝": "rug-living",
+  "OBJ_地毯2": "mat-bath",
+
+  "OBJ_鞋櫃": "bookcase",
+  "OBJ_馬桶": "wc",
+  "OBJ_洗手台": "basin",
+  "OBJ_臥室衣櫃": "tall-wardrobe",
+  "OBJ_圓桌": "coffee-table",
+  "OBJ_桌子": "gaming-desk",
+  "OBJ_臥室 床頭櫃": "bedside",
+  "OBJ_層架": "wall-shelf",
+  "OBJ_冰箱(幾乎都是飲料)": "fridge",
+  "OBJ_滑板(四周磨損嚴重)": "skateboard",
+  "OBJ_遊戲櫃(許多復古遊戲)": "game-cabinet",
+  "OBJ_沙發 正面": "sofa-west",
+  "OBJ_沙發 側面": "sofa-south",
+  "OBJ_浴室": "shower",
+  "OBJ_Bed_Base": "bed-base",
+  "FG_Bed_Blanket": "bed-blanket",
+  "OBJ_vr": "vr-headset",
+  "Door_A1_Out": "room-door",
+  "Chair for desk": "desk-chair",
+
+  "OBJ_滑板": "wall-skateboard",
+  "OBJ_懶人椅": ["cat-lounge", "sofa-center"]
+}

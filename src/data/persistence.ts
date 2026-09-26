@@ -3,13 +3,11 @@ import {
   PlayerStats,
   Quest,
   InventoryItem,
-  ItemDefinition,
-  NPCData,
   DiaryEntry,
-  StoryChapter,
-  MapSector,
   DialogueTurn,
   Objective,
+  StoryLayer,
+  StoryOverrides,
 } from '../types';
 
 /**
@@ -19,7 +17,7 @@ import {
  * 沒有後端可放進度。存檔只存在玩家自己的瀏覽器裡。
  *
  * 注意 localStorage 的兩個實際限制：
- * 1. 容量約 5MB。對話歷史已由 App 限制在 20 回合，但日記與故事書章節
+ * 1. 容量約 5MB。對話歷史已由 App 限制在 20 回合，但日記與故事書本局條目
  *    沒有上限，寫入失敗時會走 onQuotaExceeded 流程而非靜默失敗。
  * 2. 無痕視窗或封鎖網站資料時，讀寫都可能直接丟例外，
  *    所以每一個存取都包在 try/catch 裡，失敗時遊戲仍要能正常開始。
@@ -31,8 +29,11 @@ const SAVE_KEY = 'starport_save';
  * 存檔格式版本。
  * 結構有不相容變動時 +1；載入到舊版存檔會直接捨棄並從新遊戲開始，
  * 不嘗試遷移（遊戲還在開發期，資料不值得寫遷移邏輯）。
+ *
+ * v2：故事書拆層。內建內容移出存檔（見 data/story.ts），
+ * 存檔只留本局條目（runStory）與覆寫（storyOverrides）。
  */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export interface GameSave {
   version: number;
@@ -41,12 +42,12 @@ export interface GameSave {
   stats: PlayerStats;
   quests: Quest[];
   items: InventoryItem[];
-  itemDefinitions: ItemDefinition[];
-  npcs: NPCData[];
+  /** 故事書的本局條目：AI 在這一局生成的條目。內建內容不在存檔裡。 */
+  runStory: StoryLayer;
+  /** 本局對故事書條目的進度狀態（好感、關係、所在位置、啟用……），以條目 id 對應。 */
+  storyOverrides: StoryOverrides;
   dialogueHistory: DialogueTurn[];
-  chapters: StoryChapter[];
   diaryEntries: DiaryEntry[];
-  sectors: MapSector[];
   currentSectorId: string;
   currentRoomId: string | null;
   areaMemories: string[];

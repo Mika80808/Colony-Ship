@@ -8,6 +8,9 @@ export const ROOM_EXIT_POINT: Point = { x: SHELL.exit.x, y: SHELL.exit.y };
 export function canExitRoom({ x, y }: Point): boolean {
   return Math.hypot(x - ROOM_EXIT_POINT.x, y - ROOM_EXIT_POINT.y) <= SHELL.exit.radius;
 }
+// The door art starts below the player's feet. Let E work from the floor in front of it,
+// all the way down to the parapet (the floor bound already stops feet there).
+export const nearRoomDoor = ({ x, y }: Point) => x >= 190 && x <= 432 && y >= 930;
 export const STEP = 10;
 export const WALL_SIDE_CLEARANCE = SHELL.floor.sideClearance;
 // Where the south parapet in foreground.png starts covering the floor.

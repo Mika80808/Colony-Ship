@@ -1,0 +1,519 @@
+{
+  "occupant": "lucian",
+  "shell": "shell.json",
+  "decals": [
+    {
+      "id": "rug-living",
+      "image": "decals/lucian/rug-living.webp",
+      "x": 293,
+      "y": 441,
+      "width": 348,
+      "height": 342
+    },
+    {
+      "id": "rug-bedroom",
+      "image": "decals/lucian/rug-bedroom.webp",
+      "x": 768,
+      "y": 220,
+      "width": 342,
+      "height": 340
+    },
+    {
+      "id": "mat-bath",
+      "image": "decals/lucian/mat-bath.webp",
+      "x": 919,
+      "y": 801,
+      "width": 136,
+      "height": 93
+    }
+  ],
+  "objects": [
+    {
+      "id": "wall-shelf",
+      "image": "furniture/lucian/wall-shelf.webp",
+      "x": 727,
+      "y": 80,
+      "width": 179,
+      "height": 85,
+      "depth": 138
+    },
+    {
+      "id": "tall-wardrobe",
+      "image": "furniture/lucian/tall-wardrobe.webp",
+      "x": 1104,
+      "y": 80,
+      "width": 78,
+      "height": 292,
+      "depth": 345,
+      "solid": [
+        {
+          "x": 1113,
+          "y": 180,
+          "width": 65,
+          "height": 184
+        }
+      ]
+    },
+    {
+      "id": "wall-skateboard",
+      "image": "furniture/lucian/wall-skateboard.webp",
+      "x": 1053,
+      "y": 95,
+      "width": 47,
+      "height": 71,
+      "depth": 137
+    },
+    {
+      "id": "bedside",
+      "image": "furniture/lucian/bedside.webp",
+      "x": 763,
+      "y": 160,
+      "width": 80,
+      "height": 95,
+      "depth": 208,
+      "solid": [
+        {
+          "x": 762,
+          "y": 195,
+          "width": 73,
+          "height": 55
+        }
+      ]
+    },
+    {
+      "id": "gaming-desk",
+      "image": "furniture/lucian/gaming-desk.webp",
+      "x": 100,
+      "y": 148,
+      "width": 278,
+      "height": 158,
+      "depth": 304,
+      "solid": [
+        {
+          "x": 100,
+          "y": 205,
+          "width": 275,
+          "height": 96
+        }
+      ]
+    },
+    {
+      "id": "cat-lounge",
+      "image": "furniture/lucian/cat-lounge.webp",
+      "x": 557,
+      "y": 192,
+      "width": 117,
+      "height": 112,
+      "depth": 302,
+      "solid": [
+        {
+          "x": 559,
+          "y": 230,
+          "width": 116,
+          "height": 70
+        }
+      ]
+    },
+    {
+      "id": "bin",
+      "image": "furniture/lucian/bin.webp",
+      "x": 503,
+      "y": 206,
+      "width": 50,
+      "height": 76,
+      "depth": 280,
+      "solid": [
+        {
+          "x": 505,
+          "y": 230,
+          "width": 47,
+          "height": 50
+        }
+      ]
+    },
+    {
+      "id": "console-stack",
+      "image": "furniture/lucian/console-stack.webp",
+      "x": 489,
+      "y": 385,
+      "width": 43,
+      "height": 107,
+      "depth": 490,
+      "solid": [
+        {
+          "x": 490,
+          "y": 430,
+          "width": 40,
+          "height": 62
+        }
+      ]
+    },
+    {
+      "id": "drinks-trolley",
+      "image": "furniture/lucian/drinks-trolley.webp",
+      "x": 158,
+      "y": 440,
+      "width": 78,
+      "height": 84,
+      "depth": 522,
+      "solid": [
+        {
+          "x": 160,
+          "y": 466,
+          "width": 70,
+          "height": 54
+        }
+      ]
+    },
+    {
+      "id": "coffee-table",
+      "image": "furniture/lucian/coffee-table.webp",
+      "x": 368,
+      "y": 544,
+      "width": 138,
+      "height": 153,
+      "depth": 695,
+      "solid": [
+        {
+          "x": 372,
+          "y": 570,
+          "width": 130,
+          "height": 122
+        }
+      ]
+    },
+    {
+      "id": "appliance-plant",
+      "image": "furniture/lucian/appliance-plant.webp",
+      "x": 66,
+      "y": 591,
+      "width": 81,
+      "height": 230,
+      "depth": 819,
+      "solid": [
+        {
+          "x": 83,
+          "y": 610,
+          "width": 50,
+          "height": 107
+        },
+        {
+          "x": 73,
+          "y": 747,
+          "width": 60,
+          "height": 72
+        }
+      ]
+    },
+    {
+      "id": "drawers",
+      "image": "furniture/lucian/drawers.webp",
+      "x": 402,
+      "y": 798,
+      "width": 280,
+      "height": 127,
+      "depth": 923,
+      "solid": [
+        {
+          "x": 405,
+          "y": 842,
+          "width": 275,
+          "height": 80
+        }
+      ]
+    },
+    {
+      "id": "bath-storage",
+      "image": "furniture/lucian/bath-storage.webp",
+      "x": 941,
+      "y": 836,
+      "width": 248,
+      "height": 188,
+      "depth": 1022,
+      "solid": [
+        {
+          "x": 1000,
+          "y": 852,
+          "width": 185,
+          "height": 170
+        }
+      ]
+    },
+    {
+      "id": "bookcase",
+      "image": "furniture/lucian/bookcase.webp",
+      "x": 80,
+      "y": 847,
+      "width": 139,
+      "height": 128,
+      "depth": 973,
+      "solid": [
+        {
+          "x": 90,
+          "y": 885,
+          "width": 126,
+          "height": 85
+        }
+      ]
+    },
+    {
+      "id": "fridge",
+      "image": "furniture/lucian/fridge.webp",
+      "x": 80,
+      "y": 354,
+      "width": 88,
+      "height": 174,
+      "depth": 528,
+      "label": "冰箱",
+      "inspectText": "幾乎都是飲料",
+      "solid": [
+        {
+          "x": 88,
+          "y": 390,
+          "width": 70,
+          "height": 130
+        }
+      ]
+    },
+    {
+      "id": "skateboard",
+      "image": "furniture/lucian/skateboard.webp",
+      "x": 73,
+      "y": 934,
+      "width": 42,
+      "height": 113,
+      "depth": 1047,
+      "label": "滑板",
+      "inspectText": "四周磨損嚴重",
+      "solid": [
+        {
+          "x": 78,
+          "y": 942,
+          "width": 36,
+          "height": 98
+        }
+      ]
+    },
+    {
+      "id": "game-cabinet",
+      "image": "furniture/lucian/game-cabinet.webp",
+      "x": 381,
+      "y": 186,
+      "width": 106,
+      "height": 93,
+      "depth": 279,
+      "label": "遊戲櫃",
+      "inspectText": "許多復古遊戲",
+      "solid": [
+        {
+          "x": 386,
+          "y": 215,
+          "width": 97,
+          "height": 64
+        }
+      ]
+    },
+    {
+      "id": "sofa-west",
+      "image": "furniture/lucian/sofa-west.webp",
+      "x": 365,
+      "y": 354,
+      "width": 148,
+      "height": 131,
+      "depth": 482,
+      "label": "單人沙發",
+      "solid": [
+        {
+          "x": 380,
+          "y": 395,
+          "width": 113,
+          "height": 83
+        }
+      ]
+    },
+    {
+      "id": "sofa-center",
+      "image": "furniture/lucian/sofa-center.webp",
+      "x": 525,
+      "y": 394,
+      "width": 155,
+      "height": 158,
+      "depth": 548,
+      "label": "懶骨頭沙發",
+      "solid": [
+        {
+          "x": 540,
+          "y": 450,
+          "width": 125,
+          "height": 90
+        }
+      ]
+    },
+    {
+      "id": "sofa-south",
+      "image": "furniture/lucian/sofa-south.webp",
+      "x": 580,
+      "y": 551,
+      "width": 100,
+      "height": 137,
+      "depth": 685,
+      "label": "單人沙發",
+      "solid": [
+        {
+          "x": 592,
+          "y": 586,
+          "width": 75,
+          "height": 92
+        }
+      ]
+    },
+    {
+      "id": "desk-chair",
+      "image": "furniture/lucian/desk-chair.webp",
+      "x": 183,
+      "y": 198,
+      "width": 112,
+      "height": 167,
+      "depth": 360,
+      "label": "電腦椅",
+      "solid": [
+        {
+          "x": 200,
+          "y": 278,
+          "width": 78,
+          "height": 75
+        }
+      ]
+    },
+    {
+      "id": "bed-base",
+      "image": "furniture/lucian/bed-base.webp",
+      "x": 848,
+      "y": 144,
+      "width": 201,
+      "height": 232,
+      "depth": 350,
+      "label": "床鋪",
+      "solid": [
+        {
+          "x": 844,
+          "y": 185,
+          "width": 190,
+          "height": 183
+        }
+      ]
+    },
+    {
+      "id": "bed-blanket",
+      "image": "furniture/lucian/bed-blanket.webp",
+      "x": 848,
+      "y": 208,
+      "width": 201,
+      "height": 149,
+      "depth": 352,
+      "label": "棉被"
+    },
+    {
+      "id": "vr-headset",
+      "image": "furniture/lucian/vr-headset.webp",
+      "x": 406,
+      "y": 551,
+      "width": 55,
+      "height": 43,
+      "depth": 592,
+      "label": "VR 頭戴裝置"
+    }
+  ],
+  "looseSolids": [
+    {
+      "x": 944,
+      "y": 961,
+      "width": 52,
+      "height": 60
+    }
+  ],
+  "seats": [
+    {
+      "id": "sofa-west",
+      "position": {
+        "x": 440,
+        "y": 463
+      },
+      "direction": "down",
+      "access": {
+        "x": 440,
+        "y": 510
+      }
+    },
+    {
+      "id": "sofa-south",
+      "position": {
+        "x": 625,
+        "y": 650
+      },
+      "direction": "left",
+      "access": {
+        "x": 550,
+        "y": 640
+      }
+    },
+    {
+      "id": "desk-chair",
+      "position": {
+        "x": 239,
+        "y": 322
+      },
+      "direction": "up",
+      "access": {
+        "x": 239,
+        "y": 390
+      }
+    }
+  ],
+  "patrol": [
+    {
+      "x": 250,
+      "y": 560
+    },
+    {
+      "x": 570,
+      "y": 340
+    },
+    {
+      "x": 600,
+      "y": 760
+    },
+    {
+      "x": 760,
+      "y": 980
+    },
+    {
+      "x": 760,
+      "y": 500
+    },
+    {
+      "x": 900,
+      "y": 430
+    },
+    {
+      "x": 760,
+      "y": 980
+    },
+    {
+      "x": 300,
+      "y": 920
+    }
+  ],
+  "bed": {
+    "id": "bed-base",
+    "actorDepth": 351,
+    "restY": 282,
+    "leftX": 903,
+    "rightX": 993,
+    "access": [
+      { "x": 808, "y": 304 },
+      { "x": 1080, "y": 304 },
+      { "x": 948, "y": 404 }
+    ]
+  }
+}

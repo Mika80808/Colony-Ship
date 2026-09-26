@@ -4,12 +4,18 @@ import { inRect } from './roomFurniture';
 import { PIECES, RoomPiece, SEATS } from './roomRuntime';
 
 export interface RoomSeat { id: string; position: Point; direction: Direction; access: Point; furniture: RoomPiece }
-/** Seats of the active room, resolved against the furniture they belong to. */
-export const ROOM_SEATS: RoomSeat[] = SEATS.map(seat => ({ ...seat, furniture: PIECES.find(item => item.id === seat.id)! }));
+/**
+ * Seats of the active room, resolved against the furniture they belong to.
+ * Resolved per call rather than at import, because the room can change.
+ */
+export const roomSeats = (): RoomSeat[] => SEATS.flatMap(seat => {
+  const furniture = PIECES.find(item => item.id === seat.id);
+  return furniture ? [{ ...seat, furniture }] : [];
+});
 export interface SeatState { phase: 'idle' | 'approaching' | 'sitting'; seat: RoomSeat | null; exitPoint: Point | null }
 export const createSeatState = (): SeatState => ({ phase: 'idle', seat: null, exitPoint: null });
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
-export const clickedSeat = (point: Point) => ROOM_SEATS.find(seat => inRect(point, seat.furniture));
+export const clickedSeat = (point: Point) => roomSeats().find(seat => inRect(point, seat.furniture));
 export const canUseSeat = (actor: RoomActor, seat: RoomSeat) => distance(actor.position, seat.access) <= 55 && canTraverse(actor.position, seat.access);
 function sit(actor: RoomActor, state: SeatState, seat: RoomSeat) {
   state.exitPoint = { ...actor.position }; state.seat = seat; state.phase = 'sitting';
@@ -23,7 +29,7 @@ export function leaveSeat(actor: RoomActor, state: SeatState): boolean {
 }
 export function interactSeat(actor: RoomActor, state: SeatState): boolean {
   if (state.phase === 'sitting') return leaveSeat(actor, state);
-  const seat = ROOM_SEATS.filter(seat => canUseSeat(actor, seat)).sort((a, b) => distance(actor.position, a.access) - distance(actor.position, b.access))[0];
+  const seat = roomSeats().filter(seat => canUseSeat(actor, seat)).sort((a, b) => distance(actor.position, a.access) - distance(actor.position, b.access))[0];
   if (!seat) return false;
   sit(actor, state, seat); return true;
 }

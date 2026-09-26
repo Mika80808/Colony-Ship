@@ -1,11 +1,11 @@
 {
   "width": 1254,
   "height": 1254,
-  "base": "shell/base.png",
+  "base": "shell/base.webp",
   "overlays": [
     {
       "id": "bath-side-wall",
-      "image": "bath-side-wall.png",
+      "image": "shell/bath-side-wall.webp",
       "dst": [
         830,
         552,
@@ -16,7 +16,7 @@
     },
     {
       "id": "central-wall-lower",
-      "image": "central-wall.png",
+      "image": "shell/central-wall.webp",
       "src": [
         0,
         502,
@@ -33,7 +33,7 @@
     },
     {
       "id": "central-wall-upper",
-      "image": "central-wall.png",
+      "image": "shell/central-wall.webp",
       "src": [
         0,
         0,
@@ -50,7 +50,7 @@
     },
     {
       "id": "foreground",
-      "image": "foreground.png",
+      "image": "shell/foreground.webp",
       "dst": [
         77,
         552,
@@ -86,7 +86,7 @@
     "sideClearance": 36,
     "northY": {
       "left": 245,
-      "right": 175,
+      "right": 210,
       "splitX": 680
     },
     "southWallLine": 1043,
@@ -106,7 +106,7 @@
   "fixtures": [
     {
       "id": "basin",
-      "image": "basin.png",
+      "image": "furniture/common/basin.webp",
       "x": 955,
       "y": 637,
       "width": 101,
@@ -123,7 +123,7 @@
     },
     {
       "id": "wc",
-      "image": "wc.png",
+      "image": "furniture/common/wc.webp",
       "x": 891,
       "y": 673,
       "width": 52,
@@ -139,8 +139,8 @@
       ]
     },
     {
-      "id": "door-a1-out",
-      "image": "door-a1-out.png",
+      "id": "room-door",
+      "image": "shell/room-door.webp",
       "x": 220,
       "y": 1022,
       "width": 182,
@@ -150,7 +150,7 @@
     },
     {
       "id": "shower",
-      "image": "shower.png",
+      "image": "furniture/common/shower.webp",
       "x": 1049,
       "y": 606,
       "width": 144,

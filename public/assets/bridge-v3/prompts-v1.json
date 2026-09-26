@@ -1,0 +1,65 @@
+{
+  "tool": "built-in image_gen",
+  "prompts": [
+    {
+      "asset": "command_console",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Extract ONLY the top U-shaped command console with three blue display wings and wing emblem on front. Remove captain chair completely, reconstruct inner console edge. No floor. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "captain_chair",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Extract ONLY the top center captain chair, facing toward image bottom exactly as source. Complete hidden lower chair and base naturally. No desk. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "left_console",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Extract ONLY the left curved workstation console, retaining original orientation and blue screens. No chair or floor. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "right_console",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Extract ONLY the right curved workstation console, retaining original orientation and blue screens. No chair or floor. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "left_chair",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Extract ONLY left workstation chair with exact side-facing orientation toward image right. Complete hidden portions. No console. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "right_chair",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Extract ONLY right workstation chair with exact side-facing orientation toward image left. Complete hidden portions. No console. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "left_planter",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Extract ONLY upper-left leafy potted plant including its white square metal pot with cyan strip. No floor. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "right_planter",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Extract ONLY upper-right leafy potted plant including its white square metal pot with cyan strip. No floor. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "elevator_ring",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Use central circular projector as edit target. Extract and adapt ONLY fixed outer annular housing into a low-profile floor-flush elevator rim, with open fully transparent center. Preserve white segmented metal and cyan lights. The bottom/front segment must be flush enough for a person to walk over. No central disk, no hologram, no floor. One complete ring. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "elevator_platform",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Extract ONLY the central dark round disk INSIDE the circular projector's white rim. This is an elevator standing platform: dark navy metal disk with fine radial seams, subtle cyan concentric line and tiny central dot. Preserve original camera and slightly elliptical projection. No white outer ring, no hologram. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "elevator_well",
+      "prompt": "Use case: background-extraction. Input image is the edit target. Produce ONE isolated game sprite asset: Create ONLY the dark recessed elevator shaft interior to fit INSIDE the original central circular projector's rim. Same overhead camera, elliptical opening, dark navy cylindrical inner walls with subtle vertical rails and bottom in shadow. No outer white ring, no platform, no characters, no hologram. Transparent outside elliptical opening. Preserve source object's exact design, orientation, camera angle, white gray metal and cyan blue lights, high-resolution RPG pixel illustration style. Reconstruct occluded parts only as necessary. Actual transparent alpha background, NOT checkerboard, no labels, no other objects, no ground shadow. Center whole object with tight but safe padding. This is a separate asset for 星際港."
+    },
+    {
+      "asset": "bridge-background-clean",
+      "prompt": "Edit this room background ONLY at the central circular device: REMOVE the entire white circular ring AND dark central disk and their shadow. Fill their former position with ordinary flat gray floor tiles continuing the surrounding grid. Keep the large thin painted floor circle outside the former device. There must be absolutely NO round machinery, no platform and no hole in the center. Preserve every other part of image, the closed front wall, empty furniture zones, window, lighting, camera, dimensions. This is a clean floor plate."
+    },
+    {
+      "asset": "elevator_well_clean",
+      "prompt": "Remove ONLY the entire white outer rim and all exterior housing, leaving ONLY the dark interior shaft as an elliptical sprite, with the inside dark walls and subtle cyan rails. Outside the inner opening is genuinely transparent alpha. Keep original camera. No white trim at all."
+    },
+    {
+      "asset": "elevator_ring_rear",
+      "prompt": "Keep ONLY the UPPER/BACK semicircle of this exact ring, including its left and right halves down to the horizontal center line. Remove the LOWER/FRONT semicircle to transparent. Preserve exact canvas, size, position and remaining pixels. Transparent background and center. This is the rear occlusion layer, not a new design."
+    },
+    {
+      "asset": "elevator_ring_front",
+      "prompt": "Keep ONLY the LOWER/FRONT semicircle of this exact ring, including its left and right halves up to the horizontal center line. Remove the UPPER/BACK semicircle to transparent. Preserve exact canvas, size, position and remaining pixels. Transparent background and center. This is the foreground occlusion layer, not a new design."
+    }
+  ]
+}

@@ -3,25 +3,34 @@ import { canTraverse, findPath, isWalkable, Point } from './roomNavigation';
 import { inRect } from './roomFurniture';
 import { BED as BED_DATA, PIECES } from './roomRuntime';
 
-export const BED = PIECES.find(item => item.id === BED_DATA.id)!;
+/**
+ * The active room's bed art, looked up on every call: rooms swap at runtime and
+ * an empty room has no bed at all, so a value captured at import would go stale.
+ */
+export const bedPiece = () => (BED_DATA.id ? PIECES.find(item => item.id === BED_DATA.id) : undefined);
 export type BedSide = 'left' | 'right';
-export const bedSideAt = (point: Point): BedSide => point.x < BED.x + BED.width / 2 ? 'left' : 'right';
-// Lying position is pinned by two edges: bed-base.png starts at y=123 and the
-// sprite's head is 136px above its feet, so the feet cannot sit above 259
-// without the head poking out over the headboard; bed-blanket.png is opaque
-// from y=184 and the face is 73-90px above the feet, so below 257 the blanket
-// swallows the face. That leaves the head on the pillow band at y=164-190.
-export const BED_PILLOW_REST_Y = BED_DATA.restY;
-export const bedRestPoint = (side: BedSide): Point => ({ x: side === 'left' ? BED_DATA.leftX : BED_DATA.rightX, y: BED_PILLOW_REST_Y });
-export const BED_REST_POINT: Point = bedRestPoint('left');
-export const BED_ACTOR_DEPTH = BED_DATA.actorDepth;
-const ACCESS_POINTS: Point[] = [{ x: 800, y: 280 }, { x: 1080, y: 280 }, { x: 940, y: 380 }];
+export const bedSideAt = (point: Point): BedSide => {
+  const bed = bedPiece();
+  return !bed || point.x < bed.x + bed.width / 2 ? 'left' : 'right';
+};
+// Lying position is pinned by two edges: the bed base art starts 3px below the
+// piece's y and the sprite's head is 136px above its feet, so the feet cannot
+// sit too high without the head poking out over the headboard; the blanket is
+// opaque from its own top edge and the face is 73-90px above the feet, so too
+// low and the blanket swallows the face. restY is the value that satisfies
+// both, and it has to be re-derived whenever the bed art moves.
+export const bedRestPoint = (side: BedSide): Point => ({ x: side === 'left' ? BED_DATA.leftX : BED_DATA.rightX, y: BED_DATA.restY });
+/** Where a resting actor sorts: between the bed base and the blanket. */
+export const bedActorDepth = () => BED_DATA.actorDepth;
 export interface BedState { phase: 'idle' | 'approaching' | 'resting'; exitPoint: Point | null; side: BedSide | null }
 export const createBedState = (): BedState => ({ phase: 'idle', exitPoint: null, side: null });
-export const clickedBed = (point: Point) => inRect(point, BED);
+export const clickedBed = (point: Point) => {
+  const bed = bedPiece();
+  return !!bed && inRect(point, bed);
+};
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
 export function canUseBed(actor: RoomActor): boolean {
-  return ACCESS_POINTS.some(point => distance(actor.position, point) <= 65 && canTraverse(actor.position, point));
+  return BED_DATA.access.some(point => distance(actor.position, point) <= 65 && canTraverse(actor.position, point));
 }
 function enterBed(actor: RoomActor, bed: BedState) {
   bed.side ??= bedSideAt(actor.position);
@@ -52,7 +61,7 @@ export function approachBed(actor: RoomActor, bed: BedState, selectedSide?: BedS
   }
   bed.side = selectedSide ?? bedSideAt(actor.position);
   if (canUseBed(actor)) { enterBed(actor, bed); return true; }
-  const routes = ACCESS_POINTS.map(point => ({ point, path: findPath(actor.position, point) }))
+  const routes = BED_DATA.access.map(point => ({ point, path: findPath(actor.position, point) }))
     .filter(route => route.path.length).sort((a, b) => a.path.length - b.path.length);
   if (!routes.length || !setDestination(actor, routes[0].point)) return false;
   bed.phase = 'approaching';

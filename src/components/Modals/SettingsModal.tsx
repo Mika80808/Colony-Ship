@@ -17,8 +17,11 @@ import {
   Database,
   LogOut,
   FolderArchive,
-  Sparkles
+  Sparkles,
+  BookOpen
 } from 'lucide-react';
+import { StoryLayer } from '../../types';
+import { builtinStoryToJson } from '../../data/story';
 import { sound } from '../../utils/sound';
 import ModalShell from './ModalShell';
 import AiProviderFields from './AiProviderFields';
@@ -39,6 +42,20 @@ interface SettingsModalProps {
   onToggleMute?: () => void;
   onNewGame?: () => void;
   onClose: () => void;
+  /** 故事書內建內容。匯出成 JSON 供之後寫回程式碼。 */
+  builtinStory?: StoryLayer;
+  /** 從程式碼補上內建內容缺少的條目，回傳補上的筆數。 */
+  onFillMissingBuiltin?: () => number;
+}
+
+/** 把文字存成檔案下載。 */
+function downloadText(text: string, filename: string) {
+  const anchor = document.createElement('a');
+  anchor.setAttribute('href', 'data:text/json;charset=utf-8,' + encodeURIComponent(text));
+  anchor.setAttribute('download', filename);
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
@@ -47,6 +64,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onToggleMute,
   onNewGame,
   onClose,
+  builtinStory,
+  onFillMissingBuiltin,
 }) => {
   // 注意：不要在這裡提早 return。isOpen 由 ModalShell 判斷，
   // 否則下面的 useState 會被條件性略過，React 會因 hook 數量變動而報錯。
@@ -489,6 +508,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </button>
             </div>
           </div>
+
+          {/* ================= 故事書內建內容 ================= */}
+          {builtinStory && (
+            <div className="glass-card bg-[#0a1330]/80 rounded-xl p-3.5 space-y-2 border border-white/[0.08]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-sky-400" />
+                  <span className="text-xs font-bold text-slate-100">故事書內建內容</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {onFillMissingBuiltin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.playClick();
+                        const added = onFillMissingBuiltin();
+                        triggerStatus(added ? `已從程式碼補上 ${added} 筆內建條目` : '沒有缺少的內建條目');
+                      }}
+                      className="px-3 py-1.5 bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/[0.08] rounded-xl text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                      title="只新增內建內容中沒有的條目（以 id 判斷），不覆蓋既有條目"
+                    >
+                      <Download className="w-3.5 h-3.5 text-amber-400" />
+                      <span>從程式碼補上缺少的內建條目</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      downloadText(builtinStoryToJson(builtinStory), `builtin_story_${Date.now()}.json`);
+                    }}
+                    className="px-3 py-1.5 bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/[0.08] rounded-xl text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-sky-400" />
+                    <span>匯出 JSON</span>
+                  </button>
+                </div>
+              </div>
+              <div className="text-[12px] text-slate-500">
+                角色 {builtinStory.npcs.length}・物品 {builtinStory.items.length}・事件 {builtinStory.chapters.length}・地點 {builtinStory.sectors.length}。所有存檔共用，新開遊戲不會清空。
+              </div>
+            </div>
+          )}
 
           {/* Toast Notification */}
           {statusNotification && (

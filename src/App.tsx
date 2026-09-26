@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import SceneLayer from './components/SceneLayer';
 import RoomScene from './components/RoomScene';
 import CorridorScene from './components/CorridorScene';
+import { CORRIDORS } from './game/corridor';
+import { furnishingFor } from './game/roomRuntime';
+import { addMinutes, crossesCheckpoint, hourOf, planRelocation, sceneOf } from './data/npcSchedule';
+import BridgeScene from './components/BridgeScene';
+import GreenhouseScene from './components/GreenhouseScene';
 import HeaderHUD from './components/HeaderHUD';
 import LeftSidebar, { Objective } from './components/LeftSidebar';
 import DialogueSection from './components/DialogueSection';
@@ -19,14 +24,15 @@ import {
   PlayerStats,
   Quest,
   InventoryItem,
-  ItemDefinition,
-  NPCData,
   DiaryEntry,
-  StoryChapter,
   MapSector,
   ToastMessage,
   DialogueTurn,
   GmCommand,
+  MergedStory,
+  StoryKind,
+  StoryLayer,
+  StoryOverrides,
 } from './types';
 import {
   START_SECTOR_ID,
@@ -34,13 +40,13 @@ import {
   EMPTY_PROFILE,
 
   INITIAL_QUESTS,
-  INITIAL_ITEM_DEFINITIONS,
   INITIAL_INVENTORY,
-  INITIAL_NPCS,
+  INITIAL_AFFECTION,
   INITIAL_DIALOGUE_HISTORY,
-  INITIAL_CHAPTERS,
   INITIAL_DIARY_ENTRIES,
-  INITIAL_SECTORS,
+  EMPTY_RUN_STORY,
+  EMPTY_OVERRIDES,
+  ROOMS,
   INITIAL_AREA_MEMORIES,
   INITIAL_OBJECTIVES,
   INITIAL_SUMMARY,
@@ -49,6 +55,7 @@ import {
   GAME_START_TIME,
 } from './data/initialGameData';
 import { loadGameSave, writeGameSave, clearGameSave } from './data/persistence';
+import { loadBuiltinStory, writeBuiltinStory, mergeStory, splitEntries, fillMissingBuiltin, findRoomOccupant } from './data/story';
 import { sound } from './utils/audio';
 import { runGm, GmError } from './gm';
 import { suggestQuickReplies, generateDiaryDraft } from './gm/assistant';
@@ -99,43 +106,76 @@ export default function App() {
     setQuests((prev) => prev.filter((q) => q.id !== quest.id));
   };
 
-  // 玩家背包。與下面故事書用的設定集物品定義是兩份資料。
+  // 玩家背包。與故事書的物品定義是兩份資料。
   const [items, setItems] = useState<InventoryItem[]>(saved?.items ?? INITIAL_INVENTORY);
 
-  // 設定集的物品定義。故事書物品分頁編輯這一份，不動玩家背包。
-  const [itemDefinitions, setItemDefinitions] = useState<ItemDefinition[]>(
-    saved?.itemDefinitions ?? INITIAL_ITEM_DEFINITIONS
+  /*
+   * 故事書三層資料（見 data/story.ts）：
+   * - 內建內容：開發者編寫，存在獨立的 localStorage 鍵，所有存檔共用，新開遊戲不清空。
+   * - 本局條目：AI 在這一局生成的條目，跟著存檔走。目前還沒有寫入來源。
+   * - 覆寫：本局對條目的進度狀態（好感、關係、所在位置、啟用），跟著存檔走。
+   * 故事書 UI 與遊戲其他部分都只讀合併後的 story。
+   */
+  const [builtinStory, setBuiltinStory] = useState<StoryLayer>(loadBuiltinStory);
+  const [runStory, setRunStory] = useState<StoryLayer>(saved?.runStory ?? EMPTY_RUN_STORY);
+  const [storyOverrides, setStoryOverrides] = useState<StoryOverrides>(saved?.storyOverrides ?? EMPTY_OVERRIDES);
+  const story = useMemo(
+    () => mergeStory(builtinStory, runStory, storyOverrides),
+    [builtinStory, runStory, storyOverrides]
   );
+  const { npcs, sectors } = story;
 
-  // NPCs Data
-  const [npcs, setNpcs] = useState<NPCData[]>(saved?.npcs ?? INITIAL_NPCS);
+  /** 故事書 UI 交回整份清單，依每筆的來源拆回內建與本局兩層。 */
+  const changeStory = <K extends StoryKind>(kind: K) => (next: MergedStory[K]) => {
+    const { builtin, run } = splitEntries(kind, next);
+    setBuiltinStory((prev) => ({ ...prev, [kind]: builtin }));
+    setRunStory((prev) => ({ ...prev, [kind]: run }));
+  };
+
+  /** 切換條目的啟用狀態。存在覆寫裡，跟著存檔走。 */
+  const toggleStoryEntry = (kind: StoryKind, id: string) =>
+    setStoryOverrides((prev) => {
+      const current = prev[kind][id] ?? {};
+      return { ...prev, [kind]: { ...prev[kind], [id]: { ...current, enabled: !(current.enabled ?? true) } } };
+    });
+
+  // 內建內容一變就寫回自己的鍵。第一次啟動時也由這裡把種子寫進去。
+  const builtinSaveFailedRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (writeBuiltinStory(builtinStory)) {
+      builtinSaveFailedRef.current = false;
+    } else if (!builtinSaveFailedRef.current) {
+      builtinSaveFailedRef.current = true;
+      triggerToast('故事書內建內容寫入失敗：瀏覽器儲存空間不足或無法寫入');
+    }
+  }, [builtinStory]);
 
   // Dialogue History
   const [dialogueHistory, setDialogueHistory] = useState<DialogueTurn[]>(saved?.dialogueHistory ?? INITIAL_DIALOGUE_HISTORY);
 
-  // Story Chapters Data
-  const [chapters, setChapters] = useState<StoryChapter[]>(saved?.chapters ?? INITIAL_CHAPTERS);
-
   // Diary Entries (Personal Logs)
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>(saved?.diaryEntries ?? INITIAL_DIARY_ENTRIES);
 
-  // Map Sectors (中上方: 研究室 / 右方: 溫室 / 下方: 醫療區 / 左方: 工程部 / 正中間: 1. 艦橋, 2. 中央公園)
-  const [sectors, setSectors] = useState<MapSector[]>(saved?.sectors ?? INITIAL_SECTORS);
-
   const [currentSectorId, setCurrentSectorId] = useState<string>(saved?.currentSectorId ?? START_SECTOR_ID);
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(saved?.currentRoomId ?? null);
+  const [bridgeEntry, setBridgeEntry] = useState(0);
+  // 剛走出來的房間。回到走廊時站在那扇門前，而不是一律回到 A-1 門口。
+  const [returnRoomId, setReturnRoomId] = useState<string | null>(null);
 
   // 以下四項原本寫死在各元件內部，現在改由這裡供給。
   // 前三項屬於遊戲進度、會進存檔，但目前還沒有 setter：內容要等 Phase 3
   // 由 GM 生成後才會變動。
   const [areaMemories] = useState<string[]>(saved?.areaMemories ?? INITIAL_AREA_MEMORIES);
-  const [objectives] = useState<Objective[]>(saved?.objectives ?? INITIAL_OBJECTIVES);
-  const [summary] = useState<string>(saved?.summary ?? INITIAL_SUMMARY);
+  const [objectives, setObjectives] = useState<Objective[]>(saved?.objectives ?? INITIAL_OBJECTIVES);
+  const [summary, setSummary] = useState<string>(saved?.summary ?? INITIAL_SUMMARY);
   // 快速回覆由助理 AI 依對話產生，見下方 requestQuickReplies。
 
   // 遊戲時間。不抓現實系統時間，也不每秒 setState 重繪整個 header。
-  const [gameDate] = useState<string>(saved?.gameDate ?? GAME_START_DATE);
-  const [gameTime] = useState<string>(saved?.gameTime ?? GAME_START_TIME);
+  // 只能經由下方的 advanceGameTime 推進，檢查點判定集中在那裡。
+  const [gameDate, setGameDate] = useState<string>(saved?.gameDate ?? GAME_START_DATE);
+  const [gameTime, setGameTime] = useState<string>(saved?.gameTime ?? GAME_START_TIME);
+  // 重置進度時 +1：場景可能沒變（本來就在起點），但 NPC 位置被清空了，仍要重算。
+  const [sceneEpoch, setSceneEpoch] = useState(0);
 
   /**
    * 自動存檔。
@@ -150,8 +190,8 @@ export default function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       const ok = writeGameSave({
-        profile, stats, quests, items, itemDefinitions, npcs, dialogueHistory,
-        chapters, diaryEntries, sectors, currentSectorId, currentRoomId,
+        profile, stats, quests, items, runStory, storyOverrides, dialogueHistory,
+        diaryEntries, currentSectorId, currentRoomId,
         areaMemories, objectives, summary, gameDate, gameTime,
       });
       if (ok) {
@@ -163,8 +203,8 @@ export default function App() {
     }, 500);
     return () => clearTimeout(timer);
   }, [
-    profile, stats, quests, items, itemDefinitions, npcs, dialogueHistory,
-    chapters, diaryEntries, sectors, currentSectorId, currentRoomId,
+    profile, stats, quests, items, runStory, storyOverrides, dialogueHistory,
+    diaryEntries, currentSectorId, currentRoomId,
     areaMemories, objectives, summary, gameDate, gameTime,
   ]);
 
@@ -252,22 +292,75 @@ export default function App() {
     }));
     if (command.type === 'consume_item') setItems((prev) => prev.map((item) => item.id === command.itemId ? { ...item, count: item.count - (command.count ?? 1) } : item).filter((item) => item.count > 0));
     if (command.type === 'set_quest_status') setQuests((prev) => prev.map((quest) => quest.id === command.questId ? { ...quest, status: command.status } : quest));
-    if (command.type === 'adjust_affection') setNpcs((prev) => prev.map((npc) => npc.id === command.npcId ? { ...npc, affection: npc.affection + command.amount, relationship: command.relationship ?? npc.relationship } : npc));
+    // 好感與關係是本局進度，寫進覆寫，不動故事書條目本身。
+    if (command.type === 'adjust_affection') setStoryOverrides((prev) => {
+      const current = prev.npcs[command.npcId] ?? {};
+      const next = { ...current, affection: (current.affection ?? INITIAL_AFFECTION) + command.amount };
+      if (command.relationship) next.relationship = command.relationship;
+      return { ...prev, npcs: { ...prev.npcs, [command.npcId]: next } };
+    });
+    if (command.type === 'set_summary') setSummary(command.text);
+    // id 由這裡發，不讓 GM 自己取：模型會重複用同一個字串，兩則目標撞 id
+    // 之後 React 的 key 就會亂掉，結案也會一次關掉兩則。
+    if (command.type === 'add_objective') setObjectives((prev) => [...prev, { id: `obj-${Date.now()}-${prev.length}`, text: command.text, location: command.location }]);
+    if (command.type === 'complete_objective') setObjectives((prev) => prev.map((objective) => objective.id === command.objectiveId ? { ...objective, done: true } : objective));
   });
 
   const currentSector = sectors.find((s) => s.id === currentSectorId) ?? null;
 
+  /**
+   * 目前所在的房間。房號必須屬於目前的居住區，否則視為在走廊。
+   * 房間只是共用空殼；陳設依住戶（由 NPC 的房號反查）疊上去，沒有陳設就是空房。
+   */
+  const currentRoom = ROOMS.find((room) => room.id === currentRoomId && room.sectorId === currentSectorId) ?? null;
+  const roomOccupant = currentRoom ? findRoomOccupant(npcs, currentRoom.id) : undefined;
+
   const currentSectorName =
     (currentSector?.name || '1. 艦橋') + (currentRoomId ? ` (${currentRoomId})` : '');
 
+  /** 玩家眼前的場景：房號，或所在區域（居住區沒進房間就是走廊）。 */
+  const playerScene = sceneOf(currentSectorId, currentRoom?.id ?? null);
+
   /**
-   * 在場 NPC。GM 只能讓這些角色說話與調整好感。
-   * 目前只有 A-1 房間有實際在場的角色，其他場景之後各自供給。
+   * 在場 NPC：所在地點等於玩家眼前場景的角色。GM 只能讓這些角色說話與調整好感。
+   * NPC 的位置存在覆寫的 location，由下面兩個時機依日程重算。
    */
-  const presentNpcs =
-    currentSectorId === 'residential_a' && currentRoomId === 'A-1'
-      ? npcs.filter((npc) => npc.id === 'lucian')
-      : [];
+  const presentNpcs = npcs.filter((npc) => npc.location === playerScene);
+
+  /** 把重算結果寫進覆寫的 location。 */
+  const relocateNpcs = (hour: number, deferScene: string | null) => {
+    const { apply } = planRelocation(npcs, hour, deferScene);
+    if (!Object.keys(apply).length) return;
+    setStoryOverrides((prev) => ({
+      ...prev,
+      npcs: {
+        ...prev.npcs,
+        ...Object.fromEntries(Object.entries(apply).map(([id, location]) => [id, { ...prev.npcs[id], location }])),
+      },
+    }));
+  };
+
+  // 時機一：切換場景（含開局、讀檔、重置）時，全體依當下時間重算並全部套用。
+  // 之前檢查點壓著沒套用的變動，也在這裡一併生效。
+  useEffect(() => {
+    relocateNpcs(hourOf(gameTime), null);
+  }, [playerScene, sceneEpoch]);
+
+  /**
+   * 推進遊戲時間。遊戲時間只能經由這裡改變。
+   * 時機二：推進前後的區間跨過檢查點（01:00／09:00／18:00／21:00）時重算一次；
+   * 會讓 NPC 進出玩家眼前的變動先不套用，等玩家切換場景。
+   * 目前還沒有任何地方推進時間（移動、GM 指令都不會），接上時呼叫這個函式即可。
+   */
+  const advanceGameTime = (minutes: number) => {
+    if (minutes <= 0) return;
+    const before = { date: gameDate, time: gameTime };
+    const after = addMinutes(gameDate, gameTime, minutes);
+    setGameDate(after.date);
+    setGameTime(after.time);
+    if (crossesCheckpoint(before, after)) relocateNpcs(hourOf(after.time), playerScene);
+  };
+  void advanceGameTime;
 
   // GM 呼叫狀態。錯誤不寫進對話歷史 —— 那是遊戲紀錄，不是錯誤日誌。
   const [gmPending, setGmPending] = useState<boolean>(false);
@@ -291,7 +384,11 @@ export default function App() {
         items,
         presentNpcs,
         locationName: currentSectorName,
+        gameDate,
+        gameTime,
         dialogueHistory,
+        objectives,
+        summary,
       });
       applyCommands(result.commands);
       setDialogueHistory((prev) => {
@@ -367,18 +464,26 @@ export default function App() {
     await new Promise((resolve) => setTimeout(resolve, 600));
 
     setCurrentSectorId(sec.id);
+    setReturnRoomId(null);
     setCurrentRoomId(roomId ?? null);
-    setSectors((prev) =>
-      prev.map((s) => ({
-        ...s,
-        isCurrent: s.id === sec.id,
-      }))
-    );
+    if (sec.id === 'bridge') setBridgeEntry(value => value + 1);
+    if (sec.id === 'bridge') setDialogueHistory(history => [...history, {
+      playerInput: '前往艦橋',
+      segments: [{ kind: 'description' as const, text: '中央平台緩緩升起，三位值勤人員朝你望來。觀景窗外，行星的弧面泛著淡藍色光；艦橋的低鳴聲在腳下逐漸安定。' }],
+    }].slice(-20));
+    // 「目前所在」是本局進度，寫進覆寫。
+    setStoryOverrides((prev) => ({
+      ...prev,
+      sectors: Object.fromEntries(
+        sectors.map((s) => [s.id, { ...prev.sectors[s.id], isCurrent: s.id === sec.id }])
+      ),
+    }));
   };
 
   // Handle reset game progress
-  // 清空運行資料（數值、任務、道具、日記、對話、位置、個人資料），
-  // 保留故事書內容（章節、NPC 基本設定、地點設定）與系統設定。
+  // 清空運行資料（數值、任務、道具、日記、對話、位置、個人資料、目標、摘要），
+  // 以及故事書的本局條目與全部覆寫 —— 好感、關係、所在位置、啟用狀態都回到預設。
+  // 保留故事書內建內容與系統設定。
   const handleResetProgress = () => {
     setStats(INITIAL_STATS);
     setProfile(EMPTY_PROFILE);
@@ -386,12 +491,17 @@ export default function App() {
     setItems([]);
     setDiaryEntries([]);
     setDialogueHistory([]);
+    setObjectives(INITIAL_OBJECTIVES);
+    setSummary(INITIAL_SUMMARY);
+
+    setRunStory(EMPTY_RUN_STORY);
+    setStoryOverrides(EMPTY_OVERRIDES);
+    setGameDate(GAME_START_DATE);
+    setGameTime(GAME_START_TIME);
+    setSceneEpoch((value) => value + 1);
 
     setCurrentSectorId(START_SECTOR_ID);
     setCurrentRoomId(null);
-    setSectors((prev) =>
-      prev.map((s) => ({ ...s, isCurrent: s.id === START_SECTOR_ID }))
-    );
 
     setActiveDrawer(null);
     setActiveModal(null);
@@ -428,7 +538,7 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col justify-between relative overflow-hidden select-none bg-[#050814] text-slate-100">
       {/* 場景層：所有介面之下的底圖 */}
-      <SceneLayer sector={currentSector} />
+      <SceneLayer sector={currentSector?.id === 'bridge' ? { ...currentSector, backgroundUrl: '/assets/bridge-v3/bridge-background-clean.png' } : currentSector} />
 
       {/* Top HUD Header */}
       <HeaderHUD
@@ -486,10 +596,14 @@ export default function App() {
           gmError={gmError}
           toast={toast}
           npcs={npcs}
-          stage={currentSectorId === 'residential_a' && currentRoomId === 'A-1' ? (
-            <RoomScene npc={npcs.find(npc => npc.id === 'lucian')} onInteract={(npc) => sendToGm(`我走近${npc.name}打招呼`)} onExit={() => setCurrentRoomId(null)} paused={activeModal !== null || activeDrawer !== null} />
-          ) : currentSectorId === 'residential_a' && currentRoomId === null ? (
-            <CorridorScene playerName={profile.name} paused={activeModal !== null || activeDrawer !== null} onEnterRoom={() => setCurrentRoomId('A-1')} onNotice={triggerToast} />
+          stage={currentSectorId === 'bridge' ? (
+            <BridgeScene key={bridgeEntry} paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} />
+          ) : currentSectorId === 'greenhouse' ? (
+            <GreenhouseScene paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} onNotice={triggerToast} />
+          ) : currentRoom ? (
+            <RoomScene key={currentRoom.id} roomId={currentRoom.id} furnishing={furnishingFor(roomOccupant?.id)} npcs={presentNpcs} onInteract={(npc) => sendToGm(`我走近${npc.name}打招呼`)} onExit={() => { setReturnRoomId(currentRoom.id); setCurrentRoomId(null); }} paused={activeModal !== null || activeDrawer !== null} />
+          ) : CORRIDORS[currentSectorId] ? (
+            <CorridorScene key={currentSectorId} corridor={CORRIDORS[currentSectorId]} playerName={profile.name} returnRoomId={returnRoomId} paused={activeModal !== null || activeDrawer !== null} onEnterRoom={setCurrentRoomId} onNotice={triggerToast} />
           ) : undefined}
         />
       </main>
@@ -523,6 +637,7 @@ export default function App() {
       {/* 1. 地圖 */}
       <MapModal
         npcs={npcs}
+        rooms={ROOMS}
         isOpen={activeModal === 'map'}
         onClose={() => setActiveModal(null)}
         sectors={sectors}
@@ -537,14 +652,15 @@ export default function App() {
           setActiveModal(null);
           setStorybookTargetNpcId(null);
         }}
-        chapters={chapters}
-        npcs={npcs}
-        itemDefinitions={itemDefinitions}
-        sectors={sectors}
-        onChangeChapters={setChapters}
-        onChangeNpcs={setNpcs}
-        onChangeItemDefinitions={setItemDefinitions}
-        onChangeSectors={setSectors}
+        story={story}
+        builtinSectors={builtinStory.sectors}
+        rooms={ROOMS}
+        playerRoomId={profile.roomId}
+        onChangeChapters={changeStory('chapters')}
+        onChangeNpcs={changeStory('npcs')}
+        onChangeItems={changeStory('items')}
+        onChangeSectors={changeStory('sectors')}
+        onToggleEnabled={toggleStoryEntry}
         initialTab="character"
         initialCharacterId={storybookTargetNpcId}
       />
@@ -575,6 +691,12 @@ export default function App() {
           });
         }}
         onNewGame={handleResetProgress}
+        builtinStory={builtinStory}
+        onFillMissingBuiltin={() => {
+          const { next, added } = fillMissingBuiltin(builtinStory);
+          if (added) setBuiltinStory(next);
+          return added;
+        }}
       />
     </div>
   );
