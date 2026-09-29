@@ -34,7 +34,14 @@ Background: solid magenta #FF00FF.
 Each stage must remain recognizable as a small sprite on a farm rack.
 ```
 
-背景色注意：櫻桃蘿蔔、藍莓、紫蘇帶紫紅色，容易和洋紅背景混在一起。這三種把最後的背景改成 `solid neutral grey #808080`。
+## 挑高藤架作物
+
+小番茄、豌豆、矮種檸檬、葡萄、百香果改放挑高藤架（`farm_rack_trellis_*.png`），
+開口約 104 × 75 px，比層架一層（約 22 px）高很多。這幾種把共用提示詞的
+`simple readable silhouette at 24×24 px` 改成 `simple readable silhouette at 24×72 px, tall and narrow`，
+並把 `stand on the same flat baseline` 那段的植物畫成沿一條垂直細吊線往上爬。
+
+背景色注意：櫻桃蘿蔔、藍莓、紫蘇、葡萄、百香果帶紫紅色，容易和洋紅背景混在一起。這幾種把最後的背景改成 `solid neutral grey #808080`。
 
 ---
 
@@ -89,7 +96,7 @@ Ready: a compact bush with two large blocky peppers hanging under the
 leaves, one red and one yellow.
 ```
 
-### 6. 豌豆 pea
+### 6. 豌豆 pea（挑高藤架）
 
 ```
 Crop: pea vine on a thin vertical support stake. Seedling: a short
@@ -114,7 +121,7 @@ Ready: a full leaf clump with plump red strawberries with green caps
 hanging over the front edge.
 ```
 
-### 8. 小番茄 cherry tomato
+### 8. 小番茄 cherry tomato（挑高藤架）
 
 ```
 Crop: cherry tomato vine on a thin vertical support stake. Seedling:
@@ -135,17 +142,18 @@ Ready: a rounded bush with small oval leaves and clusters of round
 dusty blue-purple berries.
 ```
 
-### 10. 迷你哈密瓜 mini melon
+### 10. 鳳梨 pineapple
 
 ```
-Crop: mini cantaloupe vine on a short trellis. Seedling: a sprout with
-two large rounded leaves. Growing: a vine with broad lobed leaves,
-yellow flowers and one small green melon.
-Ready: a vine with broad lobed leaves and one round pale green-beige
-melon with a simple net pattern, held in a small white hanging net.
+Crop: pineapple plant. Seedling: a small rosette of short spiky
+blue-green leaves. Growing: a wider rosette of long spiky leaves with a
+small red-pink bud in the center.
+Ready: a full rosette of long spiky blue-green leaves with one golden
+yellow pineapple standing in the center, crosshatch pattern shown as a
+few chunky diamonds, topped with a small spiky green crown.
 ```
 
-### 11. 矮種檸檬 dwarf lemon
+### 11. 矮種檸檬 dwarf lemon（挑高藤架）
 
 ```
 Crop: dwarf lemon tree. Seedling: a thin stem with a few glossy
@@ -157,9 +165,31 @@ bright yellow oval lemons.
 
 ---
 
+### 12. 葡萄 grape（挑高藤架）
+
+```
+Crop: grape vine climbing a thin vertical hanging string. Seedling: a
+short woody sprout with two small lobed leaves.
+Growing: a vine halfway up the string with broad lobed leaves, curly
+tendrils and small green flower clusters.
+Ready: a vine covering the full string with broad lobed leaves and two
+hanging bunches of round purple grapes.
+```
+
+### 13. 百香果 passion fruit（挑高藤架）
+
+```
+Crop: passion fruit vine climbing a thin vertical hanging string.
+Seedling: a short sprout with two glossy three-lobed leaves and a tendril.
+Growing: a vine halfway up the string with glossy three-lobed leaves and
+one showy white-and-purple passion flower with a fringed crown.
+Ready: a vine covering the full string with glossy leaves, one passion
+flower and two round deep purple passion fruits hanging down.
+```
+
 ## 右翼：綜合香草排（每種一張）
 
-### 12. 羅勒 basil
+### 14. 羅勒 basil
 
 ```
 Crop: sweet basil. Seedling: two small cupped bright-green leaves.
@@ -168,7 +198,7 @@ Ready: a bushy upright plant of large glossy bright-green cupped leaves
 with a small white flower spike on top.
 ```
 
-### 13. 薄荷 mint
+### 15. 薄荷 mint
 
 ```
 Crop: mint. Seedling: two small serrated leaves.
@@ -177,7 +207,7 @@ Ready: a dense bushy clump of fresh green serrated leaves on square
 upright stems, slightly spilling sideways.
 ```
 
-### 14. 迷迭香 rosemary
+### 16. 迷迭香 rosemary
 
 ```
 Crop: rosemary. Seedling: a thin stem with short needle-like leaves.
@@ -186,7 +216,7 @@ Ready: a dense upright bush of woody stems covered in dark grey-green
 needle leaves, with a few tiny pale blue flowers.
 ```
 
-### 15. 紫蘇 perilla
+### 17. 紫蘇 perilla
 
 ```
 Crop: purple perilla (shiso). Seedling: two small serrated purple-green
@@ -196,7 +226,7 @@ Ready: a bushy plant of broad serrated deep purple leaves with green
 edges.
 ```
 
-### 16. 細香蔥 chives
+### 18. 細香蔥 chives
 
 ```
 Crop: chives. Seedling: a few thin short green hollow shoots.
@@ -205,7 +235,7 @@ Ready: a tall dense tuft of thin upright green leaves with two round
 lavender pom-pom flowers on top.
 ```
 
-### 17. 百里香 thyme
+### 19. 百里香 thyme
 
 ```
 Crop: thyme. Seedling: a tiny sprig with very small round leaves.
