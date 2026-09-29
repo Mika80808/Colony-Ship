@@ -1,23 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Point } from '../game/corridor';
-import { GreenhouseInteraction, GreenhouseMap, camera, clicked, findPath, interactions, move, nearby, spawn, worldSize } from '../game/greenhouse';
+import { FacilityInteraction, FacilityMap, camera, clicked, findPath, interactions, move, nearby, spawn, worldSize } from '../game/facility';
 import { ACTOR_HEIGHT, approach, fitViewport } from '../game/viewport';
 
-interface Props { paused: boolean; onOpenMap: () => void; onNotice: (text: string) => void }
+interface Props {
+  facility: { folder: string; name: string };
+  /** Sector the player walked in from; they appear inside that doorway. */
+  arrivedFrom?: string | null;
+  paused: boolean;
+  /** Walk out through a doorway into the sector beyond it. */
+  onLeave: (to: string) => void;
+  onNotice: (text: string) => void;
+}
 const movement = new Set(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
 const normal = (key: string) => key.length === 1 ? key.toLowerCase() : key;
-export default function GreenhouseScene(props: Props) {
+export default function FacilityScene(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controls = useRef(props); controls.current = props;
   const keys = useRef(new Set<string>());
-  const [status, setStatus] = useState('正在載入溫室…');
-  const state = useRef({ map: null as GreenhouseMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as GreenhouseInteraction[], pending: null as GreenhouseInteraction | null, grid: true });
-  const act = (item?: GreenhouseInteraction) => {
+  const [status, setStatus] = useState(`正在載入${props.facility.name}…`);
+  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, grid: true });
+  const act = (item?: FacilityInteraction) => {
     const s = state.current;
     if (!s.map || controls.current.paused) return;
     item ??= nearby(s.p, s.items); if (!item) return;
     s.path = []; s.pending = null; keys.current.clear();
-    if (item.kind === 'exit') controls.current.onOpenMap(); else controls.current.onNotice(item.text);
+    if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to); else controls.current.onNotice(item.text);
   };
   const actRef = useRef(act); actRef.current = act;
   useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);
@@ -36,13 +44,14 @@ export default function GreenhouseScene(props: Props) {
     const resize = new ResizeObserver(([e]) => fit(e.contentRect.width, e.contentRect.height)); resize.observe(canvas.parentElement!);
     const load = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => { const im = new Image(); im.onload = () => resolve(im); im.onerror = () => reject(new Error(src)); im.src = src; });
     async function start() {
-      const response = await fetch('/assets/greenhouse/map.json'); if (!response.ok) throw new Error('map');
-      const map: GreenhouseMap = await response.json();
-      // L0 地面由 tools/art/greenhouse_ground.py 依 map.json 的 terrain 拼成；結構與擺設還沒上，先靠 G 鍵的碰撞格看位置。
-      const [background, sprite] = await Promise.all([load('/assets/greenhouse/ground.webp'), load('/assets/player/walk.png')]);
+      const { folder } = controls.current.facility;
+      const response = await fetch(`/assets/${folder}/map.json`); if (!response.ok) throw new Error('map');
+      const map: FacilityMap = await response.json();
+      // L0 地面由 tools/art/facility_ground.py 依 map.json 的 terrain 拼成；結構與擺設還沒上，先靠 G 鍵的碰撞格看位置。
+      const [background, sprite] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.png')]);
       if (disposed) return;
       const s = state.current, world = worldSize(map);
-      s.map = map; s.items = interactions(map); s.p = spawn(map);
+      s.map = map; s.items = interactions(map); s.p = spawn(map, controls.current.arrivedFrom);
       const box = canvas.parentElement!.getBoundingClientRect(); fit(box.width, box.height);
       setStatus(''); canvas.focus({ preventScroll: true });
       const drawPlayer = (moving: boolean) => {
@@ -94,11 +103,11 @@ export default function GreenhouseScene(props: Props) {
         raf = requestAnimationFrame(render);
       }; raf = requestAnimationFrame(render);
     }
-    start().catch(() => { if (!disposed) setStatus('溫室素材載入失敗，請重新整理。'); });
+    start().catch(() => { if (!disposed) setStatus(`${controls.current.facility.name}素材載入失敗，請重新整理。`); });
     return () => { disposed = true; cancelAnimationFrame(raf); resize.disconnect(); clear(); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', clear); };
   }, []);
   return <div className="corridor-scene">
-    <div className="corridor-viewport"><canvas ref={canvasRef} tabIndex={0} aria-label="溫室。方向鍵或 WASD 移動，E 互動，G 切換碰撞格顯示，也可以點擊地面或設施。"
+    <div className="corridor-viewport"><canvas ref={canvasRef} tabIndex={0} aria-label={`${props.facility.name}。方向鍵或 WASD 移動，E 互動，G 切換碰撞格顯示，也可以點擊地面或設施。`}
       onBlur={() => keys.current.clear()}
       onKeyDown={e => {
         const key = normal(e.key); if (e.ctrlKey || e.altKey || e.metaKey) return;
