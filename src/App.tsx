@@ -6,7 +6,8 @@ import { CORRIDORS } from './game/corridor';
 import { furnishingFor } from './game/roomRuntime';
 import { addMinutes, crossesCheckpoint, hourOf, planRelocation, sceneOf } from './data/npcSchedule';
 import BridgeScene from './components/BridgeScene';
-import GreenhouseScene from './components/GreenhouseScene';
+import FacilityScene from './components/FacilityScene';
+import { FACILITIES } from './game/facility';
 import HeaderHUD from './components/HeaderHUD';
 import LeftSidebar, { Objective } from './components/LeftSidebar';
 import DialogueSection from './components/DialogueSection';
@@ -161,6 +162,8 @@ export default function App() {
   const [bridgeEntry, setBridgeEntry] = useState(0);
   // 剛走出來的房間。回到走廊時站在那扇門前，而不是一律回到 A-1 門口。
   const [returnRoomId, setReturnRoomId] = useState<string | null>(null);
+  // 走路進來的上一個區域（溫室左門 ↔ A 走廊、右門 ↔ B 走廊）。場景用它決定玩家出現在哪個門口；搭星圖則為 null。
+  const [arrivedFrom, setArrivedFrom] = useState<string | null>(null);
 
   // 以下四項原本寫死在各元件內部，現在改由這裡供給。
   // 前三項屬於遊戲進度、會進存檔，但目前還沒有 setter：內容要等 Phase 3
@@ -462,10 +465,17 @@ export default function App() {
   // 位置切換只在模擬完成後提交，彈窗才會關閉（規格 1.6）。
   const handleEnterSector = async (sec: MapSector, roomId?: string) => {
     await new Promise((resolve) => setTimeout(resolve, 600));
+    commitSector(sec.id, roomId ?? null, null);
+  };
 
+  // 切換所在區域。星圖與走路穿過門口都走這裡；from 是走路時離開的區域。
+  const commitSector = (sectorId: string, roomId: string | null, from: string | null) => {
+    const sec = sectors.find((s) => s.id === sectorId);
+    if (!sec) return;
     setCurrentSectorId(sec.id);
     setReturnRoomId(null);
-    setCurrentRoomId(roomId ?? null);
+    setArrivedFrom(from);
+    setCurrentRoomId(roomId);
     if (sec.id === 'bridge') setBridgeEntry(value => value + 1);
     if (sec.id === 'bridge') setDialogueHistory(history => [...history, {
       playerInput: '前往艦橋',
@@ -598,12 +608,12 @@ export default function App() {
           npcs={npcs}
           stage={currentSectorId === 'bridge' ? (
             <BridgeScene key={bridgeEntry} paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} />
-          ) : currentSectorId === 'greenhouse' ? (
-            <GreenhouseScene paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} onNotice={triggerToast} />
+          ) : FACILITIES[currentSectorId] ? (
+            <FacilityScene key={currentSectorId} facility={FACILITIES[currentSectorId]} arrivedFrom={arrivedFrom} paused={activeModal !== null || activeDrawer !== null} onLeave={(to) => commitSector(to, null, currentSectorId)} onNotice={triggerToast} />
           ) : currentRoom ? (
             <RoomScene key={currentRoom.id} roomId={currentRoom.id} furnishing={furnishingFor(roomOccupant?.id)} npcs={presentNpcs} onInteract={(npc) => sendToGm(`我走近${npc.name}打招呼`)} onExit={() => { setReturnRoomId(currentRoom.id); setCurrentRoomId(null); }} paused={activeModal !== null || activeDrawer !== null} />
           ) : CORRIDORS[currentSectorId] ? (
-            <CorridorScene key={currentSectorId} corridor={CORRIDORS[currentSectorId]} playerName={profile.name} returnRoomId={returnRoomId} paused={activeModal !== null || activeDrawer !== null} onEnterRoom={setCurrentRoomId} onNotice={triggerToast} />
+            <CorridorScene key={currentSectorId} corridor={CORRIDORS[currentSectorId]} playerName={profile.name} returnRoomId={returnRoomId} arrivedFrom={arrivedFrom} onEnterFacility={(to) => commitSector(to, null, currentSectorId)} paused={activeModal !== null || activeDrawer !== null} onEnterRoom={setCurrentRoomId} onNotice={triggerToast} />
           ) : undefined}
         />
       </main>

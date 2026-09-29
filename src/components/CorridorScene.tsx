@@ -1,12 +1,17 @@
 import { corridorDoorFrame, createCorridorDoorLeaves, drawCorridorDoor } from '../game/corridorDoor';
 import { useEffect, useRef, useState } from 'react';
-import { CorridorAsset, CorridorConfig, HEIGHT, WIDTH, SPAWN, Point, Interaction, findPath, move, interactions, nearby, signNotice, benchSeat, doorRoomId, spawnOutside } from '../game/corridor';
+import { CorridorAsset, CorridorConfig, HEIGHT, WIDTH, SPAWN, Point, Interaction, findPath, move, interactions, nearby, signNotice, benchSeat, doorRoomId, spawnOutside, signFacility, FACILITY_SECTOR } from '../game/corridor';
+import { FACILITIES } from '../game/facility';
 import { ACTOR_HEIGHT, fitViewport } from '../game/viewport';
 
 interface Props {
   corridor: CorridorConfig; paused: boolean; playerName: string;
   /** The room the player just walked out of; they reappear in front of its door. */
   returnRoomId?: string | null;
+  /** The facility the player just walked out of; they reappear under its sign. */
+  arrivedFrom?: string | null;
+  /** Walk through a facility sign into that facility's scene. */
+  onEnterFacility?: (sectorId: string) => void;
   onEnterRoom: (roomId: string) => void; onNotice: (text: string) => void;
 }
 const movement = new Set(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
@@ -25,7 +30,11 @@ export default function CorridorScene(props: Props) {
     s.path = []; s.pending = null;
     if (item.kind === 'bench') { s.sitting = benchSeat(item, s.p.x); s.p = { x:s.sitting.point.x, y:486 }; s.direction='down'; }
     if (item.kind === 'door') { s.entering=0.001; s.enteringDoor=item.id; s.direction='up'; }
-    if (item.kind === 'sign') controls.current.onNotice(signNotice(item.id, controls.current.corridor));
+    if (item.kind === 'sign') {
+      const sector = FACILITY_SECTOR[signFacility(item.id)];
+      if (FACILITIES[sector] && controls.current.onEnterFacility) controls.current.onEnterFacility(sector);
+      else controls.current.onNotice(signNotice(item.id, controls.current.corridor));
+    }
   };
   const actRef = useRef(act); actRef.current = act;
   useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);
@@ -51,7 +60,7 @@ export default function CorridorScene(props: Props) {
       const image = (id: string) => images[assets.findIndex(a=>a.id===id)];
       const doorLeaves = new Map(assets.filter(a => a.kind === 'door').map(a => [a.id, createCorridorDoorLeaves(image(a.id))]));
       state.current.items=interactions(assets,controls.current.corridor);
-      state.current.p=spawnOutside(assets,controls.current.corridor,controls.current.returnRoomId??null);
+      state.current.p=spawnOutside(assets,controls.current.corridor,controls.current.returnRoomId??null,controls.current.arrivedFrom??null);
       state.current.ready=true; setStatus('');
       canvas.focus({ preventScroll: true });
       const drawAsset=(a: CorridorAsset)=>ctx.drawImage(image(a.id),a.x,a.y,a.width,a.height);

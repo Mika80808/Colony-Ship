@@ -13,6 +13,9 @@ export const COLLISIONS: Rect[] = [
 ];
 export type Facility = 'research' | 'greenhouse' | 'medical' | 'engineering';
 export const FACILITY_NAMES: Record<Facility, string> = { research: '研究室', greenhouse: '溫室', medical: '醫療室', engineering: '工程部' };
+export const signFacility = (id: string) => id.replace('sign-', '') as Facility;
+/** The map sector each facility sign points to. */
+export const FACILITY_SECTOR: Record<Facility, string> = { research: 'lab', greenhouse: 'greenhouse', medical: 'medical', engineering: 'engineering' };
 /**
  * One residential corridor. B–D reuse A's wall/floor/doors; only signs and furniture differ.
  * Every door opens: door-n leads to room <letter>-n. Door-plate unlocking comes later.
@@ -27,13 +30,17 @@ export const CORRIDORS: Record<string, CorridorConfig> = {
 /** The room a corridor door leads to: door-3 in corridor B is B-3. */
 export const doorRoomId = (corridor: CorridorConfig, doorId: string) => `${corridor.letter}-${doorId.split('-')[1]}`;
 /**
- * Where the player stands after walking out of `roomId`: on the floor in front
- * of that room's door. Door-1's centre rounds to SPAWN, so leaving A-1 lands
- * exactly where it always has. Falls back to SPAWN for anything else.
+ * Where the player stands on arrival: in front of the door of the room they
+ * just left, or under the sign of the facility they just walked out of.
+ * Door-1's centre rounds to SPAWN, so leaving A-1 lands exactly where it
+ * always has. Falls back to SPAWN for anything else.
  */
-export function spawnOutside(assets: CorridorAsset[], corridor: CorridorConfig, roomId: string | null): Point {
+export function spawnOutside(assets: CorridorAsset[], corridor: CorridorConfig, roomId: string | null, fromSector: string | null = null): Point {
   const door = roomId ? assets.find(a => a.kind === 'door' && doorRoomId(corridor, a.id) === roomId) : undefined;
-  return door ? { x: Math.round(door.x + door.width / 2), y: SPAWN.y } : { ...SPAWN };
+  if (door) return { x: Math.round(door.x + door.width / 2), y: SPAWN.y };
+  const sign = fromSector ? assets.find(a => a.kind === 'sign' && FACILITY_SECTOR[signFacility(a.id)] === fromSector) : undefined;
+  if (sign) return { x: Math.round(Math.max(80, Math.min(WIDTH - 80, sign.x + sign.width / 2))), y: SPAWN.y };
+  return { ...SPAWN };
 }
 export function walkable(p: Point, collisions = COLLISIONS): boolean {
   if (p.x < 25 || p.x > WIDTH - 25 || p.y < 397 || p.y > 775) return false;
@@ -80,7 +87,6 @@ export function findPath(from: Point, to: Point, collisions = COLLISIONS): Point
   return [];
 }
 export interface Interaction { id: string; label: string; point: Point; kind: 'door' | 'bench' | 'sign' }
-const signFacility = (id: string) => id.replace('sign-', '') as Facility;
 export function interactions(assets: CorridorAsset[], corridor = CORRIDORS.residential_a): Interaction[] {
   return assets.filter(a => ['door','bench','sign'].includes(a.kind)).map(a => ({
     id: a.id, kind: a.kind as Interaction['kind'],

@@ -51,3 +51,12 @@ for(const [from,seat] of [[1200,1227],[1300,1301]]){
  assert.ok(walkable(b.point),'Standing up in front of either cushion is walkable');
 }
 console.log('Corridor: bounds, object collisions, anti-tunneling, paths around benches, and interaction distance passed.');
+// Walking out of a facility lands under that facility's sign: the greenhouse sits right of A and left of B.
+{
+ const a=JSON.parse(readFileSync('public/assets/corridor-a/manifest.json','utf8')), b=JSON.parse(readFileSync('public/assets/corridor-b/manifest.json','utf8'));
+ const fromGreenhouseA=spawnOutside(a,CORRIDORS.residential_a,null,'greenhouse'), fromGreenhouseB=spawnOutside(b,CORRIDORS.residential_b,null,'greenhouse');
+ assert.ok(fromGreenhouseA.x>3000&&walkable(fromGreenhouseA),'Greenhouse → A arrives at the right end');
+ assert.ok(fromGreenhouseB.x<300&&walkable(fromGreenhouseB,CORRIDORS.residential_b.collisions),'Greenhouse → B arrives at the left end');
+ assert.deepEqual(spawnOutside(a,CORRIDORS.residential_a,'A-3','greenhouse').x,spawnOutside(a,CORRIDORS.residential_a,'A-3').x,'Leaving a room still wins');
+ assert.deepEqual(spawnOutside(a,CORRIDORS.residential_a,null,'bridge'),SPAWN,'Unknown origin falls back to SPAWN');
+}

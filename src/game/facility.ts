@@ -1,27 +1,38 @@
 import type { Point, Rect } from './corridor';
 
 /**
- * 溫室：格子碰撞地圖（public/assets/greenhouse/map.json，設計稿在 星艦設計圖/greenhouse_collision.json）。
+ * 設施場景（溫室、工程區……）共用的格子地圖：public/assets/<folder>/map.json。
  * 跟走廊的矩形碰撞不同，這裡每格 0 可走 / 1 碰撞；點地移動走 A*，再拉直成最少轉折。
- * 作物不加碰撞，菜圃可以踩。
+ * 各設施的差異全部在 map.json：出入口（entrances）、互動點（interactions）、菜圃（plots，可省略）。
+ * 新增設施 = 一個資料夾 + FACILITIES 一行。
  */
 export interface TileRect { x: number; y: number; w: number; h: number }
-export interface GreenhouseMap { tileSize: number; width: number; height: number; collision: number[][]; plots: TileRect[]; entrance: TileRect }
-export interface GreenhouseInteraction { id: string; kind: 'exit' | 'plot' | 'window' | 'console' | 'monitor'; label: string; text: string; point: Point; area: Rect }
+/** A doorway in the outer wall. `to` is the sector beyond it; the player appears at `spawn` (tile units) when arriving from there. */
+export interface Entrance extends TileRect { to: string; label: string; spawn: [number, number] }
+/** An interaction written in map.json, in tile units: `area` is what the player clicks, `stand` is where they walk to. */
+export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number] }
+export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[] }
+/** `kind` is 'exit' for doorways (with `to`), 'plot' for farm plots, otherwise whatever map.json names it. */
+export interface FacilityInteraction { id: string; kind: string; label: string; text: string; point: Point; area: Rect; to?: string }
+
+/** Every facility with its own walkable scene, keyed by sector id. */
+export const FACILITIES: Record<string, { folder: string; name: string }> = {
+  greenhouse: { folder: 'greenhouse', name: '溫室' },
+};
 
 /** Foot-circle radius; comfortably inside a 96px aisle. */
 export const RADIUS = 22;
 /** How far outside an interaction's area the player still counts as next to it. */
 export const REACH = 56;
 
-export const worldSize = (m: GreenhouseMap) => ({ width: m.width * m.tileSize, height: m.height * m.tileSize });
-const tileCentre = (m: GreenhouseMap, x: number, y: number): Point => ({ x: (x + .5) * m.tileSize, y: (y + .5) * m.tileSize });
-const tileRect = (m: GreenhouseMap, t: TileRect): Rect => ({ x: t.x * m.tileSize, y: t.y * m.tileSize, width: t.w * m.tileSize, height: t.h * m.tileSize });
+export const worldSize = (m: FacilityMap) => ({ width: m.width * m.tileSize, height: m.height * m.tileSize });
+const tileCentre = (m: FacilityMap, x: number, y: number): Point => ({ x: (x + .5) * m.tileSize, y: (y + .5) * m.tileSize });
+const tileRect = (m: FacilityMap, t: TileRect): Rect => ({ x: t.x * m.tileSize, y: t.y * m.tileSize, width: t.w * m.tileSize, height: t.h * m.tileSize });
 
-export const blocked = (m: GreenhouseMap, tx: number, ty: number) => tx < 0 || ty < 0 || tx >= m.width || ty >= m.height || m.collision[ty][tx] === 1;
+export const blocked = (m: FacilityMap, tx: number, ty: number) => tx < 0 || ty < 0 || tx >= m.width || ty >= m.height || m.collision[ty][tx] === 1;
 
 /** The foot circle overlaps no collision tile and stays inside the map. */
-export function walkable(m: GreenhouseMap, p: Point): boolean {
+export function walkable(m: FacilityMap, p: Point): boolean {
   const { width, height } = worldSize(m), s = m.tileSize;
   if (p.x < RADIUS || p.y < RADIUS || p.x > width - RADIUS || p.y > height - RADIUS) return false;
   for (let ty = Math.floor((p.y - RADIUS) / s); ty <= Math.floor((p.y + RADIUS) / s); ty++)
@@ -34,7 +45,7 @@ export function walkable(m: GreenhouseMap, p: Point): boolean {
 }
 
 /** Axis-separated so the player slides along walls instead of sticking. */
-export function move(m: GreenhouseMap, p: Point, dx: number, dy: number): Point {
+export function move(m: FacilityMap, p: Point, dx: number, dy: number): Point {
   const result = { ...p }, steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 8));
   for (let i = 0; i < steps; i++) {
     if (walkable(m, { x: result.x + dx / steps, y: result.y })) result.x += dx / steps;
@@ -43,7 +54,7 @@ export function move(m: GreenhouseMap, p: Point, dx: number, dy: number): Point 
   return result;
 }
 
-export function segmentClear(m: GreenhouseMap, a: Point, b: Point): boolean {
+export function segmentClear(m: FacilityMap, a: Point, b: Point): boolean {
   const steps = Math.ceil(Math.hypot(a.x - b.x, a.y - b.y) / 8);
   for (let i = 0; i <= steps; i++) {
     const t = steps ? i / steps : 0;
@@ -57,7 +68,7 @@ export function segmentClear(m: GreenhouseMap, a: Point, b: Point): boolean {
  * player walks straight lines between the few corners that matter.
  * Returns the waypoints after `from`, ending exactly at `to`; [] if unreachable.
  */
-export function findPath(m: GreenhouseMap, from: Point, to: Point): Point[] {
+export function findPath(m: FacilityMap, from: Point, to: Point): Point[] {
   if (!walkable(m, to)) return [];
   if (segmentClear(m, from, to)) return [to];
   const s = m.tileSize, W = m.width;
@@ -92,33 +103,31 @@ export function findPath(m: GreenhouseMap, from: Point, to: Point): Point[] {
   return path;
 }
 
-/** Just inside the entrance, facing into the greenhouse. */
-export const spawn = (m: GreenhouseMap): Point => ({ x: (m.entrance.x + m.entrance.w / 2) * m.tileSize, y: (m.entrance.y - 1.5) * m.tileSize });
+/** Just inside the entrance the player came through (the first one when arriving by star map). */
+export function spawn(m: FacilityMap, from?: string | null): Point {
+  const e = m.entrances.find(e => e.to === from) ?? m.entrances[0];
+  return { x: e.spawn[0] * m.tileSize, y: e.spawn[1] * m.tileSize };
+}
 
-export function interactions(m: GreenhouseMap): GreenhouseInteraction[] {
-  const at = (id: string, kind: GreenhouseInteraction['kind'], label: string, text: string, area: TileRect, stand: Point): GreenhouseInteraction =>
+export function interactions(m: FacilityMap): FacilityInteraction[] {
+  const at = (id: string, kind: string, label: string, text: string, area: TileRect, stand: Point): FacilityInteraction =>
     ({ id, kind, label, text, area: tileRect(m, area), point: { x: stand.x * m.tileSize, y: stand.y * m.tileSize } });
-  const e = m.entrance;
   return [
-    at('exit', 'exit', '離開溫室', '', e, { x: e.x + e.w / 2, y: e.y + .5 }),
-    at('window', 'window', '挑高觀景窗', '整面觀景窗外是緩慢流過的星海，人造日光從上方灑落。', { x: 15, y: 0, w: 10, h: 4 }, { x: 20, y: 4.5 }),
-    at('console', 'console', '窗前工作站', '農業監控終端：自動種植區運作正常。（工作站功能尚未開放）', { x: 24, y: 7, w: 2, h: 1 }, { x: 25, y: 8.5 }),
-    // 兩台監測機擋住通往最上排走道的路，那兩條走道只給自動設備用。
-    at('monitor-left', 'monitor', '植栽監測機', '左翼植栽監測機：溫度、濕度、養液濃度皆在標準範圍。', { x: 13, y: 2, w: 1, h: 1 }, { x: 13.5, y: 3.5 }),
-    at('monitor-right', 'monitor', '植栽監測機', '右翼植栽監測機：溫度、濕度、養液濃度皆在標準範圍。', { x: 26, y: 1, w: 1, h: 1 }, { x: 26.5, y: 2.5 }),
-    ...m.plots.map((p, i) => at(`plot-${i + 1}`, 'plot', `種植區 ${i + 1}`, '這塊土地還空著。（種植系統尚未開放）', p, { x: p.x + p.w / 2, y: p.y + p.h / 2 })),
+    ...m.entrances.map(e => ({ ...at(`exit-${e.to}`, 'exit', e.label, '', e, { x: e.x + e.w / 2, y: e.y + e.h / 2 }), to: e.to })),
+    ...(m.interactions ?? []).map(i => at(i.id, i.kind, i.label, i.text, { x: i.area[0], y: i.area[1], w: i.area[2], h: i.area[3] }, { x: i.stand[0], y: i.stand[1] })),
+    ...(m.plots ?? []).map((p, i, all) => at(`plot-${i + 1}`, 'plot', all.length > 1 ? `種植區 ${i + 1}` : '種植區', '這塊土地還空著。（種植系統尚未開放）', p, { x: p.x + p.w / 2, y: p.y + p.h / 2 })),
   ];
 }
 
 const inReach = (p: Point, r: Rect) => p.x > r.x - REACH && p.x < r.x + r.width + REACH && p.y > r.y - REACH && p.y < r.y + r.height + REACH;
 /** The interaction the player is standing next to, preferring the closest. */
-export const nearby = (p: Point, items: GreenhouseInteraction[]) => items.filter(i => inReach(p, i.area))
+export const nearby = (p: Point, items: FacilityInteraction[]) => items.filter(i => inReach(p, i.area))
   .sort((a, b) => Math.hypot(p.x - a.point.x, p.y - a.point.y) - Math.hypot(p.x - b.point.x, p.y - b.point.y))[0];
 /** The interaction whose area contains a clicked world point. */
-export const clicked = (p: Point, items: GreenhouseInteraction[]) => items.find(i => p.x >= i.area.x && p.x <= i.area.x + i.area.width && p.y >= i.area.y && p.y <= i.area.y + i.area.height);
+export const clicked = (p: Point, items: FacilityInteraction[]) => items.find(i => p.x >= i.area.x && p.x <= i.area.x + i.area.width && p.y >= i.area.y && p.y <= i.area.y + i.area.height);
 
 /** Camera origin centred on `focus`, clamped to the map. */
-export function camera(focus: Point, view: { width: number; height: number }, m: GreenhouseMap): Point {
+export function camera(focus: Point, view: { width: number; height: number }, m: FacilityMap): Point {
   const { width, height } = worldSize(m);
   return { x: Math.max(0, Math.min(width - view.width, focus.x - view.width / 2)), y: Math.max(0, Math.min(height - view.height, focus.y - view.height / 2)) };
 }
