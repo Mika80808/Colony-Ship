@@ -1,0 +1,382 @@
+{
+ "lettuce": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 15,
+    "h": 9,
+    "anchor": 7
+   },
+   {
+    "w": 23,
+    "h": 17,
+    "anchor": 11
+   },
+   {
+    "w": 28,
+    "h": 22,
+    "anchor": 14
+   }
+  ]
+ },
+ "potato": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 16,
+    "h": 10,
+    "anchor": 8
+   },
+   {
+    "w": 20,
+    "h": 19,
+    "anchor": 10
+   },
+   {
+    "w": 25,
+    "h": 22,
+    "anchor": 12
+   }
+  ]
+ },
+ "kale": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 14,
+    "h": 8,
+    "anchor": 7
+   },
+   {
+    "w": 15,
+    "h": 18,
+    "anchor": 7
+   },
+   {
+    "w": 18,
+    "h": 22,
+    "anchor": 9
+   }
+  ]
+ },
+ "radish": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 14,
+    "h": 11,
+    "anchor": 7
+   },
+   {
+    "w": 20,
+    "h": 17,
+    "anchor": 10
+   },
+   {
+    "w": 20,
+    "h": 22,
+    "anchor": 10
+   }
+  ]
+ },
+ "bell_pepper": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 15,
+    "h": 9,
+    "anchor": 7
+   },
+   {
+    "w": 22,
+    "h": 18,
+    "anchor": 11
+   },
+   {
+    "w": 27,
+    "h": 22,
+    "anchor": 13
+   }
+  ]
+ },
+ "strawberry": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 20,
+    "h": 17,
+    "anchor": 10
+   },
+   {
+    "w": 23,
+    "h": 22,
+    "anchor": 11
+   },
+   {
+    "w": 24,
+    "h": 22,
+    "anchor": 12
+   }
+  ]
+ },
+ "blueberry": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 16,
+    "h": 12,
+    "anchor": 8
+   },
+   {
+    "w": 23,
+    "h": 18,
+    "anchor": 11
+   },
+   {
+    "w": 28,
+    "h": 22,
+    "anchor": 14
+   }
+  ]
+ },
+ "pineapple": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 14,
+    "h": 11,
+    "anchor": 7
+   },
+   {
+    "w": 20,
+    "h": 17,
+    "anchor": 10
+   },
+   {
+    "w": 23,
+    "h": 22,
+    "anchor": 11
+   }
+  ]
+ },
+ "basil": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 12,
+    "h": 7,
+    "anchor": 6
+   },
+   {
+    "w": 18,
+    "h": 14,
+    "anchor": 9
+   },
+   {
+    "w": 21,
+    "h": 22,
+    "anchor": 10
+   }
+  ]
+ },
+ "mint": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 15,
+    "h": 9,
+    "anchor": 7
+   },
+   {
+    "w": 23,
+    "h": 16,
+    "anchor": 11
+   },
+   {
+    "w": 28,
+    "h": 22,
+    "anchor": 14
+   }
+  ]
+ },
+ "rosemary": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 11,
+    "h": 10,
+    "anchor": 5
+   },
+   {
+    "w": 21,
+    "h": 18,
+    "anchor": 10
+   },
+   {
+    "w": 23,
+    "h": 22,
+    "anchor": 11
+   }
+  ]
+ },
+ "perilla": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 17,
+    "h": 9,
+    "anchor": 8
+   },
+   {
+    "w": 22,
+    "h": 17,
+    "anchor": 11
+   },
+   {
+    "w": 26,
+    "h": 22,
+    "anchor": 13
+   }
+  ]
+ },
+ "chives": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 10,
+    "h": 7,
+    "anchor": 5
+   },
+   {
+    "w": 15,
+    "h": 14,
+    "anchor": 7
+   },
+   {
+    "w": 20,
+    "h": 22,
+    "anchor": 10
+   }
+  ]
+ },
+ "thyme": {
+  "kind": "shelf",
+  "stages": [
+   {
+    "w": 11,
+    "h": 12,
+    "anchor": 5
+   },
+   {
+    "w": 24,
+    "h": 17,
+    "anchor": 12
+   },
+   {
+    "w": 28,
+    "h": 22,
+    "anchor": 14
+   }
+  ]
+ },
+ "pea": {
+  "kind": "trellis",
+  "stages": [
+   {
+    "w": 36,
+    "h": 90,
+    "anchor": 18
+   },
+   {
+    "w": 42,
+    "h": 90,
+    "anchor": 21
+   },
+   {
+    "w": 51,
+    "h": 90,
+    "anchor": 25
+   }
+  ]
+ },
+ "cherry_tomato": {
+  "kind": "trellis",
+  "stages": [
+   {
+    "w": 35,
+    "h": 90,
+    "anchor": 17
+   },
+   {
+    "w": 47,
+    "h": 90,
+    "anchor": 23
+   },
+   {
+    "w": 48,
+    "h": 90,
+    "anchor": 24
+   }
+  ]
+ },
+ "dwarf_lemon": {
+  "kind": "trellis",
+  "stages": [
+   {
+    "w": 34,
+    "h": 90,
+    "anchor": 17
+   },
+   {
+    "w": 45,
+    "h": 90,
+    "anchor": 22
+   },
+   {
+    "w": 52,
+    "h": 90,
+    "anchor": 26
+   }
+  ]
+ },
+ "grape": {
+  "kind": "trellis",
+  "stages": [
+   {
+    "w": 32,
+    "h": 90,
+    "anchor": 16
+   },
+   {
+    "w": 39,
+    "h": 90,
+    "anchor": 19
+   },
+   {
+    "w": 48,
+    "h": 90,
+    "anchor": 24
+   }
+  ]
+ },
+ "passion_fruit": {
+  "kind": "trellis",
+  "stages": [
+   {
+    "w": 29,
+    "h": 90,
+    "anchor": 14
+   },
+   {
+    "w": 40,
+    "h": 90,
+    "anchor": 20
+   },
+   {
+    "w": 38,
+    "h": 90,
+    "anchor": 19
+   }
+  ]
+ }
+}

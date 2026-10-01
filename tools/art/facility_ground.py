@@ -5,6 +5,7 @@ map.json 的 ground 設定每個設施用哪些地面、疊放順序與材質檔
 layers 由下往上排，最下層先鋪滿整張。
 "overlays": [{"texture": "corridor", "x": 0, "y": 21, "w": 40, "h": 3}] 是疊在最上面的橫向長條貼圖（例如走廊），
 單位是格：貼圖高度縮放到 h 格、只在左右方向重複，可以半透明（溫室走廊透出底下的池塘）。
+"grassCreep": {"paved": "WP"} 讓草從草地邊緣蓋到這些地磚上，牆腳與地磚接縫也零星長草（lawn_painter.creep）。
 加 "grassFringe": "bottom" 時，下緣挨著草地的地方補一排葉團，草尖蓋到貼圖上（lawn_painter.FRINGE_OVERLAP）。
 覆蓋貼圖不佔地面格，底下照常是 terrain 畫出的水或草。特殊效果依材質名稱觸發：lawn（遮罩＋葉團）、water（水邊陰影）、deck（外緣木條）；
 工程區沒有水和草，就不會用到它們（之後中央廣場可能會用）。
@@ -142,6 +143,13 @@ def main(map_path, tex_dir, out):
             for side, (dx, dy) in SIDES.items():
                 if (x + dx, y + dy) not in plot:
                     r = side_rect(x, y, side, EDGE, T); img.paste(frame.crop(r), r)
+
+    # 草侵入地磚：草地挨著地磚的邊、牆腳、地磚接縫長出葉團（map.json 的 ground.grassCreep，沒有就不畫）
+    creep = m['ground'].get('grassCreep')
+    if creep:
+        # 種植架的圖從佔地往上蓋一格（racks.ts 的 rackBounds），被蓋住的格子不用長草
+        hidden = {(x, yy) for r in m.get('racks', []) for x in range(r['x'], r['x'] + r['w']) for yy in range(r['y'] - 1, r['y'] + r['h'])}
+        lawn_painter.creep(img, terrain, T, tex_dir, set(creep['paved']), wall, hidden)
 
     for o in m['ground'].get('overlays', []):
         draw_overlay(img, o, os.path.join(tex_dir, f"{o['texture']}.png"), T)

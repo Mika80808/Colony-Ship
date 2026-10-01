@@ -59,7 +59,7 @@ for (const e of m.entrances) {
 assert.deepEqual(spawn(m, null), spawn(m, 'residential_a'), 'The star map drops the player at the first entrance');
 // The old bottom doorway is sealed now that the greenhouse opens onto corridors A and B.
 for (let x = 18; x < 22; x++) assert.equal(blocked(m, x, 27), true);
-assert.equal(clicked(centre(20, 2), items)?.id, 'window'); assert.equal(clicked(centre(30, 19), items)?.id, 'plot-1'); assert.equal(clicked(centre(38, 20), items)?.id, 'plot-1');
+assert.equal(clicked(centre(20, 2), items)?.id, 'window'); assert.equal(clicked(centre(20, 4), items)?.id, 'console', 'The desk sits inside the window area but wins the click'); assert.equal(clicked(centre(30, 19), items)?.id, 'plot-1'); assert.equal(clicked(centre(38, 20), items)?.id, 'plot-1');
 
 // Camera never leaves the map; the monitors keep everyone low enough that heads stay on screen.
 const view = { width: 1600, height: 996 };
