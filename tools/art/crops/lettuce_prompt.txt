@@ -1,0 +1,26 @@
+Generate ONE image with your image generation tool and save it as ./raw/lettuce.png. Use image generation, not code. Do not edit any other files.
+
+Landscape image, 1536x1024.
+
+Classic cute pixel RPG crop art, clean manually clustered square pixels,
+simple readable silhouette at 24×24 px, 1 px dark outline at intended
+small size, restrained 3–4 tone shading per material, minimal highlights.
+
+A single crop plant shown in three growth stages, left to right:
+seedling, growing, ready to harvest. All three stand on the same flat
+baseline at the same scale, evenly spaced, with the plant base cut flat
+so it can sit on a hydroponic shelf tray. No pot, no soil mound, no
+container. Front view seen slightly from above, cohesive top-left lighting.
+Softly rounded shapes built from crisp square pixels. Charming simplified
+proportions with chunky, compact silhouettes; leaves grouped into a few
+large clear shapes rather than many small ones.
+
+Crop: butter lettuce. Seedling: two small round pale-green leaves.
+Growing: a loose half-open rosette of 5–6 round leaves.
+Ready: a full round head with wavy outer leaves curling outward,
+light yellow-green center, darker green outer leaves.
+
+No photorealism, no high-resolution painterly texture, no leaf-vein
+detail, no ground, no shadow on the ground, no text or labels.
+Background: solid magenta #FF00FF.
+Each stage must remain recognizable as a small sprite on a farm rack.
