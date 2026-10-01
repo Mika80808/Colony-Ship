@@ -9,3 +9,6 @@ coverage/
 tmp/
 __pycache__/
 *.pyc
+
+# GPT 生成的作物原圖（約 22 MB），只留在本機；切好的成品在 public/assets/greenhouse/crops/
+tools/art/crops/raw/
