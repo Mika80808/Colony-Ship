@@ -5,8 +5,8 @@ map.json 的 ground 設定每個設施用哪些地面、疊放順序與材質檔
 layers 由下往上排，最下層先鋪滿整張。
 "overlays": [{"texture": "corridor", "x": 0, "y": 21, "w": 40, "h": 3}] 是疊在最上面的橫向長條貼圖（例如走廊），
 單位是格：貼圖高度縮放到 h 格、只在左右方向重複，可以半透明（溫室走廊透出底下的池塘）。
-"grassCreep": {"paved": "WP"} 讓草從草地邊緣蓋到這些地磚上，牆腳與地磚接縫也零星長草（lawn_painter.creep）。
-加 "grassFringe": "bottom" 時，下緣挨著草地的地方補一排葉團，草尖蓋到貼圖上（lawn_painter.FRINGE_OVERLAP）。
+"grassCreep": {"paved": "WP"} 讓草地依雜訊淡淡漫到這些地磚上（不規則舌狀邊、無描邊），牆腳與地磚上零星苔痕（lawn_painter.creep）。
+加 "grassFringe": "bottom" 時，下緣挨著草地的地方草也淡淡往上漫過貼圖邊（lawn_painter.FRINGE_REACH）。
 覆蓋貼圖不佔地面格，底下照常是 terrain 畫出的水或草。特殊效果依材質名稱觸發：lawn（遮罩＋葉團）、water（水邊陰影）、deck（外緣木條）；
 工程區沒有水和草，就不會用到它們（之後中央廣場可能會用）。
 
@@ -158,6 +158,24 @@ def main(map_path, tex_dir, out):
         print('overlay', o['texture'])
     img.save(out, quality=86)
     print('saved', out, img.size)
+    if getattr(lawn_painter.paint, 'water', None) is not None:
+        water_mask(lawn_painter.paint.water, m, T, os.path.join(os.path.dirname(out), 'water.png'))
+
+FISH_MARGIN = 36   # 魚影中心離岸至少幾 px：岸邊葉團會伸進水面約 30 px，魚不能游到草底下
+MASK_SCALE = 8     # 遮罩每格代表幾 px
+
+def water_mask(water, m, T, out):
+    """給遊戲裡水下魚影用的遮罩：畫面上的水面往內縮 FISH_MARGIN，扣掉覆蓋貼圖（玻璃走廊）底下，
+    縮成 1/MASK_SCALE（區塊內全是水才算水）。白＝魚可以游的地方。"""
+    from scipy import ndimage
+    import numpy as np
+    w = ndimage.binary_erosion(water, iterations=FISH_MARGIN)
+    for o in m['ground'].get('overlays', []):
+        w[o['y'] * T - FISH_MARGIN:(o['y'] + o['h']) * T + FISH_MARGIN, o['x'] * T:(o['x'] + o['w']) * T] = False
+    H, W = w.shape
+    blocks = w[:H // MASK_SCALE * MASK_SCALE, :W // MASK_SCALE * MASK_SCALE].reshape(H // MASK_SCALE, MASK_SCALE, W // MASK_SCALE, MASK_SCALE).all(axis=(1, 3))
+    Image.fromarray((blocks * 255).astype('uint8')).save(out)
+    print('water mask', out, blocks.shape[::-1], int(blocks.sum()), 'cells')
 
 def draw_overlay(img, o, path, T):
     """橫向長條覆蓋貼圖：縮到 h 格高，以地圖 x=0 為起點左右重複，依透明度疊在最上面。"""
