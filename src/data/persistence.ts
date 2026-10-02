@@ -1,3 +1,4 @@
+import type { SuppliesState } from '../game/supplies';
 import {
   PlayerProfile,
   PlayerStats,
@@ -55,6 +56,8 @@ export interface GameSave {
   summary: string;
   gameDate: string;
   gameTime: string;
+  /** 船上物資帳（game/supplies.ts）。舊存檔沒有，讀檔時從開局狀態起算。 */
+  supplies?: SuppliesState;
 }
 
 /** 存檔內容的欄位，不含 version / savedAt 這兩個由寫入端補上的中繼欄位。 */

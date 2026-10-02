@@ -5,6 +5,7 @@ import { ACTOR_HEIGHT, approach, fitViewport } from '../game/viewport';
 import { CropsMeta, RacksMeta, layoutRack, rackBounds, rackKey } from '../game/racks';
 import { dayNumber, stageAt } from '../game/growth';
 import { decorSprites, spriteFor } from '../game/decor';
+import { Fish, WaterMask, drawFish, rng, spawnFish, stepFish } from '../game/fish';
 
 /** 畫在地面之上、要和玩家排前後的東西：依底部 y 由上到下畫，玩家插在自己腳的位置。 */
 interface Standing { bottom: number; draw: (ctx: CanvasRenderingContext2D) => void }
@@ -17,6 +18,10 @@ interface Props {
   /** Walk out through a doorway into the sector beyond it. */
   onLeave: (to: string) => void;
   onNotice: (text: string) => void;
+  /** 每幀走了幾 px（推進遊戲時間用，見 game/clock.ts）。 */
+  onWalk?: (px: number) => void;
+  /** 有遊戲邏輯的互動（例：出貨籃）交給 App；回傳 true 表示處理掉，否則照 map.json 的文字提示。 */
+  onAction?: (item: FacilityInteraction) => boolean;
   /** 遊戲時間：自動植栽區的作物依此決定生長階段。 */
   gameDate: string;
   gameTime: string;
@@ -28,13 +33,14 @@ export default function FacilityScene(props: Props) {
   const controls = useRef(props); controls.current = props;
   const keys = useRef(new Set<string>());
   const [status, setStatus] = useState(`正在載入${props.facility.name}…`);
-  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, grid: true, standing: [] as Standing[], paintRacks: null as ((day: number) => void) | null });
+  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, grid: true, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null });
   const act = (item?: FacilityInteraction) => {
     const s = state.current;
     if (!s.map || controls.current.paused) return;
     item ??= nearby(s.p, s.items); if (!item) return;
     s.path = []; s.pending = null; keys.current.clear();
-    if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to); else controls.current.onNotice(item.text);
+    if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to);
+    else if (!controls.current.onAction?.(item)) controls.current.onNotice(item.text);
   };
   const actRef = useRef(act); actRef.current = act;
   useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);
@@ -88,12 +94,23 @@ export default function FacilityScene(props: Props) {
         },
       }));
     }
+    /** 水面遮罩（facility_ground.py 產生的 water.png，1 px = 8 px 世界座標）；沒有就不放魚。 */
+    async function loadWater(folder: string, map: FacilityMap): Promise<WaterMask | null> {
+      if (!map.fish) return null;
+      const im = await load(`/assets/${folder}/water.png`).catch(() => null);
+      if (!im) return null;
+      const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+      const g = c.getContext('2d')!; g.drawImage(im, 0, 0);
+      const px = g.getImageData(0, 0, im.width, im.height).data, water = new Uint8Array(im.width * im.height);
+      for (let i = 0; i < water.length; i++) water[i] = px[i * 4] > 127 ? 1 : 0;
+      return { width: im.width, height: im.height, scale: map.width * map.tileSize / im.width, water };
+    }
     async function start() {
       const { folder } = controls.current.facility;
       const response = await fetch(`/assets/${folder}/map.json`); if (!response.ok) throw new Error('map');
       const map: FacilityMap = await response.json();
       // L0 地面由 tools/art/facility_ground.py 依 map.json 的 terrain 拼成；種植架（racks）與樹、花（decor）另外疊上，其他擺設還沒上，先靠 G 鍵的碰撞格看位置。
-      const [background, sprite, racks, decor] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.png'), loadRacks(folder, map), loadDecor(folder, map)]);
+      const [background, sprite, racks, decor, water] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.png'), loadRacks(folder, map), loadDecor(folder, map), loadWater(folder, map)]);
       if (disposed) return;
       const s = state.current, world = worldSize(map);
       // 種植架是放大 2 倍的像素圖（不平滑）；樹和花是從大圖縮小（要平滑）
@@ -101,7 +118,9 @@ export default function FacilityScene(props: Props) {
         ...racks.racks.map(r => ({ bottom: r.bottom, draw: (c: CanvasRenderingContext2D) => { c.imageSmoothingEnabled = false; c.drawImage(r.image, r.x, r.y, r.width, r.height); } })),
         ...decor,
       ].sort((a, b) => a.bottom - b.bottom);
-      s.paintRacks = racks.paint; racks.paint(dayNumber(controls.current.gameDate, controls.current.gameTime));
+      s.paintRacks = racks.paint;
+      s.water = water; s.fish = water ? spawnFish(water, map.fish ?? 0, 7) : [];
+      const fishRandom = rng(Date.now()); racks.paint(dayNumber(controls.current.gameDate, controls.current.gameTime));
       s.map = map; s.items = interactions(map); s.p = spawn(map, controls.current.arrivedFrom);
       const box = canvas.parentElement!.getBoundingClientRect(); fit(box.width, box.height);
       setStatus(''); canvas.focus({ preventScroll: true });
@@ -128,7 +147,8 @@ export default function FacilityScene(props: Props) {
           const distance = Math.hypot(dx, dy);
           if (distance) {
             const amount = Math.min(240 * dt, s.path.length ? distance : Infinity);
-            const p = move(map, s.p, dx / distance * amount, dy / distance * amount); moving = Math.hypot(p.x - s.p.x, p.y - s.p.y) > .01; s.p = p;
+            const p = move(map, s.p, dx / distance * amount, dy / distance * amount); const walked = Math.hypot(p.x - s.p.x, p.y - s.p.y); moving = walked > .01; s.p = p;
+            if (moving) controls.current.onWalk?.(walked);
             s.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
             if (moving) s.elapsed += dt;
           }
@@ -144,6 +164,8 @@ export default function FacilityScene(props: Props) {
           ctx.fillStyle = '#ff305033';
           map.collision.forEach((row, y) => row.forEach((v, x) => { if (v) ctx.fillRect(x * map.tileSize, y * map.tileSize, map.tileSize, map.tileSize); }));
         }
+        // 水底下的魚影：畫在地面上、所有擺設和玩家底下
+        if (s.water) for (const f of s.fish) { if (!frozen) stepFish(f, dt, s.water, fishRandom); drawFish(ctx, f); }
         const item = frozen ? undefined : nearby(s.p, s.items);
         if (item) { ctx.strokeStyle = '#71efffaa'; ctx.lineWidth = 4; ctx.strokeRect(item.area.x + 2, item.area.y + 2, item.area.width - 4, item.area.height - 4); }
         s.standing.forEach(o => { if (o.bottom <= s.p.y) o.draw(ctx); });

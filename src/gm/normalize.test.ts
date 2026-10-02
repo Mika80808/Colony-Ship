@@ -201,4 +201,14 @@ assert.deepEqual(JSON.parse(turns[0].gm), {
   commands: [],
 }, 'GM 歷史回應以 JSON 回填');
 
+// advance_time：分鐘數取整、夾在 1–720；0、負數、非數字直接丟掉（缺了就缺，不代為補寫）。
+assert.deepEqual(
+  normalizeCommands([
+    { type: 'advance_time', minutes: 15.4 }, { type: 'advance_time', minutes: 99999 },
+    { type: 'advance_time', minutes: -30 }, { type: 'advance_time', minutes: 0 }, { type: 'advance_time', minutes: '很久' },
+  ], context),
+  [{ type: 'advance_time', minutes: 15 }, { type: 'advance_time', minutes: 720 }, { type: 'advance_time', minutes: 1 }],
+  'advance_time 收斂',
+);
+
 console.log('gm/prompt: 全部通過');

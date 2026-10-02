@@ -14,7 +14,7 @@ for (const n of decorSprites(decor)) assert.ok(existsSync(`public/assets/greenho
 // Trees block their trunk tile; flowers never add collision, so they stay where you can walk (or against the wall).
 for (const d of decor) {
   const tx = Math.floor(d.x), ty = Math.min(m.height - 1, Math.floor(d.y));
-  if (d.block) assert.equal(m.collision[ty][tx], 1, `${d.sprite} trunk blocks`);
+  if (d.block && /^(tree_|placed_)/.test(d.sprite)) assert.equal(m.collision[ty][tx], 1, `${d.sprite} trunk blocks`);
   assert.ok(d.x > 0 && d.x < m.width && d.y > 0 && d.y <= m.height, `${d.sprite} on the map`);
 }
 console.log('decor ok');

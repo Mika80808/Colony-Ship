@@ -37,7 +37,7 @@ export const GM_RESPONSE_SCHEMA = {
             type: 'string',
             enum: [
               'adjust_stats', 'consume_item', 'set_quest_status', 'adjust_affection',
-              'set_summary', 'add_objective', 'complete_objective',
+              'set_summary', 'add_objective', 'complete_objective', 'advance_time',
             ],
           },
           stamina: { type: 'number' },
@@ -55,6 +55,7 @@ export const GM_RESPONSE_SCHEMA = {
           text: { type: 'string' },
           location: { type: 'string' },
           objectiveId: { type: 'string' },
+          minutes: { type: 'number' },
         },
         required: ['type'],
       },

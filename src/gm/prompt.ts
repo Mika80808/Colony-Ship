@@ -40,7 +40,7 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
 - 一次回應以 1 到 4 則為宜。對白請加上引號。
 
 ## commands：對遊戲狀態的變更，沒有要改就給空陣列
-只有這七種，且**只能引用下方局勢中真實存在的 id**，不可自行發明：
+只有這八種，且**只能引用下方局勢中真實存在的 id**，不可自行發明：
 - adjust_stats：調整數值。stamina／hunger／credits 為增減量（可為負），
   addCondition／removeCondition 為狀態字串。
 - consume_item：消耗玩家背包中的物品。itemId 必須是背包裡既有的 id，count 預設 1。
@@ -52,6 +52,9 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
 - add_objective：新增一則當前目標。text 為 20 字內的祈使句（例如「找布雷茲問
   補給的事」），location 選填。只在玩家有了明確的下一步時才下。
 - complete_objective：結束一則目標。objectiveId 必須是上方「當前目標」裡既有的 id。
+- advance_time：這段故事經過了多久，minutes 為分鐘數。**每次回應都要下一次**，依
+  故事時距估：幾句寒暄 1–3、一段深談 10–20、吃一頓飯 30–60、睡一覺 360–480。
+  玩家走路的時間系統會另外算，這裡只算故事裡發生的事。
 
 沒有對應 id 時就不要下該指令，改用敘述帶過。
 不要發放新任務或新物品 —— 目前的指令集還不支援，硬下指令只會失效。
@@ -61,7 +64,7 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
 
 /** 把局勢整理成模型看得懂的一段文字。 */
 export function buildContextBlock(context: GmContext): string {
-  const { profile, stats, quests, items, presentNpcs, locationName, objectives, summary, gameDate, gameTime } = context;
+  const { profile, stats, quests, items, presentNpcs, locationName, objectives, summary, gameDate, gameTime, supplies } = context;
 
   const profileLines = profile.name
     ? [
@@ -108,7 +111,10 @@ export function buildContextBlock(context: GmContext): string {
 
 ## 所在位置
 ${locationName}
-
+${supplies?.length ? `
+## 船上物資（僅供參考：讓角色自然提起食材充足或短缺，不要報數字，也不要用指令改）
+${supplies.join('\n')}
+` : ''}
 ## 玩家
 ${profileLines}
 體力 ${stats.stamina}/${stats.maxStamina}　飢餓 ${stats.hunger}/${stats.maxHunger}　星幣 ${stats.credits}

@@ -13,7 +13,7 @@ export interface TileRect { x: number; y: number; w: number; h: number }
 export interface Entrance extends TileRect { to: string; label: string; spawn: [number, number] }
 /** An interaction written in map.json, in tile units: `area` is what the player clicks, `stand` is where they walk to. */
 export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number] }
-export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[]; racks?: RackSpec[]; decor?: DecorSpec[] }
+export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[]; racks?: RackSpec[]; decor?: DecorSpec[]; fish?: number }
 /** `kind` is 'exit' for doorways (with `to`), 'plot' for farm plots, otherwise whatever map.json names it. */
 export interface FacilityInteraction { id: string; kind: string; label: string; text: string; point: Point; area: Rect; to?: string }
 

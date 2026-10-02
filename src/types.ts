@@ -230,7 +230,9 @@ export type GmCommand =
   | { type: 'adjust_affection'; npcId: string; amount: number; relationship?: string }
   | { type: 'set_summary'; text: string }
   | { type: 'add_objective'; text: string; location?: string }
-  | { type: 'complete_objective'; objectiveId: string };
+  | { type: 'complete_objective'; objectiveId: string }
+  /** 依故事內容推進遊戲時間（分鐘）。走路的耗時由前端另算，兩者相加。 */
+  | { type: 'advance_time'; minutes: number };
 
 /** 故事書事件條目（內容）。 */
 export interface ChapterEntry {

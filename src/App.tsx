@@ -8,6 +8,14 @@ import { addMinutes, crossesCheckpoint, hourOf, planRelocation, sceneOf } from '
 import BridgeScene from './components/BridgeScene';
 import FacilityScene from './components/FacilityScene';
 import { FACILITIES } from './game/facility';
+import { travelMinutes, walkMeter } from './game/clock';
+import { SuppliesState, deliver, gmSupplyLines, initialSupplies, pickUp, tick } from './game/supplies';
+import { dayNumber } from './game/growth';
+import type { FacilityInteraction, FacilityMap } from './game/facility';
+import greenhouseMap from '../public/assets/greenhouse/map.json';
+
+/** 溫室的種植架（物資帳算收成用）。地圖 JSON 直接打包進來，不必等場景載入。 */
+const GREENHOUSE_RACKS = (greenhouseMap as unknown as FacilityMap).racks ?? [];
 import HeaderHUD from './components/HeaderHUD';
 import LeftSidebar, { Objective } from './components/LeftSidebar';
 import DialogueSection from './components/DialogueSection';
@@ -177,6 +185,8 @@ export default function App() {
   // 只能經由下方的 advanceGameTime 推進，檢查點判定集中在那裡。
   const [gameDate, setGameDate] = useState<string>(saved?.gameDate ?? GAME_START_DATE);
   const [gameTime, setGameTime] = useState<string>(saved?.gameTime ?? GAME_START_TIME);
+  // 船上物資帳：時間推進時收成與消耗，玩家在溫室裝推車、到中央公園卸貨。
+  const [supplies, setSupplies] = useState<SuppliesState>(() => saved?.supplies ?? initialSupplies(dayNumber(saved?.gameDate ?? GAME_START_DATE, saved?.gameTime ?? GAME_START_TIME)));
   // 重置進度時 +1：場景可能沒變（本來就在起點），但 NPC 位置被清空了，仍要重算。
   const [sceneEpoch, setSceneEpoch] = useState(0);
 
@@ -195,7 +205,7 @@ export default function App() {
       const ok = writeGameSave({
         profile, stats, quests, items, runStory, storyOverrides, dialogueHistory,
         diaryEntries, currentSectorId, currentRoomId,
-        areaMemories, objectives, summary, gameDate, gameTime,
+        areaMemories, objectives, summary, gameDate, gameTime, supplies,
       });
       if (ok) {
         saveFailedRef.current = false;
@@ -208,7 +218,7 @@ export default function App() {
   }, [
     profile, stats, quests, items, runStory, storyOverrides, dialogueHistory,
     diaryEntries, currentSectorId, currentRoomId,
-    areaMemories, objectives, summary, gameDate, gameTime,
+    areaMemories, objectives, summary, gameDate, gameTime, supplies,
   ]);
 
   // Handle Hotkeys
@@ -306,6 +316,7 @@ export default function App() {
     // id 由這裡發，不讓 GM 自己取：模型會重複用同一個字串，兩則目標撞 id
     // 之後 React 的 key 就會亂掉，結案也會一次關掉兩則。
     if (command.type === 'add_objective') setObjectives((prev) => [...prev, { id: `obj-${Date.now()}-${prev.length}`, text: command.text, location: command.location }]);
+    if (command.type === 'advance_time') advanceGameTime(command.minutes);
     if (command.type === 'complete_objective') setObjectives((prev) => prev.map((objective) => objective.id === command.objectiveId ? { ...objective, done: true } : objective));
   });
 
@@ -350,20 +361,35 @@ export default function App() {
   }, [playerScene, sceneEpoch]);
 
   /**
-   * 推進遊戲時間。遊戲時間只能經由這裡改變。
+   * 推進遊戲時間。遊戲時間只能經由這裡改變，來源有三個（規則見 game/clock.ts）：
+   * 走路（場景回報走了幾 px）、星圖傳送（依距離級距）、主 GM 的 advance_time 指令。
    * 時機二：推進前後的區間跨過檢查點（01:00／09:00／18:00／21:00）時重算一次；
    * 會讓 NPC 進出玩家眼前的變動先不套用，等玩家切換場景。
-   * 目前還沒有任何地方推進時間（移動、GM 指令都不會），接上時呼叫這個函式即可。
+   * 用 ref 記當下時間：走路可能一幀內連續推進，state 還沒更新就再推會吃掉分鐘。
    */
+  const clockRef = useRef({ date: gameDate, time: gameTime });
+  useEffect(() => { clockRef.current = { date: gameDate, time: gameTime }; }, [gameDate, gameTime]);
   const advanceGameTime = (minutes: number) => {
     if (minutes <= 0) return;
-    const before = { date: gameDate, time: gameTime };
-    const after = addMinutes(gameDate, gameTime, minutes);
+    const before = clockRef.current;
+    const after = addMinutes(before.date, before.time, minutes);
+    clockRef.current = after;
     setGameDate(after.date);
     setGameTime(after.time);
+    setSupplies((prev) => tick(prev, GREENHOUSE_RACKS, dayNumber(after.date, after.time)));
     if (crossesCheckpoint(before, after)) relocateNpcs(hourOf(after.time), playerScene);
   };
-  void advanceGameTime;
+  /** 場景每幀回報走了幾 px；累積滿一分鐘才推進，站著不動不耗時。 */
+  const walkRef = useRef(walkMeter());
+  const handleWalk = (px: number) => advanceGameTime(walkRef.current(px));
+  /** 設施場景裡 map.json 沒寫死文字的互動。回傳 true 表示處理掉了。 */
+  const handleFacilityAction = (item: FacilityInteraction) => {
+    if (item.kind !== 'shipping') return false;
+    const { state, kg } = pickUp(supplies);
+    if (kg) { setSupplies(state); triggerToast(`裝上推車：約 ${kg} 公斤蔬果。送到中央公園的餐廳就能卸貨。`); }
+    else triggerToast(state.carrying && Object.values(state.carrying).some((v) => v > 0) ? '推車已經滿了，先送一趟吧。' : '出貨籃是空的，作物還在長。');
+    return true;
+  };
 
   // GM 呼叫狀態。錯誤不寫進對話歷史 —— 那是遊戲紀錄，不是錯誤日誌。
   const [gmPending, setGmPending] = useState<boolean>(false);
@@ -392,6 +418,7 @@ export default function App() {
         dialogueHistory,
         objectives,
         summary,
+        supplies: gmSupplyLines(supplies),
       });
       applyCommands(result.commands);
       setDialogueHistory((prev) => {
@@ -465,6 +492,7 @@ export default function App() {
   // 位置切換只在模擬完成後提交，彈窗才會關閉（規格 1.6）。
   const handleEnterSector = async (sec: MapSector, roomId?: string) => {
     await new Promise((resolve) => setTimeout(resolve, 600));
+    advanceGameTime(travelMinutes(currentSectorId, sec.id));   // 傳送依距離級距耗時；同區域內換房間不耗時
     commitSector(sec.id, roomId ?? null, null);
   };
 
@@ -477,6 +505,10 @@ export default function App() {
     setArrivedFrom(from);
     setCurrentRoomId(roomId);
     if (sec.id === 'bridge') setBridgeEntry(value => value + 1);
+    if (sec.id === 'park') {                                           // 餐廳在中央公園：推車上的蔬果自動卸貨
+      const { state, kg } = deliver(supplies, 'restaurant');
+      if (kg) { setSupplies(state); triggerToast(`把約 ${kg} 公斤蔬果送進了餐廳廚房。`); }
+    }
     if (sec.id === 'bridge') setDialogueHistory(history => [...history, {
       playerInput: '前往艦橋',
       segments: [{ kind: 'description' as const, text: '中央平台緩緩升起，三位值勤人員朝你望來。觀景窗外，行星的弧面泛著淡藍色光；艦橋的低鳴聲在腳下逐漸安定。' }],
@@ -508,6 +540,7 @@ export default function App() {
     setStoryOverrides(EMPTY_OVERRIDES);
     setGameDate(GAME_START_DATE);
     setGameTime(GAME_START_TIME);
+    setSupplies(initialSupplies(dayNumber(GAME_START_DATE, GAME_START_TIME)));
     setSceneEpoch((value) => value + 1);
 
     setCurrentSectorId(START_SECTOR_ID);
@@ -609,11 +642,11 @@ export default function App() {
           stage={currentSectorId === 'bridge' ? (
             <BridgeScene key={bridgeEntry} paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} />
           ) : FACILITIES[currentSectorId] ? (
-            <FacilityScene key={currentSectorId} facility={FACILITIES[currentSectorId]} arrivedFrom={arrivedFrom} paused={activeModal !== null || activeDrawer !== null} onLeave={(to) => commitSector(to, null, currentSectorId)} onNotice={triggerToast} gameDate={gameDate} gameTime={gameTime} />
+            <FacilityScene key={currentSectorId} facility={FACILITIES[currentSectorId]} arrivedFrom={arrivedFrom} paused={activeModal !== null || activeDrawer !== null} onLeave={(to) => commitSector(to, null, currentSectorId)} onNotice={triggerToast} onAction={handleFacilityAction} onWalk={handleWalk} gameDate={gameDate} gameTime={gameTime} />
           ) : currentRoom ? (
-            <RoomScene key={currentRoom.id} roomId={currentRoom.id} furnishing={furnishingFor(roomOccupant?.id)} npcs={presentNpcs} onInteract={(npc) => sendToGm(`我走近${npc.name}打招呼`)} onExit={() => { setReturnRoomId(currentRoom.id); setCurrentRoomId(null); }} paused={activeModal !== null || activeDrawer !== null} />
+            <RoomScene key={currentRoom.id} roomId={currentRoom.id} furnishing={furnishingFor(roomOccupant?.id)} npcs={presentNpcs} onInteract={(npc) => sendToGm(`我走近${npc.name}打招呼`)} onExit={() => { setReturnRoomId(currentRoom.id); setCurrentRoomId(null); }} onWalk={handleWalk} paused={activeModal !== null || activeDrawer !== null} />
           ) : CORRIDORS[currentSectorId] ? (
-            <CorridorScene key={currentSectorId} corridor={CORRIDORS[currentSectorId]} playerName={profile.name} returnRoomId={returnRoomId} arrivedFrom={arrivedFrom} onEnterFacility={(to) => commitSector(to, null, currentSectorId)} paused={activeModal !== null || activeDrawer !== null} onEnterRoom={setCurrentRoomId} onNotice={triggerToast} />
+            <CorridorScene key={currentSectorId} corridor={CORRIDORS[currentSectorId]} playerName={profile.name} returnRoomId={returnRoomId} arrivedFrom={arrivedFrom} onEnterFacility={(to) => commitSector(to, null, currentSectorId)} paused={activeModal !== null || activeDrawer !== null} onEnterRoom={setCurrentRoomId} onNotice={triggerToast} onWalk={handleWalk} />
           ) : undefined}
         />
       </main>

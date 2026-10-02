@@ -22,16 +22,26 @@ def seamless(a):
     return a * weight + rolled * (1 - weight)
 
 def field(src, out):
-    im = Image.open(src).convert('RGB')
+    im = Image.open(src)
+    if im.mode == 'RGBA' and np.asarray(im)[..., 3].min() < 128:
+        # GPT 有時把草地底色畫成透明、只留色塊：鋪在透明區的平均色上（底下殘留的 RGB 是模糊殘影，不能直接用）
+        a = np.asarray(im)
+        base = tuple(int(v) for v in a[..., :3][a[..., 3] < 32].mean(0))
+        flat = Image.new('RGBA', im.size, base + (255,)); flat.alpha_composite(im); im = flat
+    im = im.convert('RGB')
     im = im.resize((round(im.width * SCALE), round(im.height * SCALE)), Image.LANCZOS)
     a = seamless(np.asarray(im, np.float32))
     Image.fromarray(a.round().astype(np.uint8)).save(out); print('field', out, im.size)
 
 def clumps(src, out_dir):
-    a = np.asarray(Image.open(src).convert('RGB')).astype(np.float32)
-    r, g, b = a[..., 0], a[..., 1], a[..., 2]
-    magenta = (np.minimum(r, b) - g > 70) & (r > 150) & (b > 150)
-    fg = ndimage.binary_erosion(~magenta, iterations=2)      # 去掉洋紅滲色的外緣
+    src_im = Image.open(src)
+    a = np.asarray(src_im.convert('RGB')).astype(np.float32)
+    if src_im.mode == 'RGBA' and np.asarray(src_im)[..., 3].min() == 0:
+        fg = np.asarray(src_im)[..., 3] > 128                 # 透明背景（GPT 現在可以直接出）
+    else:
+        r, g, b = a[..., 0], a[..., 1], a[..., 2]
+        magenta = (np.minimum(r, b) - g > 70) & (r > 150) & (b > 150)
+        fg = ndimage.binary_erosion(~magenta, iterations=2)  # 洋紅背景：去掉滲色的外緣
     fg = ndimage.binary_opening(fg, iterations=1)
     lab, n = ndimage.label(fg)
     sizes = ndimage.sum(fg, lab, range(1, n + 1))
