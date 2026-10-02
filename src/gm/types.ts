@@ -30,6 +30,11 @@ export interface GmContext {
   summary: string;
   /** 船上物資狀態（前端物資帳整理好的幾行文字，game/supplies.ts）。只供參考，讓角色自然提起。 */
   supplies?: string[];
+  /**
+   * 這個場景裡可查詢的設施終端與它目前顯示的內容（例：溫室工作站的生長報表）。
+   * 角色要先到終端前查看才知道這些內容，prompt 會講明，不讓 NPC 憑空報數字。
+   */
+  terminals?: { name: string; lines: string[] }[];
 }
 
 /** GM 的回應。與先前 mock 的形狀相同，App 的套用邏輯不需要改。 */

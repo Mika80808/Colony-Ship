@@ -11,11 +11,13 @@ import { FACILITIES } from './game/facility';
 import { travelMinutes, walkMeter } from './game/clock';
 import { SuppliesState, deliver, gmSupplyLines, initialSupplies, pickUp, tick } from './game/supplies';
 import { dayNumber } from './game/growth';
+import { describeRow, growthReport } from './game/growthReport';
 import type { FacilityInteraction, FacilityMap } from './game/facility';
 import greenhouseMap from '../public/assets/greenhouse/map.json';
 
 /** 溫室的種植架（物資帳算收成用）。地圖 JSON 直接打包進來，不必等場景載入。 */
 const GREENHOUSE_RACKS = (greenhouseMap as unknown as FacilityMap).racks ?? [];
+const GREENHOUSE_WIDTH = (greenhouseMap as unknown as FacilityMap).width;
 import HeaderHUD from './components/HeaderHUD';
 import LeftSidebar, { Objective } from './components/LeftSidebar';
 import DialogueSection from './components/DialogueSection';
@@ -26,6 +28,7 @@ import MapModal from './components/Modals/MapModal';
 import StoryModal from './components/Modals/StoryModal';
 import DiaryModal from './components/Modals/DiaryModal';
 import SettingsModal from './components/Modals/SettingsModal';
+import GrowthModal from './components/Modals/GrowthModal';
 import {
   DrawerType,
   ModalType,
@@ -384,6 +387,7 @@ export default function App() {
   const handleWalk = (px: number) => advanceGameTime(walkRef.current(px));
   /** 設施場景裡 map.json 沒寫死文字的互動。回傳 true 表示處理掉了。 */
   const handleFacilityAction = (item: FacilityInteraction) => {
+    if (item.kind === 'console' && currentSectorId === 'greenhouse') { setActiveModal('growth'); return true; }
     if (item.kind !== 'shipping') return false;
     const { state, kg } = pickUp(supplies);
     if (kg) { setSupplies(state); triggerToast(`裝上推車：約 ${kg} 公斤蔬果。送到中央公園的餐廳就能卸貨。`); }
@@ -419,6 +423,7 @@ export default function App() {
         objectives,
         summary,
         supplies: gmSupplyLines(supplies),
+        terminals: currentSectorId === 'greenhouse' ? [{ name: '溫室窗前工作站（農業監控終端）', lines: growthReport(GREENHOUSE_RACKS, dayNumber(gameDate, gameTime), GREENHOUSE_WIDTH).map(describeRow) }] : undefined,
       });
       applyCommands(result.commands);
       setDialogueHistory((prev) => {
@@ -719,6 +724,15 @@ export default function App() {
         playerName={profile.name}
         gameDate={gameDate}
         onGenerateDraft={requestDiaryDraft}
+      />
+
+      {/* 溫室工作站的生長報表 */}
+      <GrowthModal
+        isOpen={activeModal === 'growth'}
+        onClose={() => setActiveModal(null)}
+        rows={activeModal === 'growth' ? growthReport(GREENHOUSE_RACKS, dayNumber(gameDate, gameTime), GREENHOUSE_WIDTH) : []}
+        gameDate={gameDate}
+        gameTime={gameTime}
       />
 
       {/* 5. 系統設定 */}
