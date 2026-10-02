@@ -29,6 +29,8 @@ import StoryModal from './components/Modals/StoryModal';
 import DiaryModal from './components/Modals/DiaryModal';
 import SettingsModal from './components/Modals/SettingsModal';
 import GrowthModal from './components/Modals/GrowthModal';
+import MonitorModal from './components/Modals/MonitorModal';
+import type { Wing } from './game/monitor';
 import {
   DrawerType,
   ModalType,
@@ -386,8 +388,10 @@ export default function App() {
   const walkRef = useRef(walkMeter());
   const handleWalk = (px: number) => advanceGameTime(walkRef.current(px));
   /** 設施場景裡 map.json 沒寫死文字的互動。回傳 true 表示處理掉了。 */
+  const [monitorWing, setMonitorWing] = useState<Wing>('left');
   const handleFacilityAction = (item: FacilityInteraction) => {
     if (item.kind === 'console' && currentSectorId === 'greenhouse') { setActiveModal('growth'); return true; }
+    if (item.kind === 'monitor' && currentSectorId === 'greenhouse') { setMonitorWing(item.id.endsWith('right') ? 'right' : 'left'); setActiveModal('monitor'); return true; }
     if (item.kind !== 'shipping') return false;
     const { state, kg } = pickUp(supplies);
     if (kg) { setSupplies(state); triggerToast(`裝上推車：約 ${kg} 公斤蔬果。送到中央公園的餐廳就能卸貨。`); }
@@ -726,6 +730,14 @@ export default function App() {
         onGenerateDraft={requestDiaryDraft}
       />
 
+      {/* 溫室植栽監測機（介面草稿，模擬數值） */}
+      <MonitorModal
+        wing={activeModal === 'monitor' ? monitorWing : null}
+        onClose={() => setActiveModal(null)}
+        day={dayNumber(gameDate, gameTime)}
+        gameDate={gameDate}
+        gameTime={gameTime}
+      />
       {/* 溫室工作站的生長報表 */}
       <GrowthModal
         isOpen={activeModal === 'growth'}
