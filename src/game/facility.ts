@@ -1,4 +1,6 @@
 import type { Point, Rect } from './corridor';
+import type { RackSpec } from './racks';
+import type { DecorSpec } from './decor';
 
 /**
  * 設施場景（溫室、工程區……）共用的格子地圖：public/assets/<folder>/map.json。
@@ -11,7 +13,7 @@ export interface TileRect { x: number; y: number; w: number; h: number }
 export interface Entrance extends TileRect { to: string; label: string; spawn: [number, number] }
 /** An interaction written in map.json, in tile units: `area` is what the player clicks, `stand` is where they walk to. */
 export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number] }
-export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[] }
+export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[]; racks?: RackSpec[]; decor?: DecorSpec[] }
 /** `kind` is 'exit' for doorways (with `to`), 'plot' for farm plots, otherwise whatever map.json names it. */
 export interface FacilityInteraction { id: string; kind: string; label: string; text: string; point: Point; area: Rect; to?: string }
 
@@ -123,8 +125,10 @@ const inReach = (p: Point, r: Rect) => p.x > r.x - REACH && p.x < r.x + r.width 
 /** The interaction the player is standing next to, preferring the closest. */
 export const nearby = (p: Point, items: FacilityInteraction[]) => items.filter(i => inReach(p, i.area))
   .sort((a, b) => Math.hypot(p.x - a.point.x, p.y - a.point.y) - Math.hypot(p.x - b.point.x, p.y - b.point.y))[0];
-/** The interaction whose area contains a clicked world point. */
-export const clicked = (p: Point, items: FacilityInteraction[]) => items.find(i => p.x >= i.area.x && p.x <= i.area.x + i.area.width && p.y >= i.area.y && p.y <= i.area.y + i.area.height);
+/** The interaction whose area contains a clicked world point; where areas overlap (a workstation inside the window's area) the smallest wins. */
+export const clicked = (p: Point, items: FacilityInteraction[]) => items
+  .filter(i => p.x >= i.area.x && p.x <= i.area.x + i.area.width && p.y >= i.area.y && p.y <= i.area.y + i.area.height)
+  .sort((a, b) => a.area.width * a.area.height - b.area.width * b.area.height)[0];
 
 /** Camera origin centred on `focus`, clamped to the map. */
 export function camera(focus: Point, view: { width: number; height: number }, m: FacilityMap): Point {
