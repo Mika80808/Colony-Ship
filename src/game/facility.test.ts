@@ -48,7 +48,7 @@ assert.equal(move(m, aisle, 300, 0).y, aisle.y);
 
 // Interactions: every stand point is floor, reachable, and next to its own area.
 const items = interactions(m);
-assert.deepEqual(items.map(i => i.id), ['exit-residential_a', 'exit-residential_b', 'window', 'console', 'monitor-left', 'monitor-right', 'plot-1']);
+assert.deepEqual(items.map(i => i.id), ['exit-residential_a', 'exit-residential_b', 'window', 'console', 'monitor-left', 'monitor-right', 'shipping', 'plot-1']);
 assert.equal(items.find(i => i.id === 'plot-1')?.label, '種植區', 'A single plot is not numbered');
 for (const i of items) { assert.ok(walkable(m, i.point), i.id); assert.ok(findPath(m, start, i.point).length, i.id); assert.equal(nearby(i.point, items)?.id, i.id); }
 for (const e of m.entrances) {

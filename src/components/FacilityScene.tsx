@@ -18,6 +18,10 @@ interface Props {
   /** Walk out through a doorway into the sector beyond it. */
   onLeave: (to: string) => void;
   onNotice: (text: string) => void;
+  /** 每幀走了幾 px（推進遊戲時間用，見 game/clock.ts）。 */
+  onWalk?: (px: number) => void;
+  /** 有遊戲邏輯的互動（例：出貨籃）交給 App；回傳 true 表示處理掉，否則照 map.json 的文字提示。 */
+  onAction?: (item: FacilityInteraction) => boolean;
   /** 遊戲時間：自動植栽區的作物依此決定生長階段。 */
   gameDate: string;
   gameTime: string;
@@ -35,7 +39,8 @@ export default function FacilityScene(props: Props) {
     if (!s.map || controls.current.paused) return;
     item ??= nearby(s.p, s.items); if (!item) return;
     s.path = []; s.pending = null; keys.current.clear();
-    if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to); else controls.current.onNotice(item.text);
+    if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to);
+    else if (!controls.current.onAction?.(item)) controls.current.onNotice(item.text);
   };
   const actRef = useRef(act); actRef.current = act;
   useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);
@@ -142,7 +147,8 @@ export default function FacilityScene(props: Props) {
           const distance = Math.hypot(dx, dy);
           if (distance) {
             const amount = Math.min(240 * dt, s.path.length ? distance : Infinity);
-            const p = move(map, s.p, dx / distance * amount, dy / distance * amount); moving = Math.hypot(p.x - s.p.x, p.y - s.p.y) > .01; s.p = p;
+            const p = move(map, s.p, dx / distance * amount, dy / distance * amount); const walked = Math.hypot(p.x - s.p.x, p.y - s.p.y); moving = walked > .01; s.p = p;
+            if (moving) controls.current.onWalk?.(walked);
             s.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
             if (moving) s.elapsed += dt;
           }

@@ -28,6 +28,8 @@ export interface GmContext {
   objectives: Objective[];
   /** 左欄的當前摘要。改寫前要先知道現在寫了什麼。 */
   summary: string;
+  /** 船上物資狀態（前端物資帳整理好的幾行文字，game/supplies.ts）。只供參考，讓角色自然提起。 */
+  supplies?: string[];
 }
 
 /** GM 的回應。與先前 mock 的形狀相同，App 的套用邏輯不需要改。 */

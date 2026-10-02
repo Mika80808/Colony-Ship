@@ -13,6 +13,8 @@ interface Props {
   /** Walk through a facility sign into that facility's scene. */
   onEnterFacility?: (sectorId: string) => void;
   onEnterRoom: (roomId: string) => void; onNotice: (text: string) => void;
+  /** 每幀走了幾 px（推進遊戲時間用，見 game/clock.ts）。 */
+  onWalk?: (px: number) => void;
 }
 const movement = new Set(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
 const normal = (key: string) => key.length === 1 ? key.toLowerCase() : key;
@@ -95,7 +97,7 @@ export default function CorridorScene(props: Props) {
             const distance=Math.hypot(dx,dy);
             if(distance) {
               const amount=Math.min(240*dt,s.path.length?distance:Infinity);
-              const p=move(s.p,dx/distance*amount,dy/distance*amount,controls.current.corridor.collisions);moving=Math.hypot(p.x-s.p.x,p.y-s.p.y)>.01;s.p=p;
+              const p=move(s.p,dx/distance*amount,dy/distance*amount,controls.current.corridor.collisions);const walked=Math.hypot(p.x-s.p.x,p.y-s.p.y);moving=walked>.01;s.p=p;if(moving)controls.current.onWalk?.(walked);
               s.direction=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');
               if(moving)s.elapsed+=dt;
             }

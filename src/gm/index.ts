@@ -129,6 +129,12 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
         commands.push(command);
         break;
       }
+      case 'advance_time': {
+        // 一回合最多推進 12 小時：睡一整晚約 8 小時，再長多半是模型誤把天數寫成分鐘。
+        const minutes = clamp(entry.minutes, 1, 720);
+        if (minutes) commands.push({ type: 'advance_time', minutes });
+        break;
+      }
       case 'complete_objective': {
         // 只認還沒結案的目標：重複結案是模型常見的慣性動作，放過去會讓
         // 側欄每回合重畫一次同一則刪除線。

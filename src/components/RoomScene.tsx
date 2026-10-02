@@ -18,11 +18,13 @@ interface Props {
   /** Everyone whose schedule puts them in this room right now. Each walks with their own walkUrl. */
   npcs: NPCData[];
   paused: boolean; onInteract: (npc: NPCData) => void; onExit: () => void;
+  /** 每幀走了幾 px（推進遊戲時間用，見 game/clock.ts）。 */
+  onWalk?: (px: number) => void;
 }
 const MOVEMENT_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd']);
 const normalizeKey = (key: string) => key.length === 1 ? key.toLowerCase() : key;
 
-export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract, onExit }: Props) {
+export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract, onExit, onWalk }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(false);
@@ -67,8 +69,8 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
   const bed = useRef(createBedState());
   const seating = useRef(createSeatState());
   const keys = useRef(new Set<string>());
-  const controls = useRef({ paused, npcs, onInteract, onExit });
-  controls.current = { paused, npcs, onInteract, onExit };
+  const controls = useRef({ paused, npcs, onInteract, onExit, onWalk });
+  controls.current = { paused, npcs, onInteract, onExit, onWalk };
   useEffect(() => { if (paused) keys.current.clear(); }, [paused]);
 
   useEffect(() => {
@@ -161,7 +163,10 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
           else actor.moving = false;
         }
         if (!doorElapsed.current && bed.current.phase !== 'resting' && seating.current.phase !== 'sitting') {
+          const from = { ...player.position };
           updatePlayer(player, dt, keys.current);
+          const walked = Math.hypot(player.position.x - from.x, player.position.y - from.y);
+          if (walked > .01) controls.current.onWalk?.(walked);
           finishBedApproach(player, bed.current);
           finishSeatApproach(player, seating.current);
         }
