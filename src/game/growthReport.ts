@@ -21,6 +21,10 @@ export interface GrowthRow {
   /** 「左翼第 1 排」這類位置。地圖中線左邊算左翼，排數由上往下數。 */
   place: string;
   stage: Stage;
+  /** 這一輪週期走到哪（0–1），畫進度條用。 */
+  progress: number;
+  /** 種植架的 key（racks.rackKey），健康狀態等以此分辨同一種作物的不同架子。 */
+  key: string;
   /** 還要幾天進入可採收；已可採收則為 0。 */
   daysToRipe: number;
   /** 還要幾天機器自動收成、補種（週期結束）。 */
@@ -40,7 +44,7 @@ export function growthReport(racks: RackSpec[], day: number, mapWidth: number): 
         const days = CYCLE_DAYS[crop] ?? DEFAULT_DAYS, p = progress(crop, rackKey(r), day);
         const stage: Stage = p < STAGE_AT[0] ? 1 : p < STAGE_AT[1] ? 2 : 3;
         rows.push({
-          crop, name: CROP_NAMES[crop] ?? crop, place: `${side}第 ${i + 1} 排`, stage,
+          crop, name: CROP_NAMES[crop] ?? crop, place: `${side}第 ${i + 1} 排`, stage, progress: p, key: rackKey(r),
           daysToRipe: stage === 3 ? 0 : round((STAGE_AT[1] - p) * days),
           daysToHarvest: round((1 - p) * days),
         });

@@ -1,33 +1,23 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import type { FacilityMap } from './facility';
 import { dayNumber } from './growth';
-import { logs, readings, trend } from './monitor';
+import { growthReport } from './growthReport';
+import { healthOf, monitorRows } from './monitor';
 
-const noon = dayNumber('2154-10-24', '12:00'), night = dayNumber('2154-10-24', '02:00');
+const m: FacilityMap = JSON.parse(readFileSync('public/assets/greenhouse/map.json', 'utf8'));
+const day = dayNumber('2154-10-24', '08:45');
 
-// Six readings, all inside their normal range in the default (no-fault) simulation, day or night.
-for (const wing of ['left', 'right'] as const) for (const d of [noon, night, dayNumber('2154-10-24', '06:15'), dayNumber('2154-10-24', '20:20')]) {
-  const r = readings(wing, d);
-  assert.equal(r.length, 6);
-  for (const x of r) assert.equal(x.status, 'good', `${wing} ${x.id}=${x.value} at ${d}`);
-}
+// Each wing's monitor lists only its own plantings; together they cover the whole report.
+const left = monitorRows(m.racks!, day, m.width, 'left'), right = monitorRows(m.racks!, day, m.width, 'right');
+assert.ok(left.every(r => r.place.startsWith('左翼')) && right.every(r => r.place.startsWith('右翼')));
+assert.equal(left.length + right.length, growthReport(m.racks!, day, m.width).length);
+assert.equal(left[0].name, '萵苣');
 
-// The grow lights drive the day cycle: lit at noon, dark at 2am; warmer and more CO₂ by day.
-const at = (d: number, id: string) => readings('left', d).find(r => r.id === id)!.value;
-assert.ok(at(noon, 'ppfd') > 400 && at(night, 'ppfd') === 0);
-assert.ok(at(noon, 'temp') > at(night, 'temp') + 3);
-assert.ok(at(noon, 'co2') > at(night, 'co2') + 300);
-
-// Wings are out of step, and the same moment always reads the same.
-assert.notEqual(at(noon, 'temp'), readings('right', noon).find(r => r.id === 'temp')!.value);
-assert.deepEqual(readings('left', noon), readings('left', noon));
-
-// 24-hour trend: 25 hourly points ending now.
-const t = trend('left', noon, 'temp');
-assert.equal(t.length, 25); assert.equal(t.at(-1)!.value, at(noon, 'temp'));
-
-// Logs only show what has already happened today, newest first.
-assert.deepEqual(logs('left', night).map(l => l.time), []);
-const noonLogs = logs('left', noon);
-assert.equal(noonLogs[0].time, '09:30'); assert.ok(noonLogs.every(l => l.time <= '12:00'));
-assert.ok(logs('right', noon)[0].time > '09:30', 'right wing runs its routine a little later');
+// Health is stable within a day, mostly healthy over time, and every kind of trouble shows up eventually.
+assert.equal(healthOf('lettuce', 'k', day), healthOf('lettuce', 'k', day + .5 - (day % 1) + .4));
+const seen = new Map<string, number>();
+for (let d = 0; d < 2000; d++) { const h = healthOf('lettuce', 'k', d); seen.set(h, (seen.get(h) ?? 0) + 1); }
+assert.ok(seen.get('健康')! / 2000 > .8, 'mostly healthy');
+for (const h of ['缺水', '葉片發黃', '蚜蟲']) assert.ok(seen.get(h), `${h} happens sometimes`);
 console.log('monitor ok');

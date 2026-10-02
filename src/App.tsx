@@ -30,7 +30,7 @@ import DiaryModal from './components/Modals/DiaryModal';
 import SettingsModal from './components/Modals/SettingsModal';
 import GrowthModal from './components/Modals/GrowthModal';
 import MonitorModal from './components/Modals/MonitorModal';
-import type { Wing } from './game/monitor';
+import { Wing, monitorRows } from './game/monitor';
 import {
   DrawerType,
   ModalType,
@@ -730,13 +730,11 @@ export default function App() {
         onGenerateDraft={requestDiaryDraft}
       />
 
-      {/* 溫室植栽監測機（介面草稿，模擬數值） */}
+      {/* 溫室植栽監測機：這一翼作物的收成倒數與健康（健康為模擬） */}
       <MonitorModal
         wing={activeModal === 'monitor' ? monitorWing : null}
+        rows={activeModal === 'monitor' ? monitorRows(GREENHOUSE_RACKS, dayNumber(gameDate, gameTime), GREENHOUSE_WIDTH, monitorWing) : []}
         onClose={() => setActiveModal(null)}
-        day={dayNumber(gameDate, gameTime)}
-        gameDate={gameDate}
-        gameTime={gameTime}
       />
       {/* 溫室工作站的生長報表 */}
       <GrowthModal
