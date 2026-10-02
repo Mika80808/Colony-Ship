@@ -6,7 +6,7 @@
 ## 分工
 
 - Claude Code：寫程式、接場景、去背切圖、拼接素材、維護文件。
-- Codex：生圖。生圖前先讀 `.claude/skills/starport-asset-gen/SKILL.md`（素材規範）與對應場景的提示詞檔。
+- Codex：生圖。生圖前先讀 `.claude/skills/starport-asset-gen/SKILL.md`（素材規範）與對應場景的提示詞檔。做整張地圖或場景（底圖、道具包、碰撞與區域）時，再讀 `.claude/skills/generate2dmap/SKILL.md`。
 - 一律用繁體中文溝通與寫文件。
 
 ## 每次開工與收工
@@ -21,6 +21,7 @@
 |---|---|
 | `docs/PROGRESS.md` | 各場景進度、下一步、已定案的決定 |
 | `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名 |
+| `.claude/skills/generate2dmap/` | 2D 地圖生成流程（取自 agent-sprite-forge，MIT）：分層底圖、道具包切圖、碰撞與區域、預覽；腳本需要 Pillow、numpy |
 | `tools/asset-prompts.md` | 角色與房間家具的生圖提示詞 |
 | `tools/art/greenhouse_crop_prompts.md` | 溫室 19 種作物三階段提示詞與排位配置 |
 | `docs/scenes/` | 各場景說明：A-1 房間、居住區 A 走廊、艦橋 |
