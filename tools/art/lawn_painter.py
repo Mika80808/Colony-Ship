@@ -98,6 +98,54 @@ def fringe(canvas, terrain, T, tex_dir, edge_y, x0, x1, overlap=FRINGE_OVERLAP):
             stamp(canvas, clumps, 0, x, 1.0, top=edge_y - overlap); n += 1
     print(f'grass fringe: {n} clumps along y={edge_y}')
 
+CREEP_SPACING = 30   # 草地挨著地磚的邊上，葉團間距（px）
+CREEP_INTO = (-4, 22) # 葉團中心越過邊線、伸進地磚幾 px（隨機；負的＝縮回草地，邊上留缺口）
+CREEP_SKIP = .25     # 每個位置不放的機率，邊不會像修剪過的樹籬
+CREEP_SCALE = (.5, .85)
+WALL_TUFT = .45      # 牆腳小草叢的縮放
+WALL_CHANCE = .4     # 每格牆腳長草的機率
+SEAM_TUFT = .26      # 地磚接縫小草叢的縮放
+SEAM_CHANCE = .07    # 每格地磚（非遮擋處）在角落長一小撮草的機率
+
+def creep(canvas, terrain, T, tex_dir, paved, wall, hidden=frozenset()):
+    """草侵入地磚：
+    1. 草地挨著地磚（paved 裡的地面）的邊上一排葉團，草尖蓋過邊線，直線邊不再那麼整齊；
+    2. 地磚挨著外牆（wall(x, y) 為真）的牆腳零星小草叢；
+    3. 開放地磚的接縫零星一小撮草。hidden 是被擺設蓋住的格子，不用浪費在那裡。
+    位置隨機只看自己的座標，改地圖只影響附近。"""
+    if not available(tex_dir): return
+    clumps = load_clumps(tex_dir)
+    H, W = len(terrain), len(terrain[0])
+    at = lambda x, y: terrain[y][x] if 0 <= x < W and 0 <= y < H else None
+    rnd = lambda *k: np.random.default_rng([SEED, 9, *k])
+    stamps = []
+    for y in range(H):
+        for x in range(W):
+            c = at(x, y)
+            if c == 'G':
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    if at(x + dx, y + dy) not in paved or wall(x + dx, y + dy): continue
+                    # 邊線中點往地磚那側推 CREEP_INTO，沿邊每 CREEP_SPACING 一個，帶一點抖動
+                    n = max(1, round(T / CREEP_SPACING))
+                    for i in range(n):
+                        r = rnd(x, y, dx + 2, dy + 2, i)
+                        if r.random() < CREEP_SKIP: continue
+                        t, into = (i + .5) / n * T + r.uniform(-8, 8), r.uniform(*CREEP_INTO)
+                        cx = x * T + (T if dx > 0 else 0 if dx < 0 else t) + dx * into
+                        cy = y * T + (T if dy > 0 else 0 if dy < 0 else t) + dy * into
+                        stamps.append((cy, cx, r.uniform(*CREEP_SCALE)))
+            elif c in paved and not wall(x, y) and (x, y) not in hidden:
+                for dx in (-1, 1):
+                    if wall(x + dx, y) and rnd(x, y, 5, dx + 2).random() < WALL_CHANCE:
+                        r = rnd(x, y, 6, dx + 2)
+                        stamps.append((y * T + r.uniform(.2, .9) * T, x * T + (0 if dx < 0 else T) - dx * 10, WALL_TUFT * r.uniform(.8, 1.2)))
+                r = rnd(x, y, 7)
+                if r.random() < SEAM_CHANCE:
+                    stamps.append((y * T + r.choice([0, T]) + r.uniform(-4, 4), x * T + r.choice([0, T]) + r.uniform(-4, 4), SEAM_TUFT * r.uniform(.8, 1.2)))
+    stamps.sort(key=lambda s: s[0])
+    for y, x, scale in stamps: stamp(canvas, clumps, int(y), int(x), scale)
+    print(f'grass creep: {len(stamps)} clumps')
+
 def spaced(pts, spacing, rng):
     """從候選點裡挑出彼此至少相距 spacing 的點（隨機順序，格子雜湊加速）。"""
     pts = pts[rng.permutation(len(pts))]
