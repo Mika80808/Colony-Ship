@@ -12,7 +12,7 @@
 ## 每次開工與收工
 
 1. 開工：`git pull`，再讀 `docs/PROGRESS.md` 看目前做到哪裡。
-2. 收工：更新 `docs/PROGRESS.md`，commit 並 push 到 GitHub。手機或雲端開的 session 只看得到 GitHub 上的內容。
+2. 收工：更新 `docs/PROGRESS.md`（有修正問題的話也更新 `問題修正紀錄.md`），commit 並 push 到 GitHub。手機或雲端開的 session 只看得到 GitHub 上的內容。
 3. 專案放在隨身硬碟，換電腦時磁碟代號會變。文件與程式裡只寫相對路徑，不寫 `G:\` 這類絕對路徑。
 
 ## 文件地圖
@@ -20,6 +20,7 @@
 | 檔案 | 內容 |
 |---|---|
 | `docs/PROGRESS.md` | 各場景進度、下一步、已定案的決定 |
+| `問題修正紀錄.md` | 修正過的問題與累積的設計原則。動手設計前先看原則；修完問題要更新 |
 | `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名 |
 | `.claude/skills/generate2dmap/` | 2D 地圖生成流程（取自 agent-sprite-forge，MIT）：分層底圖、道具包切圖、碰撞與區域、預覽；腳本需要 Pillow、numpy |
 | `tools/asset-prompts.md` | 角色與房間家具的生圖提示詞 |
