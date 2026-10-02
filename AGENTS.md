@@ -23,8 +23,9 @@
 | `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名 |
 | `tools/asset-prompts.md` | 角色與房間家具的生圖提示詞 |
 | `tools/art/greenhouse_crop_prompts.md` | 溫室 19 種作物三階段提示詞與排位配置 |
-| `BRIDGE.md`、`CORRIDOR-A.md` | 艦橋、居住區 A 走廊的場景說明 |
-| `README.md` | 執行方式與 A-1 房間說明 |
+| `docs/scenes/` | 各場景說明：A-1 房間、居住區 A 走廊、艦橋 |
+| `docs/characters.md` | 角色素材與行走圖處理流程 |
+| `README.md` | 執行方式、目錄結構 |
 
 ## 程式結構
 
