@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { StoryLayer } from '../../types';
 import { builtinStoryToJson } from '../../data/story';
-import { sound } from '../../utils/sound';
+import { sound } from '../../utils/audio';
 import ModalShell from './ModalShell';
 import AiProviderFields from './AiProviderFields';
 import { GmProvider, isGmProvider, maxTokensFor, resolveModel } from '../../gm/models';

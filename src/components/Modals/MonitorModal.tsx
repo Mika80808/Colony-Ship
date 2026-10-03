@@ -1,6 +1,6 @@
 import { Bug, Droplets, Heart, Leaf, Sprout, X } from 'lucide-react';
 import ModalShell from './ModalShell';
-import { sound } from '../../utils/sound';
+import { sound } from '../../utils/audio';
 import { STAGE_NAMES, daysText } from '../../game/growthReport';
 import { Health, MonitorRow, WING_NAMES, Wing } from '../../game/monitor';
 import { STAGE_AT } from '../../game/growth';

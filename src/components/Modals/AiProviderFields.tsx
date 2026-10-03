@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, ExternalLink } from 'lucide-react';
-import { sound } from '../../utils/sound';
+import { sound } from '../../utils/audio';
 import { GmProvider, PROVIDERS, isGmProvider, providerInfo } from '../../gm/models';
 import { AiSettingsDraft } from '../../gm/settings';
 
