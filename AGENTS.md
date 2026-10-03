@@ -6,7 +6,7 @@
 ## 分工
 
 - Claude Code：寫程式、接場景、去背切圖、拼接素材、維護文件。
-- Codex：生圖。生圖前先讀 `.claude/skills/starport-asset-gen/SKILL.md`（素材規範）與對應場景的提示詞檔。做整張地圖或場景（底圖、道具包、碰撞與區域）時，再讀 `.claude/skills/generate2dmap/SKILL.md`。
+- Codex：生圖。生圖前先讀 `.claude/skills/starport-asset-gen/SKILL.md`（素材規範）與對應場景的提示詞檔。做整張地圖或場景（底圖、道具包、碰撞與區域）時，再讀 `.claude/skills/generate2dmap/SKILL.md`。畫場景裡的機台、家具、擺設時，照 `.claude/skills/starport-scene-props/SKILL.md` 的流程（先在底圖上生擺設參考圖，再生最終物件）。
 - 一律用繁體中文溝通與寫文件。
 
 ## 每次開工與收工
@@ -22,6 +22,7 @@
 | `docs/PROGRESS.md` | 各場景進度、下一步、已定案的決定 |
 | `問題修正紀錄.md` | 修正過的問題與累積的設計原則。動手設計前先看原則；修完問題要更新 |
 | `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名 |
+| `.claude/skills/starport-scene-props/SKILL.md` | 場景物件繪製流程：分區規劃 → 擺設參考圖（取得 RPG 斜俯視）→ 最終物件 → 切圖擺放 |
 | `.claude/skills/generate2dmap/` | 2D 地圖生成流程（取自 agent-sprite-forge，MIT）：分層底圖、道具包切圖、碰撞與區域、預覽；腳本需要 Pillow、numpy |
 | `tools/asset-prompts.md` | 角色與房間家具的生圖提示詞 |
 | `tools/art/greenhouse_crop_prompts.md` | 溫室 19 種作物三階段提示詞與排位配置 |
