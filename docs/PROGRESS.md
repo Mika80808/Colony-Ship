@@ -35,7 +35,7 @@
 已定案
 - 作物畫風：Classic cute pixel RPG crop art，24 × 24 px 可讀（藤架作物 24 × 72 px）；先生萵苣定畫風，其餘都以萵苣當參考圖。
 - 作物生圖用本機 GPT CLI，可直接出透明背景；藤架作物照 `tools/art/crops/stake_template.png` 的青色支柱生成，再扣掉支柱。
-- 作物原圖只留本機 `tools/art/crops/raw/`，不進 repo。
+- 作物原圖只留本機 `tools/art/crops/raw/`，不進 repo；原圖轉無損 WebP 保存（`python tools/to_webp.py tools/art/crops/raw --write`），切圖腳本優先讀 .webp、沒有才讀 .png。
 - 青江菜從正式清單移除，改成馬鈴薯；哈密瓜改成鳳梨；新增葡萄、百香果。
 - 豌豆、小番茄、矮種檸檬、葡萄、百香果放挑高藤架，其餘放三層層架。
 - 右翼兩種作物共用一排、各佔半排：草莓＋藍莓、葡萄＋百香果。

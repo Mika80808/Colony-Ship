@@ -1,4 +1,4 @@
-"""溫室作物：把 tools/art/crops/raw/<作物>.png（GPT 生的三階段 1536×1024 透明圖）
+"""溫室作物：把 tools/art/crops/raw/<作物>.webp（GPT 生的三階段 1536×1024 透明圖；還沒轉檔的 .png 也讀得到）
 切成三張生長階段小圖 public/assets/greenhouse/crops/<作物>_<1|2|3>.webp。
 
 - 三階段在原圖大約各佔三分之一；切點取 512／1024 附近最空的那一欄，不靠固定間距。
@@ -55,8 +55,14 @@ def shrink(im, f):
     return Image.fromarray(small, 'RGBA')
 
 
+def raw_path(name):
+    """原圖轉成無損 WebP 後優先讀 .webp；還沒轉的仍讀 .png。"""
+    webp = RAW / f'{name}.webp'
+    return webp if webp.exists() else RAW / f'{name}.png'
+
+
 def process(name):
-    a = np.array(Image.open(RAW / f'{name}.png').convert('RGBA'))
+    a = np.array(Image.open(raw_path(name)).convert('RGBA'))
     trellis = name in TRELLIS
     if trellis:
         cyan = cyan_mask(a)
@@ -98,7 +104,7 @@ if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
     manifest_path = OUT / 'crops.json'
     manifest = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.exists() else {}
-    names = sys.argv[1:] or sorted(p.stem for p in RAW.glob('*.png'))
+    names = sys.argv[1:] or sorted({p.stem for p in RAW.glob('*') if p.suffix in ('.webp', '.png')})
     for n in names:
         manifest[n] = process(n)
         print(n, [(s['w'], s['h']) for s in manifest[n]['stages']])
