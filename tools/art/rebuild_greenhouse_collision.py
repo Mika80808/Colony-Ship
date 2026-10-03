@@ -75,6 +75,8 @@ for prop in data["decor"]:
 # Follow the panoramic window's curved lower frame in narrow strips. The glass
 # above each strip is solid; the player's feet stop exactly at the visible sill
 # (no foot-radius gap) and the frame is drawn under the player.
+# Feet stop this many world pixels below the frame's lowest opaque pixel.
+SILL_MARGIN = 2
 window = next(prop for prop in data["decor"] if prop["sprite"] == "window_frame")
 with Image.open(FOLDER / "props/window_frame.png") as frame:
     alpha = frame.getchannel("A")
@@ -95,7 +97,7 @@ with Image.open(FOLDER / "props/window_frame.png") as frame:
             "x": strip_left,
             "y": round(top / tile, 4),
             "w": round(strip_right - strip_left, 4),
-            "h": round((bottom + 1) * window["scale"] / tile, 4),
+            "h": round(((bottom + 1) * window["scale"] + SILL_MARGIN) / tile, 4),
             "flush": True,
         })
 
