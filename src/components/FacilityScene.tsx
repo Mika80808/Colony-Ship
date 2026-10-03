@@ -93,7 +93,7 @@ export default function FacilityScene(props: Props) {
     /** 樹、花：每張圖以底部中心對齊 map.json 的位置；有 {season} 的依當下遊戲日期挑圖。 */
     async function loadDecor(folder: string, map: FacilityMap): Promise<Standing[]> {
       const specs = map.decor ?? [], T = map.tileSize;
-      const images = new Map(await Promise.all(decorSprites(specs).map(async n => [n, await load(`/assets/${folder}/props/${n}.png`)] as const)));
+      const images = new Map(await Promise.all(decorSprites(specs).map(async n => [n, await load(`/assets/${folder}/props/${n}.webp`)] as const)));
       return specs.map(d => ({
         bottom: d.y * T,
         sprite: d.sprite,

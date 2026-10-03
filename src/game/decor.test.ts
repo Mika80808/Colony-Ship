@@ -10,7 +10,7 @@ const m: FacilityMap = JSON.parse(readFileSync('public/assets/greenhouse/map.jso
 const decor = m.decor!;
 // Seasonal sprites follow the calendar; every sprite any season could ask for is on disk.
 assert.equal(spriteFor({ sprite: 'tree_maple_{season}', x: 1, y: 1, scale: 1 }, '2154-10-24'), 'tree_maple_autumn');
-for (const n of decorSprites(decor)) assert.ok(existsSync(`public/assets/greenhouse/props/${n}.png`), n);
+for (const n of decorSprites(decor)) assert.ok(existsSync(`public/assets/greenhouse/props/${n}.webp`), n);
 // Every blocked decorative prop has a fitted footprint, independent of the coarse tile grid.
 assert.ok((m.collisionRects?.length ?? 0) > decor.filter(d => d.block).length + 1, 'narrow rectangles follow the panoramic window sill');
 let footprint = 0;

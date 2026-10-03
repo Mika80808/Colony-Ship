@@ -593,7 +593,7 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col justify-between relative overflow-hidden select-none bg-[#050814] text-slate-100">
       {/* 場景層：所有介面之下的底圖 */}
-      <SceneLayer sector={currentSector?.id === 'bridge' ? { ...currentSector, backgroundUrl: '/assets/bridge-v3/bridge-background-clean.png' } : currentSector} />
+      <SceneLayer sector={currentSector?.id === 'bridge' ? { ...currentSector, backgroundUrl: '/assets/bridge-v3/bridge-background-clean.webp' } : currentSector} />
 
       {/* Top HUD Header */}
       <HeaderHUD
