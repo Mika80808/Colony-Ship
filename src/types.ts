@@ -1,5 +1,5 @@
 export type DrawerType = 'quests' | 'inventory' | 'profile' | null;
-export type ModalType = 'map' | 'storybook' | 'diary' | 'settings' | null;
+export type ModalType = 'map' | 'storybook' | 'diary' | 'settings' | 'growth' | 'monitor' | null;
 export type ThemeMode = 'dark' | 'light';
 
 export interface ToastMessage {

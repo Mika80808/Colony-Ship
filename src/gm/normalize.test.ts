@@ -191,6 +191,12 @@ assert.ok(
   '沒填作息時（表單存成「無」）不應佔用 prompt 篇幅'
 );
 
+// 設施終端：內容要送出，並註明角色得先去查；沒有終端的場景不佔篇幅
+const withTerminal = buildContextBlock({ ...context, terminals: [{ name: '溫室窗前工作站', lines: ['萵苣（左翼第 1 排）：生長中，約 3 天後可採收'] }] });
+assert.ok(withTerminal.includes('### 溫室窗前工作站') && withTerminal.includes('- 萵苣（左翼第 1 排）'), '終端內容送進局勢');
+assert.ok(withTerminal.includes('先走到終端前查看'), '註明要先查看才知道');
+assert.ok(!block.includes('設施終端'), '沒有終端時不出現這段');
+
 // 歷史回合必須是與輸出要求相同的 JSON，不能攤成散文
 const turns = buildHistoryTurns({
   ...context,

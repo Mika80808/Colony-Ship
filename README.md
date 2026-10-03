@@ -41,6 +41,7 @@ Colony-Ship/
 | 檔案 | 內容 |
 |---|---|
 | `docs/PROGRESS.md` | 各場景進度，開工先看這份 |
+| `問題修正紀錄.md` | 修正紀錄與設計原則 |
 | `docs/scenes/room-a1.md` | A-1 房間 |
 | `docs/scenes/corridor-a.md` | 居住區 A 走廊 |
 | `docs/scenes/bridge.md` | 艦橋 |
