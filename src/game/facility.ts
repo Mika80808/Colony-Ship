@@ -1,7 +1,6 @@
 import type { Point, Rect } from './corridor';
 import type { RackSpec } from './racks';
 import type { DecorSpec } from './decor';
-import { ACTOR_HEIGHT } from './viewport';
 
 /**
  * 設施場景（溫室、工程區……）共用的格子地圖：public/assets/<folder>/map.json。
@@ -9,7 +8,7 @@ import { ACTOR_HEIGHT } from './viewport';
  * 各設施的差異全部在 map.json：出入口（entrances）、互動點（interactions）、菜圃（plots，可省略）。
  * 新增設施 = 一個資料夾 + FACILITIES 一行。
  */
-export interface TileRect { x: number; y: number; w: number; h: number; bodyBlock?: boolean }
+export interface TileRect { x: number; y: number; w: number; h: number; flush?: boolean }
 /** A doorway in the outer wall. `to` is the sector beyond it; the player appears at `spawn` (tile units) when arriving from there. */
 export interface Entrance extends TileRect { to: string; label: string; spawn: [number, number] }
 /** An interaction written in map.json, in tile units: `area` is what the player clicks, `stand` is where they walk to. */
@@ -25,9 +24,6 @@ export const FACILITIES: Record<string, { folder: string; name: string }> = {
 
 /** Foot-circle radius; comfortably inside a 96px aisle. */
 export const RADIUS = 22;
-/** Visible player sprite bounds, measured from the current walk sheet at 148 px display height. */
-const BODY_TOP = ACTOR_HEIGHT - 12;
-const BODY_HALF_WIDTH = 36;
 /** How far outside an interaction's area the player still counts as next to it. */
 export const REACH = 56;
 
@@ -49,9 +45,12 @@ export function walkable(m: FacilityMap, p: Point): boolean {
     }
   for (const rect of m.collisionRects ?? []) {
     const x = rect.x * s, y = rect.y * s, right = x + rect.w * s, bottom = y + rect.h * s;
-    // The upright window is taller than the player's foot collider. Keep the
-    // visible head and shoulders outside its curved frame without hiding them.
-    if (rect.bodyBlock && p.x + BODY_HALF_WIDTH > x && p.x - BODY_HALF_WIDTH < right && p.y > y && p.y - BODY_TOP < bottom) return false;
+    // The upright window is drawn under the player: feet may reach its lower
+    // frame edge exactly, while the body overlaps the glass above it.
+    if (rect.flush) {
+      if (p.x >= x && p.x < right && p.y < bottom) return false;
+      continue;
+    }
     const nx = Math.max(x, Math.min(p.x, right)), ny = Math.max(y, Math.min(p.y, bottom));
     if (Math.hypot(p.x - nx, p.y - ny) < RADIUS) return false;
   }

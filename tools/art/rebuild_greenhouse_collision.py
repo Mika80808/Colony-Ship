@@ -73,30 +73,34 @@ for prop in data["decor"]:
     })
 
 # Follow the panoramic window's curved lower frame in narrow strips. The glass
-# above each strip is solid; the floor below the visible sill stays walkable.
+# above each strip is solid; the player's feet stop exactly at the visible sill
+# (no foot-radius gap) and the frame is drawn under the player.
 window = next(prop for prop in data["decor"] if prop["sprite"] == "window_frame")
 with Image.open(FOLDER / "props/window_frame.png") as frame:
     alpha = frame.getchannel("A")
     width, height = frame.size
     left = window["x"] * tile - width * window["scale"] / 2
     top = window["y"] * tile - height * window["scale"]
-    for start in range(0, width, 24):
-        end = min(start + 24, width)
+    for start in range(0, width, 8):
+        end = min(start + 8, width)
         column_bottoms = [max((y for y in range(height) if alpha.getpixel((x, y)) > 128), default=-1)
                           for x in range(start, end)]
-        bottom = min(column_bottoms)
+        bottom = max(column_bottoms)
         if bottom < 0:
             continue
+        # Round the edges, not the width, so neighbouring strips share an edge.
+        strip_left = round((left + start * window["scale"]) / tile, 4)
+        strip_right = round((left + end * window["scale"]) / tile, 4)
         rects.append({
-            "x": round((left + start * window["scale"]) / tile, 4),
+            "x": strip_left,
             "y": round(top / tile, 4),
-            "w": round((end - start) * window["scale"] / tile, 4),
+            "w": round(strip_right - strip_left, 4),
             "h": round((bottom + 1) * window["scale"] / tile, 4),
-            "bodyBlock": True,
+            "flush": True,
         })
 
-# Keep the workstation approach on the open floor below the actor-sized
-# window clearance, and let its clickable area reach that approach point.
+# The workstation approach stays on the open floor below the desk, and its
+# clickable area reaches that approach point.
 console = next(item for item in data["interactions"] if item["id"] == "console")
 console["area"] = [17, 3, 6, 3]
 console["stand"] = [20, 6]

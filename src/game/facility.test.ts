@@ -71,12 +71,14 @@ for (const [first, last, id] of [[8, 159, 'sofa-left'], [161, 259, 'sofa-middle'
     assert.equal(clicked({ x: sofaLeft + pixel, y: (sofa.y - .8) * s }, items)?.id, id, `sofa cushion pixel ${pixel}`);
 }
 for (let x = 15; x < 25; x++) assert.equal(walkable(m, centre(x, 3)), false, `panoramic window ${x} is solid`);
-assert.equal(walkable(m, { x: 14.5 * s, y: 3.6 * s }), false, 'the player head cannot pass through the curved left frame');
-assert.equal(walkable(m, { x: 25.5 * s, y: 3.6 * s }), false, 'the player head cannot pass through the curved right frame');
-assert.equal(walkable(m, { x: 14.5 * s, y: 4.8 * s }), true, 'floor below the left frame remains open once the full actor clears it');
-assert.equal(walkable(m, { x: 25.5 * s, y: 4.8 * s }), true, 'floor below the right frame remains open once the full actor clears it');
-assert.equal(walkable(m, { x: 20 * s, y: 5.5 * s }), false, 'the player body cannot enter the centre window');
-assert.equal(walkable(m, { x: 20 * s, y: 6 * s }), true, 'the player can stand below the centre window');
+// Feet stop flush with the curved lower frame: just below the sill is open, just above is solid.
+for (const rect of m.collisionRects!.filter(r => r.flush)) {
+  const x = (rect.x + rect.w / 2) * s, bottom = (rect.y + rect.h) * s;
+  if (x < 14.3 * s || x > 25.7 * s || (x > 16.6 * s && x < 23.4 * s)) continue; // wall corners and the desk
+  assert.equal(walkable(m, { x, y: bottom - 1 }), false, `feet cannot cross the window sill at ${x}`);
+  assert.equal(walkable(m, { x, y: bottom + 1 }), true, `feet can reach the window sill at ${x}`);
+}
+assert.equal(walkable(m, { x: 20 * s, y: 6 * s }), true, 'the player can stand below the desk console');
 assert.equal(walkable(m, { x: 14.5 * s, y: 2.5 * s }), false, 'window glass remains solid');
 for (const light of m.decor!.filter(d => d.sprite.startsWith('corridor_light_'))) {
   assert.equal(walkable(m, { x: light.x * s, y: (light.y - .3) * s }), false, `${light.sprite} blocks movement`);
