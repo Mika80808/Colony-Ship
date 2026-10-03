@@ -4,7 +4,7 @@
 
 - 從居住區 A 走廊點 A-1 房門進入。地圖選居住區 A、再選 A-1 也能回到房間。
 - 黑髮領航員是玩家，名稱跟隨「個人資訊」，腳下有青色標記。路西恩為獨立 NPC，自行巡遊。
-- 點擊地板指定玩家目的地。點選房間後也可用方向鍵／WASD，放開鍵即停止。鍵盤會接手並取消滑鼠路徑；輸入對話時不會移動角色。
+- 點擊地板指定玩家目的地。點選房間後也可用 WASD，放開鍵即停止（方向鍵之後再補）。鍵盤會接手並取消滑鼠路徑；輸入對話時不會移動角色。
 - 靠近路西恩會顯示 `[E] 交談`。按 E 將對話送到對話面板；NPC 在玩家附近停步。隔牆、隔家具或超過 115 場景像素不能觸發。
 - 人物設定可透過故事書存取。
 - 家具配置：左側為電腦娛樂桌、懶骨頭與雜物書架；右上衣櫃、床（床頭朝右）；右下淋浴間、洗手台鏡子及馬桶。
@@ -15,9 +15,9 @@
 
 ## 程式與素材
 
-- 玩家圖集：`public/assets/player/walk.png`（RGBA 688×516，4 方向 × 3 幀）。
+- 玩家圖集：`public/assets/player/walk.webp`（RGBA 688×516，4 方向 × 3 幀）。
 - 家具：`public/assets/rooms/furniture/`，配置表 `public/assets/rooms/furniture.json`。
-- 提示詞見 `tools/asset-prompts.md`。處理腳本：`tools/prepare_player.py`、`tools/pack_player.py`、`tools/prepare_furniture.py`。
+- 提示詞見 `tools/asset-prompts.md`。處理腳本：`tools/prepare_player.py`、`tools/pack_walk_atlas.py`（打包圖集，原 pack_player.py）（家具當年用的 `prepare_furniture.py` 輸出路徑已不存在，隨房間改走 Photoshop 流程後移除）。
 - 玩家中間橫排可使用 sprite-pipeline 的 `normalize_sprite_strip.py --input tmp/sprites/player-strip.png --out-dir tmp/sprites/player-frames --frames 12 --frame-size 160` 後再打包。
 - 家具位置與碰撞：`src/game/roomFurniture.ts`；行走：`src/game/roomNavigation.ts`；控制與距離判定：`src/game/roomActors.ts`。
 

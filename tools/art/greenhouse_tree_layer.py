@@ -11,15 +11,13 @@
   - 覆寫 map.json 裡原本的樹（tree_*、placed_*），花不動；樹幹所在那格設成不可走。
 用法：greenhouse_tree_layer.py <圖層.png> [...]（不給就讀 photoshop/ 資料夾裡所有整張地圖大小的 PNG，參考圖除外）
 """
-import json, sys
+import sys
 import numpy as np
 from PIL import Image
 from pathlib import Path
-from scipy import ndimage
 
-ROOT = Path(__file__).resolve().parents[2]
-G = ROOT / 'public/assets/greenhouse'
-PS = ROOT.parent / '場景/溫室/photoshop'
+from greenhouse_common import G, PS, check_size, load_map, pieces, save_map
+
 TREES = ['tree_pine', 'tree_apple', 'tree_willow', 'tree_maple_spring', 'tree_maple_summer', 'tree_maple_autumn', 'tree_maple_winter', 'shrub']
 PLANTS = ('tree_', 'placed_', 'shrub')   # decor 裡由這支腳本管理的項目（花不動）
 MATCH = 28          # 平均色差低於這個才算認得（0–255）
@@ -42,25 +40,15 @@ def identify(piece):
     return None if best is None or best[0] > MATCH else best[1:]
 
 
-def pieces(im):
-    """一張圖層裡的每一塊：(裁下的圖, 左, 上, 右, 下)。相距 3 px 內的碎片算同一塊，框只框真正不透明的部分。"""
-    solid = np.asarray(im)[..., 3] > 40
-    lab, _ = ndimage.label(ndimage.binary_dilation(solid, iterations=3))
-    for i, sl in enumerate(ndimage.find_objects(lab)):
-        ys, xs = np.where((lab[sl] == i + 1) & solid[sl])
-        if len(ys) < 2000: continue                               # 雜點
-        box = (sl[1].start + xs.min(), sl[0].start + ys.min(), sl[1].start + xs.max() + 1, sl[0].start + ys.max() + 1)
-        yield (im.crop(box), *box)
-
-
 def main(layers):
-    m = json.loads((G / 'map.json').read_text(encoding='utf-8'))
+    m = load_map()
     T = m['tileSize']
     old = [d for d in m.get('decor', []) if d['sprite'].startswith(PLANTS)]
     for d in old:
         if d.get('block'): m['collision'][min(m['height'] - 1, int(d['y'] - .01))][int(d['x'])] = 0
     decor = [d for d in m.get('decor', []) if d not in old]
-    found_all = [(p, box) for layer in layers for p, *box in pieces(check(Image.open(layer).convert('RGBA'), m, layer))]
+    # 相距 3 px 內算同一棵，少於 2000 px 當雜點。
+    found_all = [(p, box) for layer in layers for p, *box in pieces(check_size(Image.open(layer).convert('RGBA'), m, layer), gap=3, min_px=2000)]
     for i, (piece, (l, t, r, b)) in enumerate(found_all):
         x, y = (l + r) / 2 / T, b / T
         found = identify(piece)
@@ -78,19 +66,13 @@ def main(layers):
         decor.append(entry)
         print(entry['sprite'], f'({x:.2f}, {y:.2f})', 'scale', entry['scale'], 'flip' if entry.get('flip') else '')
     m['decor'] = decor
-    (G / 'map.json').write_text(json.dumps(m, ensure_ascii=False), encoding='utf-8')
-
-
-def check(im, m, path):
-    T = m['tileSize']
-    assert im.size == (m['width'] * T, m['height'] * T), f'{path} 要是整張地圖大小 {m["width"] * T}×{m["height"] * T}，目前是 {im.size}'
-    return im
+    save_map(m)
 
 
 if __name__ == '__main__':
     args = [Path(a) for a in sys.argv[1:]]
     if not args:
-        m = json.loads((G / 'map.json').read_text(encoding='utf-8'))
+        m = load_map()
         full = (m['width'] * m['tileSize'], m['height'] * m['tileSize'])   # 圖層是整張地圖大小；素材小圖、參考圖不算
         args = sorted(p for p in PS.glob('*.png') if not p.name.startswith('溫室參考圖') and Image.open(p).size == full)
     print('layers:', ', '.join(p.name for p in args))

@@ -1,3 +1,5 @@
+import { loadImage as load } from '../utils/loadImage';
+import { useSceneKeys } from './useSceneKeys';
 import { useEffect, useRef, useState } from 'react';
 import type { Point } from '../game/corridor';
 import { FacilityInteraction, FacilityMap, camera, clicked, findPath, interactions, keyboardTarget, move, nearby, spawn, worldSize } from '../game/facility';
@@ -30,12 +32,9 @@ interface Props {
   gameDate: string;
   gameTime: string;
 }
-const movement = new Set(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
-const normal = (key: string) => key.length === 1 ? key.toLowerCase() : key;
 export default function FacilityScene(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controls = useRef(props); controls.current = props;
-  const keys = useRef(new Set<string>());
   const [status, setStatus] = useState(`正在載入${props.facility.name}…`);
   const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point } | null, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null });
   const act = (item?: FacilityInteraction) => {
@@ -53,14 +52,12 @@ export default function FacilityScene(props: Props) {
     }
   };
   const actRef = useRef(act); actRef.current = act;
-  useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);
+  const { keys, axis, onKeyDown, onKeyUp, onBlur } = useSceneKeys({ paused: props.paused, onInteract: () => actRef.current() });
   // 時間推進時作物跟著長；還沒載好的話，載好時會用當下時間畫第一次。
   useEffect(() => { state.current.paintRacks?.(dayNumber(props.gameDate, props.gameTime)); }, [props.gameDate, props.gameTime]);
   useEffect(() => {
     const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!;
     let disposed = false, raf = 0, last = 0;
-    const clear = () => keys.current.clear();
-    window.addEventListener('blur', clear); document.addEventListener('visibilitychange', clear);
     const fit = (w: number, h: number) => {
       const s = state.current; if (!s.map) return;
       const world = worldSize(s.map), view = fitViewport(w, h, world.width, world.height);
@@ -69,7 +66,6 @@ export default function FacilityScene(props: Props) {
       canvas.style.width = `${view.width * view.scale}px`; canvas.style.height = `${view.height * view.scale}px`;
     };
     const resize = new ResizeObserver(([e]) => fit(e.contentRect.width, e.contentRect.height)); resize.observe(canvas.parentElement!);
-    const load = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => { const im = new Image(); im.onload = () => resolve(im); im.onerror = () => reject(new Error(src)); im.src = src; });
     /**
      * 每座種植架先畫成一張素材像素大小的圖（外框 + 作物），render 時整張放大，不用每格重算。
      * 回傳的 paint 依遊戲時間重畫作物的生長階段；三個階段的圖一開始就全部載好，換階段不用等。
@@ -156,8 +152,7 @@ export default function FacilityScene(props: Props) {
         const frozen = controls.current.paused || document.hidden;
         let moving = false;
         if (!frozen) {
-          let dx = Number(keys.current.has('d') || keys.current.has('ArrowRight')) - Number(keys.current.has('a') || keys.current.has('ArrowLeft'));
-          let dy = Number(keys.current.has('s') || keys.current.has('ArrowDown')) - Number(keys.current.has('w') || keys.current.has('ArrowUp'));
+          let { dx, dy } = axis();
           if (dx || dy) { if (s.seated) { s.p = s.seated.exit; s.seated = null; } s.path = []; s.pending = null; s.notice = null; }
           else if (s.path.length) {
             dx = s.path[0].x - s.p.x; dy = s.path[0].y - s.p.y;
@@ -221,19 +216,16 @@ export default function FacilityScene(props: Props) {
       }; raf = requestAnimationFrame(render);
     }
     start().catch(() => { if (!disposed) setStatus(`${controls.current.facility.name}素材載入失敗，請重新整理。`); });
-    return () => { disposed = true; cancelAnimationFrame(raf); resize.disconnect(); clear(); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', clear); };
+    return () => { disposed = true; cancelAnimationFrame(raf); resize.disconnect(); keys.current.clear(); };
   }, []);
   return <div className="corridor-scene">
-    <div className="corridor-viewport"><canvas ref={canvasRef} tabIndex={0} aria-label={`${props.facility.name}。方向鍵或 WASD 移動，E 互動，G 切換碰撞格顯示，也可以點擊地面或設施。`}
-      onBlur={() => keys.current.clear()}
+    <div className="corridor-viewport"><canvas ref={canvasRef} tabIndex={0} aria-label={`${props.facility.name}。WASD 移動，E 互動，G 切換碰撞格顯示，也可以點擊地面或設施。`}
+      onBlur={onBlur}
       onKeyDown={e => {
-        const key = normal(e.key); if (e.ctrlKey || e.altKey || e.metaKey) return;
-        if (key === 'g') { state.current.grid = !state.current.grid; return; }
-        if (!movement.has(key) && key !== 'e') return;
-        e.preventDefault(); e.stopPropagation(); if (props.paused) return;
-        if (key === 'e') { if (!e.repeat) act(); } else keys.current.add(key);
+        if (e.key.toLowerCase() === 'g' && !e.ctrlKey && !e.altKey && !e.metaKey) { state.current.grid = !state.current.grid; return; }
+        onKeyDown(e);
       }}
-      onKeyUp={e => { const key = normal(e.key); if (movement.has(key)) { e.preventDefault(); e.stopPropagation(); keys.current.delete(key); } }}
+      onKeyUp={onKeyUp}
       onClick={e => {
         const s = state.current; if (!s.map || props.paused) return; e.currentTarget.focus({ preventScroll: true });
         if (s.seated) { s.p = s.seated.exit; s.seated = null; }

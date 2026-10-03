@@ -9,6 +9,8 @@ import { ACTOR_HEIGHT, approach, cameraTarget, fitViewport } from '../game/viewp
 import { nearbyInspection } from '../game/roomInspection';
 import { isShowering } from '../game/roomFurniture';
 import { DECALS, PIECES, RoomFurnishing, SHELL, setActiveRoom } from '../game/roomRuntime';
+import { loadImage } from '../utils/loadImage';
+import { useSceneKeys } from './useSceneKeys';
 
 interface Props {
   /** Which room this is. Mount a new RoomScene (key by room id) to change rooms. */
@@ -21,8 +23,6 @@ interface Props {
   /** 每幀走了幾 px（推進遊戲時間用，見 game/clock.ts）。 */
   onWalk?: (px: number) => void;
 }
-const MOVEMENT_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd']);
-const normalizeKey = (key: string) => key.length === 1 ? key.toLowerCase() : key;
 
 export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract, onExit, onWalk }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -68,10 +68,64 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
   const doorElapsed = useRef(0);
   const bed = useRef(createBedState());
   const seating = useRef(createSeatState());
-  const keys = useRef(new Set<string>());
   const controls = useRef({ paused, npcs, onInteract, onExit, onWalk });
   controls.current = { paused, npcs, onInteract, onExit, onWalk };
-  useEffect(() => { if (paused) keys.current.clear(); }, [paused]);
+  const { keys, onKeyDown, onKeyUp, onBlur } = useSceneKeys({
+    paused,
+    disabled: () => !ready || doorElapsed.current > 0,
+    onInteract: () => interact(),
+    // 任何移動輸入都會取消離座／離床與出門狀態。
+    onMovementDown: () => {
+      exiting.current = false;
+      cancelSeatApproach(seating.current);
+      leaveSeat(actors.current.player, seating.current);
+      cancelBedApproach(bed.current);
+      leaveBed(actors.current.player, bed.current);
+    },
+    // 第一次按下先走一小步，輕點一下也有反應。
+    onMovementPress: (key) => updatePlayer(actors.current.player, 1 / 60, new Set([key])),
+  });
+  function interact() {
+    if (nearRoomDoor(actors.current.player.position)) {
+      leaveSeat(actors.current.player, seating.current);
+      leaveBed(actors.current.player, bed.current);
+      cancelSeatApproach(seating.current);
+      cancelBedApproach(bed.current);
+      actors.current.player.path = []; actors.current.player.target = null;
+      keys.current.clear(); setInspection(null);
+      exiting.current = true;
+      actors.current.player.direction = 'down';
+      actors.current.player.moving = false;
+      doorElapsed.current = 0.001;
+      return;
+    }
+    if (interactSeat(actors.current.player, seating.current)) {
+      cancelBedApproach(bed.current);
+      keys.current.clear(); exiting.current = false; setInspection(null);
+      return;
+    }
+    if (interactBed(actors.current.player, bed.current)) {
+      cancelSeatApproach(seating.current);
+      keys.current.clear(); exiting.current = false; setInspection(null);
+      return;
+    }
+    const item = nearbyInspection(actors.current.player.position, actors.current.player.direction);
+    if (item) {
+      actors.current.player.path = []; actors.current.player.target = null;
+      exiting.current = false;
+      setInspection({ text: item.inspectText });
+    } else if (canExitRoom(actors.current.player.position)) {
+      actors.current.player.path = []; actors.current.player.target = null;
+      keys.current.clear();
+      exiting.current = setDestination(actors.current.player, ROOM_EXIT_POINT);
+    } else {
+      const near = nearestNpc();
+      if (near) {
+        actors.current.player.path = []; actors.current.player.target = null;
+        controls.current.onInteract(near.npc);
+      }
+    }
+  }
 
   useEffect(() => {
     // Collision, seats and the bed all read the active room, so it has to be in
@@ -90,9 +144,6 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
       camera.current.settled = false;
     });
     resize.observe(canvas.parentElement!);
-    const clearKeys = () => keys.current.clear();
-    window.addEventListener('blur', clearKeys);
-    document.addEventListener('visibilitychange', clearKeys);
     const ASSETS = '/assets/rooms/';
     const room = new Image(), playerSprite = new Image();
     const objects = PIECES;
@@ -101,7 +152,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
     // One element per overlay entry; several may share a file but not a crop.
     const overlayImages = SHELL.overlays.map(() => new Image());
     let disposed = false, raf = 0, last = 0;
-    const load = (img: HTMLImageElement, src: string) => new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject; img.src = src; });
+    const load = (img: HTMLImageElement, src: string) => loadImage(src, img);
     // Showering re-colours the sprite instead of swapping in a second set of
     // artwork: painting skin over the frame with source-atop keeps the pose and
     // silhouette but washes the uniform out, and stays in sync if walk.webp changes.
@@ -285,9 +336,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
       })
       .catch(() => { if (!disposed) setError(true); });
     return () => {
-      disposed = true; cancelAnimationFrame(raf); resize.disconnect(); clearKeys();
-      window.removeEventListener('blur', clearKeys);
-      document.removeEventListener('visibilitychange', clearKeys);
+      disposed = true; cancelAnimationFrame(raf); resize.disconnect(); keys.current.clear();
     };
   }, []);
 
@@ -295,72 +344,10 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
     <div className="room-viewport">
       <canvas ref={canvasRef} tabIndex={0}
         className="focus-visible:outline focus-visible:outline-1 focus-visible:outline-sky-400/50"
-        aria-label={`房間。點擊地板或聚焦後使用方向鍵、WASD 控制玩家${npcs.length ? `；靠近${npcs.map(npc => npc.name).join('、')}按 E 交談` : ''}。`}
-        onBlur={() => keys.current.clear()}
-        onKeyDown={(e) => {
-          const key = normalizeKey(e.key);
-          if (doorElapsed.current > 0) { e.preventDefault(); return; }
-          if (key === 'e' && !e.ctrlKey && !e.altKey && !e.metaKey) {
-            e.preventDefault(); e.stopPropagation();
-            if (ready && !paused && !e.repeat) {
-              if (nearRoomDoor(actors.current.player.position)) {
-                leaveSeat(actors.current.player, seating.current);
-                leaveBed(actors.current.player, bed.current);
-                cancelSeatApproach(seating.current);
-                cancelBedApproach(bed.current);
-                actors.current.player.path = []; actors.current.player.target = null;
-                keys.current.clear(); setInspection(null);
-                exiting.current = true;
-                actors.current.player.direction = 'down';
-                actors.current.player.moving = false;
-                doorElapsed.current = 0.001;
-                return;
-              }
-              if (interactSeat(actors.current.player, seating.current)) {
-                cancelBedApproach(bed.current);
-                keys.current.clear(); exiting.current = false; setInspection(null);
-                return;
-              }
-              if (interactBed(actors.current.player, bed.current)) {
-                cancelSeatApproach(seating.current);
-                keys.current.clear(); exiting.current = false; setInspection(null);
-                return;
-              }
-              const item = nearbyInspection(actors.current.player.position, actors.current.player.direction);
-              if (item) {
-                actors.current.player.path = []; actors.current.player.target = null;
-                exiting.current = false;
-                setInspection({ text: item.inspectText });
-              } else if (canExitRoom(actors.current.player.position)) {
-                actors.current.player.path = []; actors.current.player.target = null;
-                keys.current.clear();
-                exiting.current = setDestination(actors.current.player, ROOM_EXIT_POINT);
-              } else {
-                const near = nearestNpc();
-                if (near) {
-                  actors.current.player.path = []; actors.current.player.target = null;
-                  controls.current.onInteract(near.npc);
-                }
-              }
-            }
-            return;
-          }
-          if (!MOVEMENT_KEYS.has(key) || e.ctrlKey || e.altKey || e.metaKey) return;
-          e.preventDefault(); e.stopPropagation();
-          if (ready && !paused) {
-            exiting.current = false;
-            cancelSeatApproach(seating.current);
-            leaveSeat(actors.current.player, seating.current);
-            cancelBedApproach(bed.current);
-            leaveBed(actors.current.player, bed.current);
-            if (!keys.current.has(key)) updatePlayer(actors.current.player, 1 / 60, new Set([key]));
-            keys.current.add(key);
-          }
-        }}
-        onKeyUp={(e) => {
-          const key = normalizeKey(e.key);
-          if (MOVEMENT_KEYS.has(key)) { e.preventDefault(); e.stopPropagation(); keys.current.delete(key); }
-        }}
+        aria-label={`房間。點擊地板或聚焦後使用 WASD 控制玩家${npcs.length ? `；靠近${npcs.map(npc => npc.name).join('、')}按 E 交談` : ''}。`}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
         onClick={(e) => {
           if (!ready || paused || doorElapsed.current > 0) return;
           e.currentTarget.focus({ preventScroll: true });

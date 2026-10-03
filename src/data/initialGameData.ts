@@ -141,7 +141,7 @@ export const SECTOR_ART_FIELDS = ['backgroundUrl'] as const;
 /** 開場敘述。這是遊戲的起始旁白與操作提示，不是測試資料。 */
 export const INITIAL_DIALOGUE_HISTORY = [{
   playerInput: '進入居住區 A 的走廊',
-  segments: [{ kind: 'description' as const, text: '居住區 A 的走廊亮著柔和燈光，欄牆外是寂靜的星海。點擊地板或使用方向鍵、WASD 移動；點選房門或座椅會自動走近互動。路西恩在 A-1 房間等候。' }],
+  segments: [{ kind: 'description' as const, text: '居住區 A 的走廊亮著柔和燈光，欄牆外是寂靜的星海。點擊地板或使用 WASD 移動；點選房門或座椅會自動走近互動。路西恩在 A-1 房間等候。' }],
 }];
 
 /** 內建的故事書事件，目前在故事書內建立。 */

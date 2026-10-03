@@ -1,10 +1,11 @@
 import { BRIDGE_ART, BRIDGE_CREW, BRIDGE_PIECES } from './bridgeArt';
+import { loadImage } from '../utils/loadImage';
 import { ACTOR_HEIGHT } from './viewport';
 import { BRIDGE_SCALE, BridgeActor, bridgeArrival, Point } from './bridge';
 export type BridgeImages=Record<string,HTMLImageElement>;
 export async function loadBridgeImages():Promise<BridgeImages>{
   const entries=[...Object.entries(BRIDGE_ART).map(([id,v])=>[id,'/assets/bridge-v3/'+v.file]),...Object.entries(BRIDGE_CREW).map(([id,v])=>[id,'/assets/bridge-v3/'+v.file]),['player','/assets/player/walk.webp']];
-  const images:BridgeImages={};await Promise.all(entries.map(([id,url])=>new Promise<void>((resolve,reject)=>{const im=new Image();im.onload=()=>{images[id]=im;resolve()};im.onerror=()=>reject(new Error(`艦橋素材載入失敗：${id}`));im.src=url})));return images;
+  const images:BridgeImages={};await Promise.all(entries.map(async([id,url])=>{images[id]=await loadImage(url).catch(()=>{throw new Error(`艦橋素材載入失敗：${id}`)})}));return images;
 }
 export interface BridgeRenderState { actor:BridgeActor; arrival:number; arriving:boolean; ambient:number; frozen:boolean; reducedMotion:boolean; destination:Point|null; nearbyId?:string }
 export function drawBridge(ctx:CanvasRenderingContext2D,images:BridgeImages,s:BridgeRenderState){
