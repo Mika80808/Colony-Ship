@@ -135,15 +135,16 @@ console.log('greenhouse ok');
     assert.ok(findPath(e, fromC, centre(x, y)).length, `engineering tile ${x},${y} reachable`);
   }
   const { passage } = door, wallTop = passage.y, wallBottom = passage.y + passage.h;
-  for (let y = wallTop; y < wallBottom; y++) for (let x = 0; x < e.width; x++)
+  for (let y = wallTop + 1; y < wallBottom; y++) for (let x = 0; x < e.width; x++)   // 第一列是牆後（被牆頂遮住下半身），從第二列起是牆面
     assert.equal(walkable(e, centre(x, y)), x >= passage.x && x < passage.x + passage.w, `corridor wall ${x},${y} is solid except the door`);
-  // Inside the room you can walk right up under the wall cap so it hides your feet, but not onto the wall face.
+  // Inside the room you can walk in behind the wall top (as deep as the A-1 room's south wall) so it hides your lower body.
   const wallY = wallTop * T, cap = e.foreground!.find(o => o.src === 'wall_cap.webp')!;
   assert.equal(cap.y, wallY, 'the wall cap overlay sits on top of the corridor wall');
-  assert.ok(walkable(e, { x: 3 * T, y: wallY + 18 }), 'feet can go under the wall cap');
-  assert.equal(walkable(e, { x: 3 * T, y: wallY + 30 }), false, 'but not down the wall face');
-  assert.equal(doorBlocks(e, door, { x: (passage.x + 2) * T, y: wallY + 18 }, 0), false, 'at the shut door you can stand just as deep');
-  assert.ok(doorBlocks(e, door, { x: (passage.x + 2) * T, y: wallY + 30 }, 0), 'but no further');
+  assert.ok(walkable(e, { x: 3 * T, y: wallY + 58 }), 'feet can go behind the wall top');
+  assert.equal(walkable(e, { x: 3 * T, y: wallY + 62 }), false, 'but no deeper');
+  assert.ok(wallY + 58 + 5 <= wallY + 66, 'the whole hidden part is under the 66 px wall-top overlay');
+  assert.equal(doorBlocks(e, door, { x: (passage.x + 2) * T, y: wallY + 58 }, 0), false, 'at the shut door you can stand just as deep');
+  assert.ok(doorBlocks(e, door, { x: (passage.x + 2) * T, y: wallY + 62 }, 0), 'but no further');
   const inside = centre(8, 10);
   assert.ok(findPath(e, fromC, inside).length, 'with the door open, paths go through it');
   assert.deepEqual(findPath(withDoorClosed(e), fromC, inside), [], 'with the door shut, nothing paths through it');

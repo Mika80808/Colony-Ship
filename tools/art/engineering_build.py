@@ -55,8 +55,8 @@ OPEN_X, OPEN_W = 576, 384
 WALL_BASE = O + 346                     # 走廊牆腳（地板素材從這裡開始）
 OPEN_TOP = O + 66
 OPEN_H = WALL_BASE - OPEN_TOP
-CAP_H = 30                              # 走廊牆頂的深色牆簷高度（素材 y 0–30），蓋在角色上面
-FEET_UNDER_CAP = 18                     # 室內角色腳點最多走到牆頂下 18 px，腳被牆簷蓋住
+CAP_H = OPEN_TOP - O                    # 牆頂前景：牆簷（素材 y 0–30）加上門楣，共 66 px，畫在角色上面
+FEET_UNDER_CAP = 58                     # 室內角色腳點最多走到牆頂下 58 px（同 A-1 房間南牆 72 − 腳圈 14），下半身被牆擋住、露出胸口以上
 
 def rgb(h): return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
 
@@ -309,7 +309,7 @@ def doorway_floor():
     return img
 
 def write_cap():
-    """牆簷前景：走廊牆頂 CAP_H 高的一條，連同門框頂端一起切下來，畫在角色上面（室內角色走到牆根時腳被蓋住）。
+    """牆頂前景：走廊牆頂 CAP_H 高的一條（牆簷＋門楣），連同門框頂端一起切下來，畫在角色上面（室內角色走到牆後時下半身被擋住）。
     門框換圖後（engineering_door.py cut）要重跑一次。"""
     ground = Image.open(os.path.join(OUT, 'ground.webp')).convert('RGBA')
     cap = ground.crop((0, O, W * T, O + CAP_H))
@@ -358,7 +358,7 @@ def main():
             else: row.append(1)
         collision.append(row)
     mid = (corridor_top + corridor_bottom) / 2
-    stop = round((O + FEET_UNDER_CAP + 22) / T, 4)   # 腳圈半徑 22：腳點停在牆頂下 FEET_UNDER_CAP
+    stop = math.ceil((O + FEET_UNDER_CAP + 22) / T * 10000) / 10000   # 腳圈半徑 22：腳點停在牆頂下 FEET_UNDER_CAP（無條件進位，不會差一點點就擋住）
     wall_rects = [{'x': 0, 'y': stop, 'w': passage['x'], 'h': corridor_top - stop},
                   {'x': passage['x'] + passage['w'], 'y': stop, 'w': W - passage['x'] - passage['w'], 'h': corridor_top - stop}]
     data = {
