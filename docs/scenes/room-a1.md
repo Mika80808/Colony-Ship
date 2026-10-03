@@ -15,9 +15,9 @@
 
 ## 程式與素材
 
-- 玩家圖集：`public/assets/player/walk.png`（RGBA 688×516，4 方向 × 3 幀）。
+- 玩家圖集：`public/assets/player/walk.webp`（RGBA 688×516，4 方向 × 3 幀）。
 - 家具：`public/assets/rooms/furniture/`，配置表 `public/assets/rooms/furniture.json`。
-- 提示詞見 `tools/asset-prompts.md`。處理腳本：`tools/prepare_player.py`、`tools/pack_player.py`、`tools/prepare_furniture.py`。
+- 提示詞見 `tools/asset-prompts.md`。處理腳本：`tools/prepare_player.py`、`tools/pack_player.py`（家具當年用的 `prepare_furniture.py` 輸出路徑已不存在，隨房間改走 Photoshop 流程後移除）。
 - 玩家中間橫排可使用 sprite-pipeline 的 `normalize_sprite_strip.py --input tmp/sprites/player-strip.png --out-dir tmp/sprites/player-frames --frames 12 --frame-size 160` 後再打包。
 - 家具位置與碰撞：`src/game/roomFurniture.ts`；行走：`src/game/roomNavigation.ts`；控制與距離判定：`src/game/roomActors.ts`。
 
