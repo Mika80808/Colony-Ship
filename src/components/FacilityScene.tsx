@@ -46,7 +46,11 @@ export default function FacilityScene(props: Props) {
     s.path = []; s.pending = null; keys.current.clear();
     if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to);
     else if (item.kind === 'seat' && item.seat) { s.seated = { id: item.id, exit: item.exit ?? item.point }; s.p = item.seat; s.direction = 'down'; s.notice = null; }
-    else { const response = controls.current.onAction?.(item); if (response !== true) s.notice = { item, text: response || item.text, until: performance.now() + 4500 }; }
+    else {
+      // An empty text means the object has no tip: show no bubble at all.
+      const response = controls.current.onAction?.(item), text = response === true ? '' : response || item.text;
+      if (text) s.notice = { item, text, until: performance.now() + 4500 };
+    }
   };
   const actRef = useRef(act); actRef.current = act;
   useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);

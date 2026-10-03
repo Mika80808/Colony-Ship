@@ -130,7 +130,7 @@ for name, offset, stand_x, first_px, last_px in seats:
     seat_x = sofa["x"] + offset
     data["interactions"].append({
         "id": f"sofa-{name}", "kind": "seat", "label": "坐下",
-        "text": "在沙發上稍作休息。", "area": [sofa_left + first_px / tile, sofa["y"] - 2, (last_px - first_px) / tile, 2],
+        "text": "", "area": [sofa_left + first_px / tile, sofa["y"] - 2, (last_px - first_px) / tile, 2],
         "stand": [stand_x, 18.2], "seat": [seat_x, sofa["y"] - .12],
         "exit": [seat_x, 17.6],
     })
