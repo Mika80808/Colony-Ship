@@ -49,9 +49,9 @@ FLOOR = [
     "....xhhhh.....",  # 18
 ]
 
-# 門：門洞在第 7–8 欄（x 672–864），穿過走廊牆面（第 19–22 列）
-DOOR_ZONE = (604, 932)                  # 牆上留給門的那一段
-OPEN_X, OPEN_W = 672, 192
+# 門：門洞 4 格寬（第 6–9 欄，x 576–960），大型物件推得進去；穿過走廊牆面（第 19–22 列）
+DOOR_ZONE = (506, 1030)                 # 牆上留給門框的那一段
+OPEN_X, OPEN_W = 576, 384
 WALL_BASE = O + 346                     # 走廊牆腳（地板素材從這裡開始）
 OPEN_TOP = O + 66
 OPEN_H = WALL_BASE - OPEN_TOP
@@ -238,7 +238,7 @@ def corridor_wall():
         x = x0
         while x < x1:
             piece = plain.crop((0, 0, min(plain.width, x1 - x), plain.height)); out.alpha_composite(piece, (x, 0)); x += piece.width
-    layout = [('plain', 150), ('pillar', 96), ('plain', 262), ('pillar', 96), ('plain', 328), ('pillar', 96), ('plain', 262), ('pillar', 96), ('plain', 150)]
+    layout = [('plain', 150), ('pillar', 96), ('plain', 260), ('plain', DOOR_ZONE[1] - DOOR_ZONE[0]), ('plain', 260), ('pillar', 96), ('plain', 150)]
     x = 0
     for kind, width in layout:
         if kind == 'plain': fill(x, x + width)
@@ -324,7 +324,7 @@ def main():
     ground.alpha_composite(sw, (0, 0)); ground.alpha_composite(sw.transpose(Image.FLIP_LEFT_RIGHT), ((W - 1) * T, 0))
     # 門旁的工程部招牌（居住區走廊的同款招牌）
     sign = Image.open(os.path.join(ROOT, 'public/assets/corridor-signs/sign-engineering.webp')).convert('RGBA')
-    ground.alpha_composite(sign, (DOOR_ZONE[1] + 96 + 40, O + 150))
+    ground.alpha_composite(sign, (DOOR_ZONE[1] + 60, O + 150))
     ground.convert('RGB').save(os.path.join(OUT, 'ground.webp'), lossless=True)
     fg.save(os.path.join(OUT, 'foreground.webp'), lossless=True)
     frame, left, right = door_art()
@@ -361,7 +361,7 @@ def main():
             'frame': {'src': 'door_frame.webp', 'x': DOOR_ZONE[0], 'y': O},
             'panels': {'left': 'door_left.webp', 'right': 'door_right.webp'},
             'lamp': [(DOOR_ZONE[0] + DOOR_ZONE[1]) // 2, OPEN_TOP - 54],
-            'trigger': 150, 'openSeconds': 1.1,
+            'trigger': 150, 'openSeconds': 1.4,
         },
         'foreground': [{'src': 'foreground.webp', 'x': 0, 'y': O + 746}],
         'interactions': [],
