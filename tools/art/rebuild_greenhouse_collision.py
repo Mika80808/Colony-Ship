@@ -1,6 +1,5 @@
 """Rebuild greenhouse collision from fixed architecture, water and placed prop footprints."""
 import json
-import struct
 from pathlib import Path
 from PIL import Image
 
@@ -36,10 +35,9 @@ for y, row in enumerate(data["terrain"]):
             grid[y][x] = 1
 
 def image_size(name):
-    path = FOLDER / "props" / (name.replace("{season}", "spring") + ".png")
-    with path.open("rb") as image:
-        image.seek(16)
-        return struct.unpack(">II", image.read(8))
+    path = FOLDER / "props" / (name.replace("{season}", "spring") + ".webp")
+    with Image.open(path) as image:
+        return image.size
 
 rects = []
 for prop in data["decor"]:
@@ -120,18 +118,20 @@ console["area"] = [17, 3, 6, 3]
 console["stand"] = [round(desk["x"], 4), round(desk["y"] + .35, 4)]
 
 sofa = next(prop for prop in data["decor"] if prop["sprite"] == "sofa")
-sofa_width, _ = image_size("sofa")
+sofa_width, sofa_height = image_size("sofa")
+sofa["id"] = "sofa"
+sofa["size"] = [sofa_width, sofa_height]
 sofa_left = sofa["x"] - sofa_width / (2 * tile)
-# The upholstery seams in sofa.png are at x=160 and x=260 pixels.
+# The upholstery seams in sofa.webp are at x=160 and x=260 pixels.
 # Adjacent hit areas share a boundary but never overlap.
-seats = (("left", -1.25, 20.7, 0, 160), ("middle", 0, 21.3, 160, 260), ("right", 1.25, 24.2, 260, sofa_width))
+seats = (("left", .21, .56, 20.7, 0, 160), ("middle", .5, .5, 21.3, 160, 260), ("right", .79, .56, 24.2, 260, sofa_width))
 data["interactions"] = [item for item in data["interactions"] if not item["id"].startswith("sofa-")]
-for name, offset, stand_x, first_px, last_px in seats:
-    seat_x = sofa["x"] + offset
+for name, u, v, stand_x, first_px, last_px in seats:
+    seat_x = sofa["x"] + (u - .5) * sofa_width / tile
     data["interactions"].append({
         "id": f"sofa-{name}", "kind": "seat", "label": "坐下",
         "text": "", "area": [sofa_left + first_px / tile, sofa["y"] - 2, (last_px - first_px) / tile, 2],
-        "stand": [stand_x, 18.2], "seat": [seat_x, sofa["y"] - .12],
+        "stand": [stand_x, 18.2], "seat": {"decor": "sofa", "position": [u, v]},
         "exit": [seat_x, 17.6],
     })
 

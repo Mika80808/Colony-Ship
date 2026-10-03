@@ -43,7 +43,12 @@ for (let y = 0; y < m.height; y++) for (let x = 0; x < m.width; x++) {
 assert.deepEqual(findPath(m, start, centre(20, 1)), [], 'The observation window is not floor');
 const sofa = m.decor!.find(d => d.sprite === 'sofa')!;
 const sofaSeats = m.interactions!.filter(i => i.kind === 'seat');
-assert.ok(sofaSeats.find(i => i.id === 'sofa-middle')!.seat![1] <= sofaSeats.find(i => i.id === 'sofa-left')!.seat![1] - .1, 'Curved sofa middle seat sits farther back');
+assert.deepEqual(sofa.size, [409, 193], 'The sofa supplies image bounds for relative seat anchors');
+assert.deepEqual(sofaSeats.map(i => i.seat), [
+  { decor: 'sofa', position: [.21, .56] },
+  { decor: 'sofa', position: [.5, .5] },
+  { decor: 'sofa', position: [.79, .56] },
+], 'Seat anchors follow each cushion as proportions of the sofa image');
 assert.equal(walkable(m, { x: sofa.x * s, y: (sofa.y - .5) * s }), false, 'the sofa seat blocks movement');
 // Crops add no collision: every plot tile is walkable ground.
 for (const p of m.plots) for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) assert.equal(blocked(m, x, y), false);
@@ -55,6 +60,16 @@ assert.equal(move(m, aisle, 300, 0).y, aisle.y);
 
 // Interactions: every stand point is floor, reachable, and next to its own area.
 const items = interactions(m);
+const seated = items.filter(i => i.kind === 'seat');
+for (const [i, [u, v]] of seated.map((item, index) => [item, [[.21, .56], [.5, .5], [.79, .56]][index]] as const)) {
+  assert.ok(Math.abs(i.seat!.x - (sofa.x * s + (u - .5) * 409)) < .01, `${i.id} relative x`);
+  assert.ok(Math.abs(i.seat!.y - (sofa.y * s + (v - 1) * 193)) < .01, `${i.id} relative y`);
+}
+assert.ok(seated[1].seat!.y <= seated[0].seat!.y - 10, 'Curved sofa middle seat sits farther back');
+const shifted = { ...m, decor: m.decor!.map(d => d === sofa ? { ...d, x: d.x + .5, y: d.y + .25, scale: .8 } : d) };
+const shiftedLeft = interactions(shifted).find(i => i.id === 'sofa-left')!.seat!;
+assert.ok(Math.abs(shiftedLeft.x - ((sofa.x + .5) * s + (.21 - .5) * 409 * .8)) < .01, 'Seat follows furniture position and scale horizontally');
+assert.ok(Math.abs(shiftedLeft.y - ((sofa.y + .25) * s + (.56 - 1) * 193 * .8)) < .01, 'Seat follows furniture position and scale vertically');
 assert.deepEqual(items.map(i => i.id), ['exit-residential_a', 'exit-residential_b', 'window', 'console', 'monitor-left', 'monitor-right', 'shipping', 'sofa-left', 'sofa-middle', 'sofa-right', 'plot-1']);
 assert.equal(items.find(i => i.id === 'plot-1')?.label, '種植區', 'A single plot is not numbered');
 for (const i of items) { assert.ok(walkable(m, i.point), i.id); assert.ok(findPath(m, start, i.point).length, i.id); assert.equal(nearby(i.point, items)?.id, i.id); }
@@ -63,7 +78,7 @@ for (const seat of items.filter(i => i.kind === 'seat')) {
   assert.ok(seat.exit, `${seat.id} has a nearby exit`);
   assert.equal(walkable(m, seat.seat!), false, `${seat.id} sits on the sofa rather than a walkable floor`);
   assert.equal(walkable(m, seat.exit!), true, `${seat.id} exits onto the floor`);
-  assert.ok(Math.hypot(seat.exit!.x - seat.seat!.x, seat.exit!.y - seat.seat!.y) < 52, `${seat.id} gets up directly in front`);
+  assert.ok(Math.hypot(seat.exit!.x - seat.seat!.x, seat.exit!.y - seat.seat!.y) < 130, `${seat.id} gets up directly in front`);
   assert.ok(findPath(m, seat.exit!, start).length, `${seat.id} can walk away after getting up`);
   assert.equal(clicked(seat.seat!, items)?.id, seat.id, `${seat.id} is individually clickable`);
 }

@@ -11,8 +11,8 @@ import type { DecorSpec } from './decor';
 export interface TileRect { x: number; y: number; w: number; h: number }
 /** A doorway in the outer wall. `to` is the sector beyond it; the player appears at `spawn` (tile units) when arriving from there. */
 export interface Entrance extends TileRect { to: string; label: string; spawn: [number, number] }
-/** An interaction written in map.json, in tile units: `area` is what the player clicks, `stand` is where they walk to. */
-export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number]; seat?: [number, number]; exit?: [number, number] }
+/** An interaction written in map.json: `area` and `stand` use tile units; a relative `seat` uses 0–1 image coordinates. */
+export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number]; seat?: [number, number] | { decor: string; position: [number, number] }; exit?: [number, number] }
 /**
  * 要按 E（或點門）才會開的門（工程區的厚重隔音門），走遠了自己關上。passage 是門洞的格子：
  * 碰撞表裡是可走，門關著時尋路改用 withDoorClosed 的地圖，移動由 doorBlocks 擋住。座標除了 passage 都是 px。
@@ -159,9 +159,16 @@ export function arrivalDirection(m: FacilityMap, from?: string | null): 'left' |
 export function interactions(m: FacilityMap): FacilityInteraction[] {
   const at = (id: string, kind: string, label: string, text: string, area: TileRect, stand: Point): FacilityInteraction =>
     ({ id, kind, label, text, area: tileRect(m, area), point: { x: stand.x * m.tileSize, y: stand.y * m.tileSize } });
+  const seatPoint = (seat: NonNullable<InteractionSpec['seat']>): Point => {
+    if (Array.isArray(seat)) return { x: seat[0] * m.tileSize, y: seat[1] * m.tileSize };
+    const decor = m.decor?.find(d => (d.id ?? d.sprite) === seat.decor);
+    if (!decor?.size) throw new Error(`座位參照的物件缺少尺寸：${seat.decor}`);
+    const [width, height] = decor.size, [u, v] = seat.position;
+    return { x: decor.x * m.tileSize + (u - .5) * width * decor.scale, y: decor.y * m.tileSize + (v - 1) * height * decor.scale };
+  };
   return [
     ...m.entrances.map(e => ({ ...at(`exit-${e.to}`, 'exit', e.label, '', e, { x: e.x + e.w / 2, y: e.y + e.h / 2 }), to: e.to })),
-    ...(m.interactions ?? []).map(i => ({ ...at(i.id, i.kind, i.label, i.text, { x: i.area[0], y: i.area[1], w: i.area[2], h: i.area[3] }, { x: i.stand[0], y: i.stand[1] }), ...(i.seat ? { seat: { x: i.seat[0] * m.tileSize, y: i.seat[1] * m.tileSize } } : {}), ...(i.exit ? { exit: { x: i.exit[0] * m.tileSize, y: i.exit[1] * m.tileSize } } : {}) })),
+    ...(m.interactions ?? []).map(i => ({ ...at(i.id, i.kind, i.label, i.text, { x: i.area[0], y: i.area[1], w: i.area[2], h: i.area[3] }, { x: i.stand[0], y: i.stand[1] }), ...(i.seat ? { seat: seatPoint(i.seat) } : {}), ...(i.exit ? { exit: { x: i.exit[0] * m.tileSize, y: i.exit[1] * m.tileSize } } : {}) })),
     ...(m.door ? [((stand: Point) => at(m.door!.id, 'door', m.door!.label, '', m.door!.passage, { x: stand.x / m.tileSize, y: stand.y / m.tileSize }))(doorStand(m, m.door, { x: 0, y: Infinity }))] : []),
     ...(m.plots ?? []).map((p, i, all) => at(`plot-${i + 1}`, 'plot', all.length > 1 ? `種植區 ${i + 1}` : '種植區', '這塊土地還空著。（種植系統尚未開放）', p, { x: p.x + p.w / 2, y: p.y + p.h / 2 })),
   ];

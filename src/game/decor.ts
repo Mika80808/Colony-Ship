@@ -5,8 +5,8 @@
  * 會擋路的物件以 block 標記，碰撞範圍由 map.json 的 collisionRects 定義。
  */
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
-/** flip：左右翻轉（Photoshop 裡翻過的樹，見 tools/art/greenhouse_tree_layer.py）。 */
-export interface DecorSpec { sprite: string; x: number; y: number; scale: number; block?: boolean; flip?: boolean }
+/** flip：左右翻轉；id／size：相對座位錨點參照的物件識別與原圖像素尺寸。 */
+export interface DecorSpec { sprite: string; x: number; y: number; scale: number; block?: boolean; flip?: boolean; id?: string; size?: [number, number] }
 
 export const SEASONS: Season[] = ['spring', 'summer', 'autumn', 'winter'];
 

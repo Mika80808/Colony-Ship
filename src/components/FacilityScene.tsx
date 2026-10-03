@@ -172,9 +172,10 @@ export default function FacilityScene(props: Props) {
         const row = moving ? [0, 1, 0, 2][Math.floor(s.elapsed * 8) % 4] : 0;
         const x = s.p.x - w / 2, y = s.p.y - h + 5;
         if (s.seated) {
-          // Keep the head and torso in place; shorten the lower legs so the feet rest on the sofa.
-          ctx.drawImage(sprite, col * sw, row * sh, sw, sh * .7, x, y, w, h * .7);
-          ctx.drawImage(sprite, col * sw, row * sh + sh * .7, sw, sh * .3, x, y + h * .7, w, h * .15);
+          // The seat anchor marks the hips near the cushion's middle; feet stay over its front edge.
+          const seatedY = s.p.y - h * .55;
+          ctx.drawImage(sprite, col * sw, row * sh, sw, sh * .7, x, seatedY, w, h * .7);
+          ctx.drawImage(sprite, col * sw, row * sh + sh * .7, sw, sh * .3, x, seatedY + h * .7, w, h * .15);
         } else ctx.drawImage(sprite, col * sw, row * sh, sw, sh, x, y, w, h);
       };
       const render = (time: number) => {
