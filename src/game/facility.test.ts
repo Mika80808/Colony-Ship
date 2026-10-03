@@ -42,6 +42,8 @@ for (let y = 0; y < m.height; y++) for (let x = 0; x < m.width; x++) {
 }
 assert.deepEqual(findPath(m, start, centre(20, 1)), [], 'The observation window is not floor');
 const sofa = m.decor!.find(d => d.sprite === 'sofa')!;
+const sofaSeats = m.interactions!.filter(i => i.kind === 'seat');
+assert.ok(sofaSeats.find(i => i.id === 'sofa-middle')!.seat![1] <= sofaSeats.find(i => i.id === 'sofa-left')!.seat![1] - .1, 'Curved sofa middle seat sits farther back');
 assert.equal(walkable(m, { x: sofa.x * s, y: (sofa.y - .5) * s }), false, 'the sofa seat blocks movement');
 // Crops add no collision: every plot tile is walkable ground.
 for (const p of m.plots) for (let y = p.y; y < p.y + p.h; y++) for (let x = p.x; x < p.x + p.w; x++) assert.equal(blocked(m, x, y), false);
@@ -61,7 +63,7 @@ for (const seat of items.filter(i => i.kind === 'seat')) {
   assert.ok(seat.exit, `${seat.id} has a nearby exit`);
   assert.equal(walkable(m, seat.seat!), false, `${seat.id} sits on the sofa rather than a walkable floor`);
   assert.equal(walkable(m, seat.exit!), true, `${seat.id} exits onto the floor`);
-  assert.ok(Math.hypot(seat.exit!.x - seat.seat!.x, seat.exit!.y - seat.seat!.y) < 45, `${seat.id} gets up directly in front`);
+  assert.ok(Math.hypot(seat.exit!.x - seat.seat!.x, seat.exit!.y - seat.seat!.y) < 52, `${seat.id} gets up directly in front`);
   assert.ok(findPath(m, seat.exit!, start).length, `${seat.id} can walk away after getting up`);
   assert.equal(clicked(seat.seat!, items)?.id, seat.id, `${seat.id} is individually clickable`);
 }

@@ -11,7 +11,7 @@ import { Fish, WaterMask, drawFish, rng, spawnFish, stepFish } from '../game/fis
 import { drawBeforePlayer } from '../game/sceneDepth';
 
 /** 畫在地面之上、要和玩家排前後的東西：依底部 y 由上到下畫，玩家插在自己腳的位置。 */
-interface Standing { bottom: number; sprite?: string; left?: number; right?: number; draw: (ctx: CanvasRenderingContext2D) => void; front?: (ctx: CanvasRenderingContext2D) => void }
+interface Standing { bottom: number; sprite?: string; left?: number; right?: number; draw: (ctx: CanvasRenderingContext2D) => void }
 
 interface Props {
   facility: { folder: string; name: string };
@@ -101,11 +101,6 @@ export default function FacilityScene(props: Props) {
           if (d.flip) { c.save(); c.translate(d.x * T, 0); c.scale(-1, 1); c.drawImage(im, -w / 2, d.y * T - h, w, h); c.restore(); }
           else c.drawImage(im, d.x * T - w / 2, d.y * T - h, w, h);
         },
-        front: d.sprite === 'sofa' ? (c: CanvasRenderingContext2D) => {
-          const im = images.get('sofa')!, w = im.width * d.scale, strip = 31 * d.scale;
-          c.imageSmoothingEnabled = true;
-          c.drawImage(im, 0, im.height - 31, im.width, 31, d.x * T - w / 2, d.y * T - strip, w, strip);
-        } : undefined,
       }));
     }
     /** 水面遮罩（facility_ground.py 產生的 water.webp，1 px = 8 px 世界座標）；沒有就不放魚。 */
@@ -167,10 +162,15 @@ export default function FacilityScene(props: Props) {
       };
       const drawPlayer = (moving: boolean) => {
         const sw = sprite.width / 4, sh = sprite.height / 3, h = ACTOR_HEIGHT, w = h * sw / sh;
-        ctx.fillStyle = '#05101b66'; ctx.beginPath(); ctx.ellipse(s.p.x, s.p.y - 3, 23, 7, 0, 0, Math.PI * 2); ctx.fill();
+        if (!s.seated) { ctx.fillStyle = '#05101b66'; ctx.beginPath(); ctx.ellipse(s.p.x, s.p.y - 3, 23, 7, 0, 0, Math.PI * 2); ctx.fill(); }
         const col = ({ down: 0, up: 1, left: 2, right: 3 } as Record<string, number>)[s.direction];
         const row = moving ? [0, 1, 0, 2][Math.floor(s.elapsed * 8) % 4] : 0;
-        ctx.drawImage(sprite, col * sw, row * sh, sw, sh, s.p.x - w / 2, s.p.y - h + 5, w, h);
+        const x = s.p.x - w / 2, y = s.p.y - h + 5;
+        if (s.seated) {
+          // Keep the head and torso in place; shorten the lower legs so the feet rest on the sofa.
+          ctx.drawImage(sprite, col * sw, row * sh, sw, sh * .7, x, y, w, h * .7);
+          ctx.drawImage(sprite, col * sw, row * sh + sh * .7, sw, sh * .3, x, y + h * .7, w, h * .15);
+        } else ctx.drawImage(sprite, col * sw, row * sh, sw, sh, x, y, w, h);
       };
       const render = (time: number) => {
         if (disposed) return;
@@ -221,7 +221,6 @@ export default function FacilityScene(props: Props) {
         s.standing.forEach(o => { if (drawBeforePlayer(o, s.p, !!s.seated)) o.draw(ctx); });
         ctx.imageSmoothingEnabled = false; drawPlayer(moving && !frozen);
         s.standing.forEach(o => { if (!drawBeforePlayer(o, s.p, !!s.seated)) o.draw(ctx); });
-        if (s.seated) s.standing.find(o => o.sprite === 'sofa')?.front?.(ctx);
         if (inDoorway()) drawDoor(true);
         for (const o of s.overlays) ctx.drawImage(o.image, o.x, o.y);
         ctx.imageSmoothingEnabled = false;
