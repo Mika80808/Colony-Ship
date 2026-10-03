@@ -1,4 +1,5 @@
 import { loadImage as load } from '../utils/loadImage';
+import { useSceneKeys } from './useSceneKeys';
 import { corridorDoorFrame, createCorridorDoorLeaves, drawCorridorDoor } from '../game/corridorDoor';
 import { useEffect, useRef, useState } from 'react';
 import { CorridorAsset, CorridorConfig, HEIGHT, WIDTH, SPAWN, Point, Interaction, findPath, move, interactions, nearby, signNotice, benchSeat, doorRoomId, spawnOutside, signFacility, FACILITY_SECTOR } from '../game/corridor';
@@ -17,12 +18,9 @@ interface Props {
   /** 每幀走了幾 px（推進遊戲時間用，見 game/clock.ts）。 */
   onWalk?: (px: number) => void;
 }
-const movement = new Set(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
-const normal = (key: string) => key.length === 1 ? key.toLowerCase() : key;
 export default function CorridorScene(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controls = useRef(props); controls.current = props;
-  const keys = useRef(new Set<string>());
   const [status, setStatus] = useState(`正在載入 ${props.corridor.letter} 區走廊…`);
   const state = useRef({ p: { ...SPAWN }, path: [] as Point[], direction: 'down', elapsed: 0, camera: 0, view: 1600, sitting: null as Interaction | null, entering: 0, enteringDoor: '', ready: false, items: [] as Interaction[], pending: null as Interaction | null });
   const act = () => {
@@ -40,12 +38,16 @@ export default function CorridorScene(props: Props) {
     }
   };
   const actRef = useRef(act); actRef.current = act;
-  useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);
+  const { keys, axis, onKeyDown, onKeyUp, onBlur } = useSceneKeys({
+    paused: props.paused,
+    disabled: () => !!state.current.entering,
+    onInteract: () => actRef.current(),
+    // 第一次按下先立刻走一小步，輕點一下也有反應。
+    onMovementPress: (_key, dx, dy) => { state.current.p = move(state.current.p, dx * 4, dy * 4, controls.current.corridor.collisions); },
+  });
   useEffect(() => {
     const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!;
     let disposed=false, raf=0, last=0;
-    const clear = () => keys.current.clear();
-    window.addEventListener('blur',clear); document.addEventListener('visibilitychange',clear);
     const resize = new ResizeObserver(([e]) => {
       const s=state.current, view=fitViewport(e.contentRect.width,e.contentRect.height,WIDTH,HEIGHT);
       s.view=view.width;
@@ -85,8 +87,7 @@ export default function CorridorScene(props: Props) {
         if(!frozen) {
           if(s.entering) { s.entering+=dt; if(corridorDoorFrame(s.entering).complete) { s.entering=0; controls.current.onEnterRoom(doorRoomId(controls.current.corridor,s.enteringDoor)); return; } }
           else {
-            let dx=Number(keys.current.has('d')||keys.current.has('ArrowRight'))-Number(keys.current.has('a')||keys.current.has('ArrowLeft'));
-            let dy=Number(keys.current.has('s')||keys.current.has('ArrowDown'))-Number(keys.current.has('w')||keys.current.has('ArrowUp'));
+            let { dx, dy } = axis();
             if(dx||dy) {
               if(s.sitting) {s.p={...s.sitting.point};s.sitting=null;}
               s.path=[];s.pending=null;
@@ -125,13 +126,13 @@ export default function CorridorScene(props: Props) {
       };raf=requestAnimationFrame(render);
     }
     start().catch(()=>{if(!disposed)setStatus('走廊素材載入失敗，請重新整理。');});
-    return()=>{disposed=true;state.current.ready=false;cancelAnimationFrame(raf);resize.disconnect();clear();window.removeEventListener('blur',clear);document.removeEventListener('visibilitychange',clear);};
+    return()=>{disposed=true;state.current.ready=false;cancelAnimationFrame(raf);resize.disconnect();keys.current.clear();};
   },[]);
   return <div className="corridor-scene">
-    <div className="corridor-viewport"><canvas ref={canvasRef} tabIndex={0} aria-label={`${props.corridor.letter} 區走廊。方向鍵或 WASD 移動，E 互動，也可以點擊地板、房門或椅子。`}
-      onBlur={()=>keys.current.clear()}
-      onKeyDown={e=>{const key=normal(e.key);if(e.ctrlKey||e.altKey||e.metaKey)return;if(movement.has(key)||key==='e'){e.preventDefault();e.stopPropagation();if(!props.paused&&!state.current.entering){if(key==='e'){if(!e.repeat)act();}else {if(!keys.current.has(key)){const dx=key==='d'||key==='ArrowRight'?4:key==='a'||key==='ArrowLeft'?-4:0;const dy=key==='s'||key==='ArrowDown'?4:key==='w'||key==='ArrowUp'?-4:0;state.current.p=move(state.current.p,dx,dy,props.corridor.collisions);}keys.current.add(key);}}}}}
-      onKeyUp={e=>{const key=normal(e.key);if(movement.has(key)){e.preventDefault();e.stopPropagation();keys.current.delete(key);}}}
+    <div className="corridor-viewport"><canvas ref={canvasRef} tabIndex={0} aria-label={`${props.corridor.letter} 區走廊。WASD 移動，E 互動，也可以點擊地板、房門或椅子。`}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
+      onKeyUp={onKeyUp}
       onClick={e=>{
         const s=state.current;if(!s.ready||props.paused||s.entering)return;e.currentTarget.focus({preventScroll:true});
         if(s.sitting){s.p={...s.sitting.point};s.sitting=null;}
