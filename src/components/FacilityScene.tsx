@@ -175,7 +175,7 @@ export default function FacilityScene(props: Props) {
           // The seat anchor marks the hips near the cushion's middle; feet stay over its front edge.
           const seatedY = s.p.y - h * .55;
           ctx.drawImage(sprite, col * sw, row * sh, sw, sh * .7, x, seatedY, w, h * .7);
-          ctx.drawImage(sprite, col * sw, row * sh + sh * .7, sw, sh * .3, x, seatedY + h * .7, w, h * .15);
+          ctx.drawImage(sprite, col * sw, row * sh + sh * .7, sw, sh * .3, x, seatedY + h * .7, w, h * .3 * .6);
         } else ctx.drawImage(sprite, col * sw, row * sh, sw, sh, x, y, w, h);
       };
       const render = (time: number) => {
