@@ -233,7 +233,7 @@ def side_wall(h):
 def corridor_wall():
     """居住區 A 走廊的牆面切成「素面牆板」與「柱子」兩種片段，拼出沒有住宅門的一段牆，中間留給厚重門。"""
     wall = Image.open(os.path.join(SRC, 'wall.webp')).convert('RGBA')
-    plain = wall.crop((282, 0, 412, wall.height))   # 素面牆板（門框左邊那一段）
+    plain = delight(wall.crop((282, 0, 412, wall.height)), 30)   # 素面牆板（門框左邊那一段），洗掉住宅門燈打上去的暖光
     pillar = wall.crop((186, 0, 282, wall.height))  # 柱子（含青色燈條）
     out = Image.new('RGBA', (W * T, wall.height))
     def fill(x0, x1):
@@ -317,12 +317,36 @@ def write_cap():
     cap.alpha_composite(frame.crop((0, 0, frame.width, CAP_H)), (DOOR_ZONE[0], 0))
     cap.save(os.path.join(OUT, 'wall_cap.webp'), lossless=True)
 
+def delight(img, sigma, keep_x=None):
+    """把素材裡畫死的燈光洗掉：大範圍模糊得出光照起伏，每列以整列中位數當基準，除掉起伏、保留紋路。
+    青色燈條不參與計算也不改色（不然會被抹糊）。keep_x：這個 x 附近的光留著（例：大門正下方有門燈）。"""
+    a = np.asarray(img).astype(np.float32)
+    rgb, alpha = a[..., :3], a[..., 3:]
+    glow = (rgb[..., 2] - rgb[..., 0] > 45) & (rgb[..., 2] > 150)          # 青色燈條
+    w = ((alpha[..., 0] > 0) & ~glow).astype(np.float32)
+    blur = lambda ch: np.asarray(Image.fromarray(ch).filter(ImageFilter.GaussianBlur(sigma)), np.float32)
+    def lowpass(ch):   # 只用一般像素的加權模糊
+        scale = 255 / max(ch.max(), 1)
+        num = np.asarray(Image.fromarray(np.clip(ch * w * scale / 255 * 255, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(sigma)), np.float32)
+        den = blur((w * 255).astype(np.uint8))
+        return num / np.maximum(den, 1) * 255 / scale
+    low = np.stack([lowpass(rgb[..., c]) for c in range(3)], -1)
+    base = np.median(np.where(w[..., None] > 0, low, np.nan), axis=1, keepdims=True)
+    base = np.where(np.isnan(base), low, base)
+    gain = np.clip(base / np.maximum(low, 1), .8, 1.05)
+    if keep_x is not None:
+        keep = np.exp(-((np.arange(rgb.shape[1])[None, :, None] - keep_x) / 150) ** 2)
+        gain = gain * (1 - keep) + keep
+    gain = np.where(glow[..., None], 1, gain)
+    return Image.fromarray(np.concatenate([np.clip(rgb * gain, 0, 255), alpha], -1).astype(np.uint8), 'RGBA')
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     ground = Image.new('RGBA', (W * T, H * T), (6, 13, 22, 255))
     # 走廊：星空、地板、牆（照居住區走廊的疊放順序）
     space = Image.open(os.path.join(SRC, 'space.webp')).convert('RGBA').crop((CROP_X, 0, CROP_X + W * T, 147))
     floor = Image.open(os.path.join(SRC, 'floor.webp')).convert('RGBA').crop((CROP_X, 0, CROP_X + W * T, 452))
+    for sigma in (50, 28): floor = delight(floor, sigma, OPEN_X + OPEN_W // 2)   # 洗兩輪：大範圍先壓、小範圍再補
     fg = Image.open(os.path.join(SRC, 'foreground.webp')).convert('RGBA').crop((CROP_X, 0, CROP_X + W * T, 103))
     for y in range(O + 849, H * T, 147): ground.alpha_composite(space, (0, y))
     ground.alpha_composite(floor, (0, O + 346))
