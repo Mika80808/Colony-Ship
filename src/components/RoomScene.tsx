@@ -330,7 +330,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
               if (item) {
                 actors.current.player.path = []; actors.current.player.target = null;
                 exiting.current = false;
-                setInspection({ text: `${item.label}：${item.inspectText}` });
+                setInspection({ text: item.inspectText });
               } else if (canExitRoom(actors.current.player.position)) {
                 actors.current.player.path = []; actors.current.player.target = null;
                 keys.current.clear();

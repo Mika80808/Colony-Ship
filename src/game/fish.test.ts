@@ -12,7 +12,13 @@ const m: WaterMask = { width, height, scale, water };
 const fish = spawnFish(m, 12, 3), r = rng(9);
 assert.equal(fish.length, 12);
 const start = fish.map(f => ({ x: f.x, y: f.y }));
-for (let i = 0; i < 20000; i++) for (const f of fish) { stepFish(f, 1 / 30, m, r); assert.ok(inWater(m, f.x, f.y), `fish left the water at step ${i}`); }
+for (let i = 0; i < 20000; i++) for (const f of fish) {
+  const heading = f.heading, speed = f.speed;
+  stepFish(f, 1 / 30, m, r);
+  assert.ok(inWater(m, f.x, f.y), `fish left the water at step ${i}`);
+  assert.ok(Math.abs(f.heading - heading) < .16, `fish snapped its direction at step ${i}`);
+  assert.ok(Math.abs(f.speed - speed) < 5, `fish snapped its speed at step ${i}`);
+}
 const moved = fish.filter((f, i) => Math.hypot(f.x - start[i].x, f.y - start[i].y) > 40).length;
 assert.ok(moved >= 8, `most fish swim somewhere (${moved}/12)`);
 assert.deepEqual(spawnFish(m, 3, 5).map(f => [f.x, f.y]), spawnFish(m, 3, 5).map(f => [f.x, f.y]), 'same seed, same school');

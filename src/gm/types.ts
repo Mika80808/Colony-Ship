@@ -20,6 +20,8 @@ export interface GmContext {
   /** 目前場景在場、可被指涉的 NPC。 */
   presentNpcs: NPCData[];
   locationName: string;
+  /** Current map object names and coordinates for spatial reasoning; not UI labels. */
+  sceneObjects?: string;
   /** 星曆日期與時刻。NPC 的日常活動要對得上時間才有意義。 */
   gameDate: string;
   gameTime: string;

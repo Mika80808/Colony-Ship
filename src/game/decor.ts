@@ -2,7 +2,7 @@
  * 設施裡的裝飾擺設（map.json 的 decor）：樹、花叢……圖在 public/assets/<folder>/props/，由 tools/art/greenhouse_props.py 切出。
  * 位置是「底部中心」的格子座標（可有小數），畫的時候依底部和玩家、種植架一起排前後。
  * sprite 名稱裡的 {season} 依遊戲日期換成 spring／summer／autumn／winter（例：楓樹四季）。
- * 會擋路的（樹幹）直接寫在 map.json 的 collision，這裡的 block 只是標記給測試核對。
+ * 會擋路的物件以 block 標記，碰撞範圍由 map.json 的 collisionRects 定義。
  */
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 /** flip：左右翻轉（Photoshop 裡翻過的樹，見 tools/art/greenhouse_tree_layer.py）。 */

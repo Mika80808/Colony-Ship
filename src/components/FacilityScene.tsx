@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Point } from '../game/corridor';
-import { FacilityInteraction, FacilityMap, camera, clicked, findPath, interactions, move, nearby, spawn, worldSize } from '../game/facility';
+import { FacilityInteraction, FacilityMap, camera, clicked, findPath, interactions, keyboardTarget, move, nearby, spawn, worldSize } from '../game/facility';
 import { ACTOR_HEIGHT, approach, fitViewport } from '../game/viewport';
 import { CropsMeta, RacksMeta, layoutRack, rackBounds, rackKey } from '../game/racks';
 import { dayNumber, stageAt } from '../game/growth';
 import { decorSprites, spriteFor } from '../game/decor';
 import { Fish, WaterMask, drawFish, rng, spawnFish, stepFish } from '../game/fish';
+import { drawBeforePlayer } from '../game/sceneDepth';
 
 /** 畫在地面之上、要和玩家排前後的東西：依底部 y 由上到下畫，玩家插在自己腳的位置。 */
-interface Standing { bottom: number; draw: (ctx: CanvasRenderingContext2D) => void }
+interface Standing { bottom: number; sprite?: string; left?: number; right?: number; draw: (ctx: CanvasRenderingContext2D) => void; front?: (ctx: CanvasRenderingContext2D) => void }
 
 interface Props {
   facility: { folder: string; name: string };
@@ -20,8 +21,10 @@ interface Props {
   onNotice: (text: string) => void;
   /** 每幀走了幾 px（推進遊戲時間用，見 game/clock.ts）。 */
   onWalk?: (px: number) => void;
-  /** 有遊戲邏輯的互動（例：出貨籃）交給 App；回傳 true 表示處理掉，否則照 map.json 的文字提示。 */
-  onAction?: (item: FacilityInteraction) => boolean;
+  /** Supply the GM with the player's current map coordinates without re-rendering the scene. */
+  onPosition?: (point: Point) => void;
+  /** 有遊戲邏輯的互動（例：出貨籃）交給 App；回傳文字會顯示在物件旁。 */
+  onAction?: (item: FacilityInteraction) => string | false;
   /** 遊戲時間：自動植栽區的作物依此決定生長階段。 */
   gameDate: string;
   gameTime: string;
@@ -33,14 +36,16 @@ export default function FacilityScene(props: Props) {
   const controls = useRef(props); controls.current = props;
   const keys = useRef(new Set<string>());
   const [status, setStatus] = useState(`正在載入${props.facility.name}…`);
-  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, grid: true, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null });
+  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point } | null, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null });
   const act = (item?: FacilityInteraction) => {
     const s = state.current;
     if (!s.map || controls.current.paused) return;
-    item ??= nearby(s.p, s.items); if (!item) return;
+    if (s.seated) { s.p = s.seated.exit; s.seated = null; if (!item) return; }
+    item ??= keyboardTarget(s.p, s.items); if (!item) return;
     s.path = []; s.pending = null; keys.current.clear();
     if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to);
-    else if (!controls.current.onAction?.(item)) controls.current.onNotice(item.text);
+    else if (item.kind === 'seat' && item.seat) { s.seated = { id: item.id, exit: item.exit ?? item.point }; s.p = item.seat; s.direction = 'down'; s.notice = null; }
+    else { const response = controls.current.onAction?.(item); s.notice = { item, text: response || item.text, until: performance.now() + 4500 }; }
   };
   const actRef = useRef(act); actRef.current = act;
   useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);
@@ -86,12 +91,20 @@ export default function FacilityScene(props: Props) {
       const images = new Map(await Promise.all(decorSprites(specs).map(async n => [n, await load(`/assets/${folder}/props/${n}.png`)] as const)));
       return specs.map(d => ({
         bottom: d.y * T,
+        sprite: d.sprite,
+        left: d.x * T - images.get(spriteFor(d, controls.current.gameDate))!.width * d.scale / 2,
+        right: d.x * T + images.get(spriteFor(d, controls.current.gameDate))!.width * d.scale / 2,
         draw: (c: CanvasRenderingContext2D) => {
           const im = images.get(spriteFor(d, controls.current.gameDate))!, w = im.width * d.scale, h = im.height * d.scale;
           c.imageSmoothingEnabled = true;
           if (d.flip) { c.save(); c.translate(d.x * T, 0); c.scale(-1, 1); c.drawImage(im, -w / 2, d.y * T - h, w, h); c.restore(); }
           else c.drawImage(im, d.x * T - w / 2, d.y * T - h, w, h);
         },
+        front: d.sprite === 'sofa' ? (c: CanvasRenderingContext2D) => {
+          const im = images.get('sofa')!, w = im.width * d.scale, strip = 31 * d.scale;
+          c.imageSmoothingEnabled = true;
+          c.drawImage(im, 0, im.height - 31, im.width, 31, d.x * T - w / 2, d.y * T - strip, w, strip);
+        } : undefined,
       }));
     }
     /** 水面遮罩（facility_ground.py 產生的 water.png，1 px = 8 px 世界座標）；沒有就不放魚。 */
@@ -109,7 +122,7 @@ export default function FacilityScene(props: Props) {
       const { folder } = controls.current.facility;
       const response = await fetch(`/assets/${folder}/map.json`); if (!response.ok) throw new Error('map');
       const map: FacilityMap = await response.json();
-      // L0 地面由 tools/art/facility_ground.py 依 map.json 的 terrain 拼成；種植架（racks）與樹、花（decor）另外疊上，其他擺設還沒上，先靠 G 鍵的碰撞格看位置。
+      // L0 地面由 tools/art/facility_ground.py 依 map.json 的 terrain 拼成；種植架與擺設依腳點排序。
       const [background, sprite, racks, decor, water] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.png'), loadRacks(folder, map), loadDecor(folder, map), loadWater(folder, map)]);
       if (disposed) return;
       const s = state.current, world = worldSize(map);
@@ -122,6 +135,7 @@ export default function FacilityScene(props: Props) {
       s.water = water; s.fish = water ? spawnFish(water, map.fish ?? 0, 7) : [];
       const fishRandom = rng(Date.now()); racks.paint(dayNumber(controls.current.gameDate, controls.current.gameTime));
       s.map = map; s.items = interactions(map); s.p = spawn(map, controls.current.arrivedFrom);
+      controls.current.onPosition?.(s.p);
       const box = canvas.parentElement!.getBoundingClientRect(); fit(box.width, box.height);
       setStatus(''); canvas.focus({ preventScroll: true });
       const drawPlayer = (moving: boolean) => {
@@ -139,7 +153,7 @@ export default function FacilityScene(props: Props) {
         if (!frozen) {
           let dx = Number(keys.current.has('d') || keys.current.has('ArrowRight')) - Number(keys.current.has('a') || keys.current.has('ArrowLeft'));
           let dy = Number(keys.current.has('s') || keys.current.has('ArrowDown')) - Number(keys.current.has('w') || keys.current.has('ArrowUp'));
-          if (dx || dy) { s.path = []; s.pending = null; }
+          if (dx || dy) { if (s.seated) { s.p = s.seated.exit; s.seated = null; } s.path = []; s.pending = null; s.notice = null; }
           else if (s.path.length) {
             dx = s.path[0].x - s.p.x; dy = s.path[0].y - s.p.y;
             if (Math.hypot(dx, dy) < 3) { s.p = s.path.shift()!; dx = 0; dy = 0; }
@@ -163,18 +177,40 @@ export default function FacilityScene(props: Props) {
         if (s.grid) {
           ctx.fillStyle = '#ff305033';
           map.collision.forEach((row, y) => row.forEach((v, x) => { if (v) ctx.fillRect(x * map.tileSize, y * map.tileSize, map.tileSize, map.tileSize); }));
+          for (const r of map.collisionRects ?? []) ctx.fillRect(r.x * map.tileSize, r.y * map.tileSize, r.w * map.tileSize, r.h * map.tileSize);
         }
         // 水底下的魚影：畫在地面上、所有擺設和玩家底下
         if (s.water) for (const f of s.fish) { if (!frozen) stepFish(f, dt, s.water, fishRandom); drawFish(ctx, f); }
-        const item = frozen ? undefined : nearby(s.p, s.items);
-        if (item) { ctx.strokeStyle = '#71efffaa'; ctx.lineWidth = 4; ctx.strokeRect(item.area.x + 2, item.area.y + 2, item.area.width - 4, item.area.height - 4); }
-        s.standing.forEach(o => { if (o.bottom <= s.p.y) o.draw(ctx); });
+        const item = frozen ? undefined : s.seated ? s.items.find(i => i.id === s.seated?.id) : nearby(s.p, s.items);
+        s.standing.forEach(o => { if (drawBeforePlayer(o, s.p, !!s.seated)) o.draw(ctx); });
         ctx.imageSmoothingEnabled = false; drawPlayer(moving && !frozen);
-        s.standing.forEach(o => { if (o.bottom > s.p.y) o.draw(ctx); });
+        s.standing.forEach(o => { if (!drawBeforePlayer(o, s.p, !!s.seated)) o.draw(ctx); });
+        if (s.seated) s.standing.find(o => o.sprite === 'sofa')?.front?.(ctx);
         ctx.imageSmoothingEnabled = false;
         if (s.path.length) { const p = s.path.at(-1)!; ctx.strokeStyle = '#71efff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(p.x, p.y, 16, 6, 0, 0, Math.PI * 2); ctx.stroke(); }
-        if (item) { ctx.font = 'bold 22px sans-serif'; const w = ctx.measureText(item.label).width + 28; ctx.fillStyle = '#08192499'; ctx.fillRect(s.p.x - w / 2, s.p.y - 192, w, 36); ctx.fillStyle = '#baf7ff'; ctx.textAlign = 'center'; ctx.fillText(item.label, s.p.x, s.p.y - 166); ctx.textAlign = 'start'; }
+        const tip = s.notice && time < s.notice.until ? s.notice : null;
+        if (s.notice && !tip) s.notice = null;
+        if (tip) {
+          const target = tip.item, message = tip.text;
+          ctx.font = '20px sans-serif';
+          const lines: string[] = [''];
+          for (const character of message) {
+            if (character === '\n' || ctx.measureText(lines.at(-1)! + character).width > 390) lines.push('');
+            if (character !== '\n') lines[lines.length - 1] += character;
+          }
+          const width = Math.max(78, Math.min(420, Math.max(...lines.map(line => ctx.measureText(line).width)) + 28));
+          const height = lines.length * 29 + 16;
+          const x = Math.max(s.camera.x + width / 2 + 12, Math.min(s.camera.x + s.view.width - width / 2 - 12, target.area.x + target.area.width / 2));
+          const above = target.area.y - height - 12;
+          const y = above < s.camera.y + 12 ? target.area.y + target.area.height + 12 : above;
+          ctx.fillStyle = '#081924cc'; ctx.strokeStyle = '#71efffaa'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.roundRect(x - width / 2, y, width, height, 9); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#d9faff'; ctx.textAlign = 'center';
+          lines.forEach((line, index) => ctx.fillText(line, x, y + 29 + index * 29));
+          ctx.textAlign = 'start';
+        }
         ctx.restore();
+        controls.current.onPosition?.(s.p);
         canvas.dataset.playerPosition = `${s.p.x.toFixed(1)},${s.p.y.toFixed(1)}`; canvas.dataset.camera = `${s.camera.x.toFixed(1)},${s.camera.y.toFixed(1)}`; canvas.dataset.ready = 'true'; canvas.dataset.moving = String(moving); canvas.dataset.nearby = item?.id ?? '';
         raf = requestAnimationFrame(render);
       }; raf = requestAnimationFrame(render);
@@ -195,6 +231,7 @@ export default function FacilityScene(props: Props) {
       onKeyUp={e => { const key = normal(e.key); if (movement.has(key)) { e.preventDefault(); e.stopPropagation(); keys.current.delete(key); } }}
       onClick={e => {
         const s = state.current; if (!s.map || props.paused) return; e.currentTarget.focus({ preventScroll: true });
+        if (s.seated) { s.p = s.seated.exit; s.seated = null; }
         const r = e.currentTarget.getBoundingClientRect(), p = { x: (e.clientX - r.left) / r.width * s.view.width + s.camera.x, y: (e.clientY - r.top) / r.height * s.view.height + s.camera.y };
         const item = clicked(p, s.items);
         if (item && nearby(s.p, s.items)?.id === item.id) { act(item); return; }

@@ -12,10 +12,10 @@ export interface TileRect { x: number; y: number; w: number; h: number }
 /** A doorway in the outer wall. `to` is the sector beyond it; the player appears at `spawn` (tile units) when arriving from there. */
 export interface Entrance extends TileRect { to: string; label: string; spawn: [number, number] }
 /** An interaction written in map.json, in tile units: `area` is what the player clicks, `stand` is where they walk to. */
-export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number] }
-export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[]; racks?: RackSpec[]; decor?: DecorSpec[]; fish?: number }
+export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number]; seat?: [number, number]; exit?: [number, number] }
+export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; collisionRects?: TileRect[]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[]; racks?: RackSpec[]; decor?: DecorSpec[]; fish?: number }
 /** `kind` is 'exit' for doorways (with `to`), 'plot' for farm plots, otherwise whatever map.json names it. */
-export interface FacilityInteraction { id: string; kind: string; label: string; text: string; point: Point; area: Rect; to?: string }
+export interface FacilityInteraction { id: string; kind: string; label: string; text: string; point: Point; area: Rect; to?: string; seat?: Point; exit?: Point }
 
 /** Every facility with its own walkable scene, keyed by sector id. */
 export const FACILITIES: Record<string, { folder: string; name: string }> = {
@@ -43,6 +43,11 @@ export function walkable(m: FacilityMap, p: Point): boolean {
       const nx = Math.max(tx * s, Math.min(p.x, (tx + 1) * s)), ny = Math.max(ty * s, Math.min(p.y, (ty + 1) * s));
       if (Math.hypot(p.x - nx, p.y - ny) < RADIUS) return false;
     }
+  for (const rect of m.collisionRects ?? []) {
+    const x = rect.x * s, y = rect.y * s, right = x + rect.w * s, bottom = y + rect.h * s;
+    const nx = Math.max(x, Math.min(p.x, right)), ny = Math.max(y, Math.min(p.y, bottom));
+    if (Math.hypot(p.x - nx, p.y - ny) < RADIUS) return false;
+  }
   return true;
 }
 
@@ -70,11 +75,25 @@ export function segmentClear(m: FacilityMap, a: Point, b: Point): boolean {
  * player walks straight lines between the few corners that matter.
  * Returns the waypoints after `from`, ending exactly at `to`; [] if unreachable.
  */
-export function findPath(m: FacilityMap, from: Point, to: Point): Point[] {
+export function findPath(m: FacilityMap, from: Point, to: Point, escaping = true): Point[] {
   if (!walkable(m, to)) return [];
   if (segmentClear(m, from, to)) return [to];
   const s = m.tileSize, W = m.width;
   const start = [Math.floor(from.x / s), Math.floor(from.y / s)], goal = [Math.floor(to.x / s), Math.floor(to.y / s)];
+  // A seat can leave the player in a narrow aisle with no walkable tile centre.
+  // Step sideways along the aisle, then around the adjacent furniture before A*.
+  if (escaping && !walkable(m, tileCentre(m, start[0], start[1]))) {
+    for (const side of [-1, 1]) for (const distance of [1, 1.3, 1.6, 2]) {
+      const across = { x: from.x + side * distance * s, y: from.y };
+      if (!segmentClear(m, from, across)) continue;
+      for (const down of [.4, .6, .8, 1]) {
+        const out = { x: across.x, y: from.y + down * s };
+        if (!segmentClear(m, across, out)) continue;
+        const rest = findPath(m, out, to, false);
+        if (rest.length) return [across, out, ...rest];
+      }
+    }
+  }
   const id = (x: number, y: number) => y * W + x, goalId = id(goal[0], goal[1]);
   const h = (x: number, y: number) => Math.hypot(x - goal[0], y - goal[1]);
   const g = new Map([[id(start[0], start[1]), 0]]), parent = new Map<number, number>();
@@ -87,7 +106,7 @@ export function findPath(m: FacilityMap, from: Point, to: Point): Point[] {
     if (cur === goalId) { found = true; break; }
     for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
       const nx = x + dx, ny = y + dy;
-      if (blocked(m, nx, ny) || (dx && dy && (blocked(m, x + dx, y) || blocked(m, x, y + dy)))) continue;
+      if (!walkable(m, tileCentre(m, nx, ny)) || !segmentClear(m, tileCentre(m, x, y), tileCentre(m, nx, ny)) || (dx && dy && (!walkable(m, tileCentre(m, x + dx, y)) || !walkable(m, tileCentre(m, x, y + dy))))) continue;
       const next = id(nx, ny), cost = g.get(cur)! + Math.hypot(dx, dy);
       if (cost >= (g.get(next) ?? Infinity)) continue;
       g.set(next, cost); parent.set(next, cur); open.push({ x: nx, y: ny, f: cost + h(nx, ny) });
@@ -116,18 +135,25 @@ export function interactions(m: FacilityMap): FacilityInteraction[] {
     ({ id, kind, label, text, area: tileRect(m, area), point: { x: stand.x * m.tileSize, y: stand.y * m.tileSize } });
   return [
     ...m.entrances.map(e => ({ ...at(`exit-${e.to}`, 'exit', e.label, '', e, { x: e.x + e.w / 2, y: e.y + e.h / 2 }), to: e.to })),
-    ...(m.interactions ?? []).map(i => at(i.id, i.kind, i.label, i.text, { x: i.area[0], y: i.area[1], w: i.area[2], h: i.area[3] }, { x: i.stand[0], y: i.stand[1] })),
+    ...(m.interactions ?? []).map(i => ({ ...at(i.id, i.kind, i.label, i.text, { x: i.area[0], y: i.area[1], w: i.area[2], h: i.area[3] }, { x: i.stand[0], y: i.stand[1] }), ...(i.seat ? { seat: { x: i.seat[0] * m.tileSize, y: i.seat[1] * m.tileSize } } : {}), ...(i.exit ? { exit: { x: i.exit[0] * m.tileSize, y: i.exit[1] * m.tileSize } } : {}) })),
     ...(m.plots ?? []).map((p, i, all) => at(`plot-${i + 1}`, 'plot', all.length > 1 ? `種植區 ${i + 1}` : '種植區', '這塊土地還空著。（種植系統尚未開放）', p, { x: p.x + p.w / 2, y: p.y + p.h / 2 })),
   ];
 }
 
-const inReach = (p: Point, r: Rect) => p.x > r.x - REACH && p.x < r.x + r.width + REACH && p.y > r.y - REACH && p.y < r.y + r.height + REACH;
+const inReach = (p: Point, r: Rect, reach = REACH) => p.x > r.x - reach && p.x < r.x + r.width + reach && p.y > r.y - reach && p.y < r.y + r.height + reach;
 /** The interaction the player is standing next to, preferring the closest. */
-export const nearby = (p: Point, items: FacilityInteraction[]) => items.filter(i => inReach(p, i.area))
+export const nearby = (p: Point, items: FacilityInteraction[]) => items.filter(i => inReach(p, i.area, i.kind === 'seat' ? 110 : REACH))
   .sort((a, b) => Math.hypot(p.x - a.point.x, p.y - a.point.y) - Math.hypot(p.x - b.point.x, p.y - b.point.y))[0];
+/** E-key selection for a multi-seat sofa follows the cushion in front of the player, not the approach waypoint. */
+export function keyboardTarget(p: Point, items: FacilityInteraction[]): FacilityInteraction | undefined {
+  const closest = nearby(p, items);
+  if (closest?.kind !== 'seat') return closest;
+  return items.filter(i => i.kind === 'seat' && i.seat && inReach(p, i.area, 110))
+    .sort((a, b) => Math.abs(p.x - a.seat!.x) - Math.abs(p.x - b.seat!.x))[0] ?? closest;
+}
 /** The interaction whose area contains a clicked world point; where areas overlap (a workstation inside the window's area) the smallest wins. */
 export const clicked = (p: Point, items: FacilityInteraction[]) => items
-  .filter(i => p.x >= i.area.x && p.x <= i.area.x + i.area.width && p.y >= i.area.y && p.y <= i.area.y + i.area.height)
+  .filter(i => p.x >= i.area.x && p.x < i.area.x + i.area.width && p.y >= i.area.y && p.y < i.area.y + i.area.height)
   .sort((a, b) => a.area.width * a.area.height - b.area.width * b.area.height)[0];
 
 /** Camera origin centred on `focus`, clamped to the map. */

@@ -8,6 +8,7 @@ import { addMinutes, crossesCheckpoint, hourOf, planRelocation, sceneOf } from '
 import BridgeScene from './components/BridgeScene';
 import FacilityScene from './components/FacilityScene';
 import { FACILITIES } from './game/facility';
+import { describeFacilityObjects } from './game/facilityContext';
 import { travelMinutes, walkMeter } from './game/clock';
 import { SuppliesState, deliver, gmSupplyLines, initialSupplies, pickUp, tick } from './game/supplies';
 import { dayNumber } from './game/growth';
@@ -16,6 +17,7 @@ import greenhouseMap from '../public/assets/greenhouse/map.json';
 
 /** 溫室的種植架（物資帳算收成用）。地圖 JSON 直接打包進來，不必等場景載入。 */
 const GREENHOUSE_RACKS = (greenhouseMap as unknown as FacilityMap).racks ?? [];
+const GREENHOUSE_MAP = greenhouseMap as unknown as FacilityMap;
 import HeaderHUD from './components/HeaderHUD';
 import LeftSidebar, { Objective } from './components/LeftSidebar';
 import DialogueSection from './components/DialogueSection';
@@ -70,6 +72,7 @@ import { runGm, GmError } from './gm';
 import { suggestQuickReplies, generateDiaryDraft } from './gm/assistant';
 
 export default function App() {
+  const facilityPositionRef = useRef<{ x: number; y: number } | null>(null);
   // 掛載時讀一次存檔。沒有存檔／格式不符時為 null，各項 state 退回新遊戲的初始值。
   const [saved] = useState(loadGameSave);
 
@@ -386,9 +389,8 @@ export default function App() {
   const handleFacilityAction = (item: FacilityInteraction) => {
     if (item.kind !== 'shipping') return false;
     const { state, kg } = pickUp(supplies);
-    if (kg) { setSupplies(state); triggerToast(`裝上推車：約 ${kg} 公斤蔬果。送到中央公園的餐廳就能卸貨。`); }
-    else triggerToast(state.carrying && Object.values(state.carrying).some((v) => v > 0) ? '推車已經滿了，先送一趟吧。' : '出貨籃是空的，作物還在長。');
-    return true;
+    if (kg) { setSupplies(state); return `裝上推車：約 ${kg} 公斤蔬果。送到中央公園的餐廳就能卸貨。`; }
+    return state.carrying && Object.values(state.carrying).some((v) => v > 0) ? '推車已經滿了，先送一趟吧。' : '出貨籃是空的，作物還在長。';
   };
 
   // GM 呼叫狀態。錯誤不寫進對話歷史 —— 那是遊戲紀錄，不是錯誤日誌。
@@ -413,6 +415,7 @@ export default function App() {
         items,
         presentNpcs,
         locationName: currentSectorName,
+        sceneObjects: currentSectorId === 'greenhouse' ? describeFacilityObjects(GREENHOUSE_MAP, facilityPositionRef.current) : undefined,
         gameDate,
         gameTime,
         dialogueHistory,
@@ -642,7 +645,7 @@ export default function App() {
           stage={currentSectorId === 'bridge' ? (
             <BridgeScene key={bridgeEntry} paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} />
           ) : FACILITIES[currentSectorId] ? (
-            <FacilityScene key={currentSectorId} facility={FACILITIES[currentSectorId]} arrivedFrom={arrivedFrom} paused={activeModal !== null || activeDrawer !== null} onLeave={(to) => commitSector(to, null, currentSectorId)} onNotice={triggerToast} onAction={handleFacilityAction} onWalk={handleWalk} gameDate={gameDate} gameTime={gameTime} />
+            <FacilityScene key={currentSectorId} facility={FACILITIES[currentSectorId]} arrivedFrom={arrivedFrom} paused={activeModal !== null || activeDrawer !== null} onLeave={(to) => commitSector(to, null, currentSectorId)} onNotice={triggerToast} onAction={handleFacilityAction} onWalk={handleWalk} onPosition={point => { facilityPositionRef.current = point; }} gameDate={gameDate} gameTime={gameTime} />
           ) : currentRoom ? (
             <RoomScene key={currentRoom.id} roomId={currentRoom.id} furnishing={furnishingFor(roomOccupant?.id)} npcs={presentNpcs} onInteract={(npc) => sendToGm(`我走近${npc.name}打招呼`)} onExit={() => { setReturnRoomId(currentRoom.id); setCurrentRoomId(null); }} onWalk={handleWalk} paused={activeModal !== null || activeDrawer !== null} />
           ) : CORRIDORS[currentSectorId] ? (

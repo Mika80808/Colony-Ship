@@ -117,8 +117,7 @@ export default function CorridorScene(props: Props) {
         layers.push({depth:s.sitting?510:s.p.y,draw:()=>drawPlayer(moving&&!frozen)});layers.sort((a,b)=>a.depth-b.depth).forEach(a=>a.draw());
         drawAsset(assets.find(a=>a.id==='foreground')!);
         if(s.path.length){const p=s.path.at(-1)!;ctx.strokeStyle='#71efff';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(p.x,p.y,16,6,0,0,Math.PI*2);ctx.stroke();}
-        const item=nearby(s.p,s.items), text=s.sitting||item?.kind==='bench'?'':item?.label??'';
-        if(text&&!frozen){ctx.font='bold 22px sans-serif';const w=ctx.measureText(text).width+28;ctx.fillStyle='#08192499';ctx.fillRect(s.p.x-w/2,s.p.y-192,w,36);ctx.fillStyle='#baf7ff';ctx.textAlign='center';ctx.fillText(text,s.p.x,s.p.y-166);}
+        const item=nearby(s.p,s.items);
         ctx.restore();
         if(corridorDoorFrame(s.entering).fade>0){ctx.fillStyle=`rgba(4,10,20,${corridorDoorFrame(s.entering).fade})`;ctx.fillRect(0,0,canvas.width,HEIGHT);}
         canvas.dataset.playerPosition=`${s.p.x.toFixed(1)},${s.p.y.toFixed(1)}`;canvas.dataset.camera=s.camera.toFixed(1);canvas.dataset.sitting=String(!!s.sitting);canvas.dataset.ready='true';canvas.dataset.moving=String(moving);canvas.dataset.nearby=item?.id??'';

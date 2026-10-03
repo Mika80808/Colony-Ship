@@ -4,6 +4,8 @@
 
 # Run and deploy your AI Studio app
 
+遊戲問題的分類修正筆記：[問題修正紀錄](問題修正紀錄.md)。
+
 This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/9d27003a-959e-45ef-b509-0346ad7926f0
