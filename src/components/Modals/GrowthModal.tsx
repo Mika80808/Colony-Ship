@@ -17,7 +17,7 @@ const STAGE_CLASS = { 1: 'text-slate-300', 2: 'text-sky-300', 3: 'text-emerald-3
 export default function GrowthModal({ isOpen, onClose, rows, gameDate, gameTime }: GrowthModalProps) {
   const close = () => { sound.playClick(); onClose(); };
   return (
-    <ModalShell id="modal-growth" isOpen={isOpen} onRequestClose={onClose} size="md" className="overflow-hidden">
+    <ModalShell id="modal-growth" isOpen={isOpen} onRequestClose={onClose} size="md" maxHeight="max-h-[42vh]" className="overflow-hidden">
       <div className="pb-3 border-b border-white/[0.08] mb-3.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <Sprout className="w-4 h-4 text-emerald-400" />
@@ -29,10 +29,10 @@ export default function GrowthModal({ isOpen, onClose, rows, gameDate, gameTime 
           <X className="w-4 h-4" />
         </button>
       </div>
-      <div className="overflow-y-auto pr-0.5 font-sans">
+      <div className="min-h-0 flex-1 overflow-y-auto pr-0.5 font-sans">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-slate-400 text-left">
+            <tr className="text-xs text-slate-400 text-left sticky top-0 bg-[#070e24]">
               <th className="py-1.5 font-normal">位置</th>
               <th className="py-1.5 font-normal">作物</th>
               <th className="py-1.5 font-normal">階段</th>

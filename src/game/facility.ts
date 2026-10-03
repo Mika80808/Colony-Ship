@@ -8,7 +8,7 @@ import type { DecorSpec } from './decor';
  * 各設施的差異全部在 map.json：出入口（entrances）、互動點（interactions）、菜圃（plots，可省略）。
  * 新增設施 = 一個資料夾 + FACILITIES 一行。
  */
-export interface TileRect { x: number; y: number; w: number; h: number; flush?: boolean }
+export interface TileRect { x: number; y: number; w: number; h: number }
 /** A doorway in the outer wall. `to` is the sector beyond it; the player appears at `spawn` (tile units) when arriving from there. */
 export interface Entrance extends TileRect { to: string; label: string; spawn: [number, number] }
 /** An interaction written in map.json, in tile units: `area` is what the player clicks, `stand` is where they walk to. */
@@ -45,12 +45,6 @@ export function walkable(m: FacilityMap, p: Point): boolean {
     }
   for (const rect of m.collisionRects ?? []) {
     const x = rect.x * s, y = rect.y * s, right = x + rect.w * s, bottom = y + rect.h * s;
-    // The upright window is drawn under the player: feet may reach its lower
-    // frame edge exactly, while the body overlaps the glass above it.
-    if (rect.flush) {
-      if (p.x >= x && p.x < right && p.y < bottom) return false;
-      continue;
-    }
     const nx = Math.max(x, Math.min(p.x, right)), ny = Math.max(y, Math.min(p.y, bottom));
     if (Math.hypot(p.x - nx, p.y - ny) < RADIUS) return false;
   }

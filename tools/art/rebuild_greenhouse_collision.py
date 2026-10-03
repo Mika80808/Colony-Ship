@@ -14,10 +14,11 @@ grid = [[0] * W for _ in range(H)]
 # The upper greenhouse has permanent shelving, a console and window wall.
 for y in range(10):
     grid[y] = data["collision"][y][:]
-# The window's curved sill is handled by fitted rectangles below, not coarse tiles.
-# Row 4 belongs to the desk console and remains blocked.
+# The window's curved sill and the desk console are handled by fitted
+# rectangles below, not coarse tiles.
 for y in range(4):
     grid[y][14:26] = [0] * 12
+grid[4][14:26] = [0] * 12
 for y in range(10, 18):
     for left, right in ((0, 13), (27, 40)):
         if y in (10, 11, 13, 14, 16, 17):
@@ -73,8 +74,8 @@ for prop in data["decor"]:
     })
 
 # Follow the panoramic window's curved lower frame in narrow strips. The glass
-# above each strip is solid; the player's feet stop exactly at the visible sill
-# (no foot-radius gap) and the frame is drawn under the player.
+# above each strip is solid; with the foot radius the player's shadow stays
+# clear of the visible sill. The frame is drawn under the player.
 # Feet stop this many world pixels below the frame's lowest opaque pixel.
 SILL_MARGIN = 2
 window = next(prop for prop in data["decor"] if prop["sprite"] == "window_frame")
@@ -98,14 +99,25 @@ with Image.open(FOLDER / "props/window_frame.png") as frame:
             "y": round(top / tile, 4),
             "w": round(strip_right - strip_left, 4),
             "h": round(((bottom + 1) * window["scale"] + SILL_MARGIN) / tile, 4),
-            "flush": True,
         })
 
-# The workstation approach stays on the open floor below the desk, and its
-# clickable area reaches that approach point.
+# The desk console blocks its legs and front panel (the lower two thirds of
+# the sprite), trimmed a few pixels at the sides so the player can stand close.
+desk = next(prop for prop in data["decor"] if prop["sprite"] == "desk_console")
+desk_width, desk_height = image_size("desk_console")
+desk_top = desk["y"] * tile - (desk_height - 64) * desk["scale"]
+rects.append({
+    "x": round((desk["x"] * tile - (desk_width / 2 - 6) * desk["scale"]) / tile, 4),
+    "y": round(desk_top / tile, 4),
+    "w": round((desk_width - 12) * desk["scale"] / tile, 4),
+    "h": round((desk["y"] * tile - desk_top) / tile, 4),
+})
+
+# The workstation approach stays on the open floor just below the desk, and
+# its clickable area reaches that approach point.
 console = next(item for item in data["interactions"] if item["id"] == "console")
 console["area"] = [17, 3, 6, 3]
-console["stand"] = [20, 6]
+console["stand"] = [round(desk["x"], 4), round(desk["y"] + .35, 4)]
 
 sofa = next(prop for prop in data["decor"] if prop["sprite"] == "sofa")
 sofa_width, _ = image_size("sofa")

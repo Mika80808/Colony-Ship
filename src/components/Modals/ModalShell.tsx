@@ -25,6 +25,8 @@ interface ModalShellProps {
   size?: ModalSize;
   /** true 時面板撐到標準高度；false 時依內容高度，但不超過上限。 */
   fillHeight?: boolean;
+  /** 依內容高度時的上限（Tailwind max-h 類別），預設 85vh。 */
+  maxHeight?: string;
   id?: string;
   /** 附加在面板（非遮罩）上的類別。 */
   className?: string;
@@ -41,6 +43,7 @@ export default function ModalShell({
   locked = false,
   size = 'md',
   fillHeight = false,
+  maxHeight = 'max-h-[85vh]',
   id,
   className = '',
   children,
@@ -71,7 +74,7 @@ export default function ModalShell({
       <div
         onClick={(e) => e.stopPropagation()}
         className={`glass-panel bg-[#070e24]/95 rounded-2xl w-full ${WIDTH_CLASS[size]} ${
-          fillHeight ? 'h-[85vh] max-h-[640px]' : 'max-h-[85vh]'
+          fillHeight ? 'h-[85vh] max-h-[640px]' : maxHeight
         } p-4 sm:p-5 relative flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)] border border-white/[0.12] animate-in zoom-in-95 duration-200 ${className}`}
       >
         {children}

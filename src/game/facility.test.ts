@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FACILITIES, FacilityMap, blocked, camera, clicked, findPath, interactions, keyboardTarget, move, nearby, segmentClear, spawn, walkable, worldSize } from './facility';
+import { FACILITIES, FacilityMap, blocked, camera, clicked, findPath, interactions, RADIUS, keyboardTarget, move, nearby, segmentClear, spawn, walkable, worldSize } from './facility';
 import { ACTOR_HEIGHT } from './viewport';
 const load = (folder: string): FacilityMap => JSON.parse(readFileSync(`public/assets/${folder}/map.json`, 'utf8'));
 
@@ -71,14 +71,18 @@ for (const [first, last, id] of [[8, 159, 'sofa-left'], [161, 259, 'sofa-middle'
     assert.equal(clicked({ x: sofaLeft + pixel, y: (sofa.y - .8) * s }, items)?.id, id, `sofa cushion pixel ${pixel}`);
 }
 for (let x = 15; x < 25; x++) assert.equal(walkable(m, centre(x, 3)), false, `panoramic window ${x} is solid`);
-// Feet stop flush with the curved lower frame: just below the sill is open, just above is solid.
-for (const rect of m.collisionRects!.filter(r => r.flush)) {
+// The foot circle stops one radius below the curved lower frame, so the shadow stays off it.
+for (const rect of m.collisionRects!.filter(r => r.y === 0 && r.x >= 14 && r.x < 26)) {
   const x = (rect.x + rect.w / 2) * s, bottom = (rect.y + rect.h) * s;
-  if (x < 14.3 * s || x > 25.7 * s || (x > 16.6 * s && x < 23.4 * s)) continue; // wall corners and the desk
-  assert.equal(walkable(m, { x, y: bottom - 1 }), false, `feet cannot cross the window sill at ${x}`);
-  assert.equal(walkable(m, { x, y: bottom + 1 }), true, `feet can reach the window sill at ${x}`);
+  if (x < 14.3 * s || x > 25.7 * s || (x > 17.3 * s && x < 22.6 * s)) continue; // wall corners and the desk
+  assert.equal(walkable(m, { x, y: bottom + RADIUS - 1 }), false, `the shadow cannot touch the window sill at ${x}`);
+  // On the steep ends a neighbouring, lower strip can also touch the circle; allow for the slope.
+  assert.ok([...Array(24).keys()].some(d => walkable(m, { x, y: bottom + RADIUS + 1 + d })), `the player can stand at the window sill at ${x}`);
 }
-assert.equal(walkable(m, { x: 20 * s, y: 6 * s }), true, 'the player can stand below the desk console');
+const desk = m.decor!.find(d => d.sprite === 'desk_console')!;
+assert.equal(walkable(m, { x: desk.x * s, y: desk.y * s + RADIUS + 1 }), true, 'the player can stand right below the desk console');
+assert.equal(walkable(m, { x: desk.x * s, y: desk.y * s + RADIUS - 1 }), false, 'the desk console blocks its front edge');
+assert.equal(walkable(m, { x: desk.x * s - 229 - RADIUS, y: desk.y * s - 40 }), true, 'the player can stand beside the desk console');
 assert.equal(walkable(m, { x: 14.5 * s, y: 2.5 * s }), false, 'window glass remains solid');
 for (const light of m.decor!.filter(d => d.sprite.startsWith('corridor_light_'))) {
   assert.equal(walkable(m, { x: light.x * s, y: (light.y - .3) * s }), false, `${light.sprite} blocks movement`);
