@@ -131,11 +131,19 @@ console.log('greenhouse ok');
   // Every walkable tile is reachable from the corridor; the only way into the room is the door passage.
   for (let y = 0; y < e.height; y++) for (let x = 0; x < e.width; x++) {
     if (blocked(e, x, y)) { assert.equal(walkable(e, centre(x, y)), false, `tile ${x},${y}`); continue; }
+    if (!walkable(e, centre(x, y))) continue;   // 牆簷底下那一列只有上緣能站
     assert.ok(findPath(e, fromC, centre(x, y)).length, `engineering tile ${x},${y} reachable`);
   }
   const { passage } = door, wallTop = passage.y, wallBottom = passage.y + passage.h;
   for (let y = wallTop; y < wallBottom; y++) for (let x = 0; x < e.width; x++)
-    assert.equal(blocked(e, x, y), x < passage.x || x >= passage.x + passage.w, `corridor wall ${x},${y} is solid except the door`);
+    assert.equal(walkable(e, centre(x, y)), x >= passage.x && x < passage.x + passage.w, `corridor wall ${x},${y} is solid except the door`);
+  // Inside the room you can walk right up under the wall cap so it hides your feet, but not onto the wall face.
+  const wallY = wallTop * T, cap = e.foreground!.find(o => o.src === 'wall_cap.webp')!;
+  assert.equal(cap.y, wallY, 'the wall cap overlay sits on top of the corridor wall');
+  assert.ok(walkable(e, { x: 3 * T, y: wallY + 18 }), 'feet can go under the wall cap');
+  assert.equal(walkable(e, { x: 3 * T, y: wallY + 30 }), false, 'but not down the wall face');
+  assert.equal(doorBlocks(e, door, { x: (passage.x + 2) * T, y: wallY + 18 }, 0), false, 'at the shut door you can stand just as deep');
+  assert.ok(doorBlocks(e, door, { x: (passage.x + 2) * T, y: wallY + 30 }, 0), 'but no further');
   const inside = centre(8, 10);
   assert.ok(findPath(e, fromC, inside).length, 'with the door open, paths go through it');
   assert.deepEqual(findPath(withDoorClosed(e), fromC, inside), [], 'with the door shut, nothing paths through it');

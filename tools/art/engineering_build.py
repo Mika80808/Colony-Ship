@@ -55,6 +55,8 @@ OPEN_X, OPEN_W = 576, 384
 WALL_BASE = O + 346                     # 走廊牆腳（地板素材從這裡開始）
 OPEN_TOP = O + 66
 OPEN_H = WALL_BASE - OPEN_TOP
+CAP_H = 30                              # 走廊牆頂的深色牆簷高度（素材 y 0–30），蓋在角色上面
+FEET_UNDER_CAP = 18                     # 室內角色腳點最多走到牆頂下 18 px，腳被牆簷蓋住
 
 def rgb(h): return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
 
@@ -306,6 +308,15 @@ def doorway_floor():
     img.alpha_composite(hazard(OPEN_W, 18, 1), (0, OPEN_H - 18))
     return img
 
+def write_cap():
+    """牆簷前景：走廊牆頂 CAP_H 高的一條，連同門框頂端一起切下來，畫在角色上面（室內角色走到牆根時腳被蓋住）。
+    門框換圖後（engineering_door.py cut）要重跑一次。"""
+    ground = Image.open(os.path.join(OUT, 'ground.webp')).convert('RGBA')
+    cap = ground.crop((0, O, W * T, O + CAP_H))
+    frame = Image.open(os.path.join(OUT, 'door_frame.webp')).convert('RGBA')
+    cap.alpha_composite(frame.crop((0, 0, frame.width, CAP_H)), (DOOR_ZONE[0], 0))
+    cap.save(os.path.join(OUT, 'wall_cap.webp'), lossless=True)
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     ground = Image.new('RGBA', (W * T, H * T), (6, 13, 22, 255))
@@ -341,33 +352,39 @@ def main():
         for x in range(W):
             if y < WALL_ROWS: row.append(1)
             elif y < ROOM_H: row.append(1 if x in (0, W - 1) else 0)
+            elif y == ROOM_H: row.append(1 if x in (0, W - 1) else 0)   # 牆簷底下那一列：開放，由下面的 collisionRects 決定能走多深
             elif y < corridor_top: row.append(0 if passage['x'] <= x < passage['x'] + passage['w'] else 1)
             elif y < corridor_bottom: row.append(0)
             else: row.append(1)
         collision.append(row)
     mid = (corridor_top + corridor_bottom) / 2
+    stop = round((O + FEET_UNDER_CAP + 22) / T, 4)   # 腳圈半徑 22：腳點停在牆頂下 FEET_UNDER_CAP
+    wall_rects = [{'x': 0, 'y': stop, 'w': passage['x'], 'h': corridor_top - stop},
+                  {'x': passage['x'] + passage['w'], 'y': stop, 'w': W - passage['x'] - passage['w'], 'h': corridor_top - stop}]
     data = {
         'tileSize': T, 'width': W, 'height': H,
         'legend': {'0': '可行走', '1': '碰撞'},
         'note': '由 tools/art/engineering_build.py 產生，不要手改。室內第 0–18 列（0–2 列北牆），下方是沿用居住區走廊素材的走廊：左通居住區 C、右通 D。門要按 E（或點門）才開，走遠自己關；門關著時尋路不穿過門洞，門沒開完時程式擋住不讓走進去。',
         'collision': collision,
+        'collisionRects': wall_rects,
         'entrances': [
             {'x': 0, 'y': corridor_top, 'w': 1, 'h': corridor_bottom - corridor_top, 'to': 'residential_c', 'label': '往居住區 C', 'spawn': [2, mid]},
             {'x': W - 1, 'y': corridor_top, 'w': 1, 'h': corridor_bottom - corridor_top, 'to': 'residential_d', 'label': '往居住區 D', 'spawn': [W - 2, mid]},
         ],
         'door': {
-            'id': 'blast-door', 'label': '厚重隔音門', 'passage': passage,
+            'id': 'blast-door', 'label': '厚重隔音門', 'passage': passage, 'closedFrom': O + FEET_UNDER_CAP + 22,
             'opening': [OPEN_X, OPEN_TOP, OPEN_W, OPEN_H],
             'frame': {'src': 'door_frame.webp', 'x': DOOR_ZONE[0], 'y': O},
             'panels': {'left': 'door_left.webp', 'right': 'door_right.webp'},
             'lamp': [(DOOR_ZONE[0] + DOOR_ZONE[1]) // 2, OPEN_TOP - 54],
             'trigger': 150, 'openSeconds': 1.4,
         },
-        'foreground': [{'src': 'foreground.webp', 'x': 0, 'y': O + 746}],
+        'foreground': [{'src': 'wall_cap.webp', 'x': 0, 'y': O}, {'src': 'foreground.webp', 'x': 0, 'y': O + 746}],
         'interactions': [],
     }
     with open(os.path.join(OUT, 'map.json'), 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False)
+    write_cap()
     print('ground', ground.size, 'map', W, 'x', H, 'corridor rows', corridor_top, '-', corridor_bottom - 1, 'passage', passage)
 
 if __name__ == '__main__':

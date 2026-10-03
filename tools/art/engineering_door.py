@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, 'public/assets/engineering')
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from engineering_build import DOOR_ZONE, OPEN_X, OPEN_W, OPEN_TOP, WALL_BASE, O   # 幾何以產生腳本為準
+from engineering_build import DOOR_ZONE, OPEN_X, OPEN_W, OPEN_TOP, WALL_BASE, O, write_cap   # 幾何以產生腳本為準
 FW, FH = DOOR_ZONE[1] - DOOR_ZONE[0], WALL_BASE - O + 6     # 門框圖大小（遊戲 px）
 OUTER = (8, OPEN_TOP - O - 46, FW - 8, FH)                    # 門框外緣（不含頂上的警示燈座）
 LAMP = (FW // 2 - 22, 0, FW // 2 + 22, 24)                    # 警示燈座
@@ -62,6 +62,7 @@ def cut(raw):
     door.crop((half, 0, door.width, door.height)).save(os.path.join(OUT, 'door_right.webp'), lossless=True)
     frame.paste((0, 0, 0, 0), (OPEN[0] + KEEP[0], OPEN[1] + KEEP[1], OPEN[2] - KEEP[2], OPEN[3] - KEEP[3]))
     frame.save(os.path.join(OUT, 'door_frame.webp'), lossless=True)
+    write_cap()   # 牆簷前景含門框頂端，門框換了要一起更新
     print('cut ok: frame', frame.size, 'panels', half, 'x', door.height)
 
 if __name__ == '__main__':

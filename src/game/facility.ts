@@ -19,6 +19,8 @@ export interface InteractionSpec { id: string; kind: string; label: string; text
  */
 export interface DoorSpec {
   id: string; label: string; passage: TileRect;
+  /** 門關著時，從這個 y（px）以下才擋人；上面那段跟兩旁的牆一樣可以走進牆簷底下。省略＝整個門洞都擋。 */
+  closedFrom?: number;
   /** 門扇只畫在這個框裡，往兩側滑出去就被牆遮住：[x, y, 寬, 高]。 */
   opening: [number, number, number, number];
   frame: { src: string; x: number; y: number };
@@ -200,8 +202,8 @@ export const DOOR_PASSABLE = .9;
 /** 門還沒開夠時，腳圈碰到門洞就不能走。 */
 export function doorBlocks(m: FacilityMap, door: DoorSpec, p: Point, open: number): boolean {
   if (open >= DOOR_PASSABLE) return false;
-  const r = tileRect(m, door.passage);
-  const nx = Math.max(r.x, Math.min(p.x, r.x + r.width)), ny = Math.max(r.y, Math.min(p.y, r.y + r.height));
+  const r = tileRect(m, door.passage), top = Math.max(r.y, door.closedFrom ?? r.y);
+  const nx = Math.max(r.x, Math.min(p.x, r.x + r.width)), ny = Math.max(top, Math.min(p.y, r.y + r.height));
   return Math.hypot(p.x - nx, p.y - ny) < RADIUS;
 }
 /** 門的開啟程度往目標（開 1／關 0）前進一幀。 */
