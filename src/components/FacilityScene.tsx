@@ -24,7 +24,8 @@ interface Props {
   /** Supply the GM with the player's current map coordinates without re-rendering the scene. */
   onPosition?: (point: Point) => void;
   /** 有遊戲邏輯的互動（例：出貨籃）交給 App；回傳文字會顯示在物件旁。 */
-  onAction?: (item: FacilityInteraction) => string | false;
+  /** 回傳文字＝顯示在物件旁；true＝已處理（例如開了視窗），不顯示；false＝顯示 map.json 的文字。 */
+  onAction?: (item: FacilityInteraction) => string | boolean;
   /** 遊戲時間：自動植栽區的作物依此決定生長階段。 */
   gameDate: string;
   gameTime: string;
@@ -45,7 +46,7 @@ export default function FacilityScene(props: Props) {
     s.path = []; s.pending = null; keys.current.clear();
     if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to);
     else if (item.kind === 'seat' && item.seat) { s.seated = { id: item.id, exit: item.exit ?? item.point }; s.p = item.seat; s.direction = 'down'; s.notice = null; }
-    else { const response = controls.current.onAction?.(item); s.notice = { item, text: response || item.text, until: performance.now() + 4500 }; }
+    else { const response = controls.current.onAction?.(item); if (response !== true) s.notice = { item, text: response || item.text, until: performance.now() + 4500 }; }
   };
   const actRef = useRef(act); actRef.current = act;
   useEffect(() => { if (props.paused) keys.current.clear(); }, [props.paused]);

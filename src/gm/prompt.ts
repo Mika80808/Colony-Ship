@@ -64,7 +64,7 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
 
 /** 把局勢整理成模型看得懂的一段文字。 */
 export function buildContextBlock(context: GmContext): string {
-  const { profile, stats, quests, items, presentNpcs, locationName, sceneObjects, objectives, summary, gameDate, gameTime, supplies } = context;
+  const { profile, stats, quests, items, presentNpcs, locationName, sceneObjects, objectives, summary, gameDate, gameTime, supplies, terminals } = context;
 
   const profileLines = profile.name
     ? [
@@ -115,6 +115,9 @@ ${sceneObjects ? `\n## 當前場景物件（僅供辨認名稱與相對位置，
 ${supplies?.length ? `
 ## 船上物資（僅供參考：讓角色自然提起食材充足或短缺，不要報數字，也不要用指令改）
 ${supplies.join('\n')}
+` : ''}${terminals?.length ? `
+## 這裡可查詢的設施終端（角色要先走到終端前查看，才說得出下面的內容；沒查看前只能憑印象講大概，不要報日期或天數。有角色想知道時，可以讓他去查）
+${terminals.map((t) => `### ${t.name}\n${t.lines.map((l) => `- ${l}`).join('\n')}`).join('\n')}
 ` : ''}
 ## 玩家
 ${profileLines}

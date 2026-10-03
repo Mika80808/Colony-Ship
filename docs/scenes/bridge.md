@@ -19,7 +19,7 @@
 
 - `src/components/BridgeScene.tsx`：互動與生命週期。
 - `src/components/BridgeScene.css`：場景內介面。
-- `src/game/bridge.ts`：房間邊界、碰撞、寻路、移動、互動與抵達時序。
+- `src/game/bridge.ts`：房間邊界、碰撞、尋路、移動、互動與抵達時序。
 - `src/game/bridgeRender.ts`：底圖、井口、平台、家具、角色、前景與照明分層。
 - `src/game/bridgeArt.ts`：非破壞式圖像取樣座標。
 - `public/assets/bridge-v3/`：透明物件、完整外環與三組值勤人員方向圖。
