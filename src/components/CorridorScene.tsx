@@ -1,3 +1,4 @@
+import { loadImage as load } from '../utils/loadImage';
 import { corridorDoorFrame, createCorridorDoorLeaves, drawCorridorDoor } from '../game/corridorDoor';
 import { useEffect, useRef, useState } from 'react';
 import { CorridorAsset, CorridorConfig, HEIGHT, WIDTH, SPAWN, Point, Interaction, findPath, move, interactions, nearby, signNotice, benchSeat, doorRoomId, spawnOutside, signFacility, FACILITY_SECTOR } from '../game/corridor';
@@ -51,7 +52,6 @@ export default function CorridorScene(props: Props) {
       canvas.width=Math.round(view.width); canvas.height=Math.round(view.height);
       canvas.style.width=`${view.width*view.scale}px`; canvas.style.height=`${view.height*view.scale}px`;
     }); resize.observe(canvas.parentElement!);
-    const load = (src: string) => new Promise<HTMLImageElement>((resolve,reject) => { const im=new Image(); im.onload=()=>resolve(im); im.onerror=()=>reject(new Error(src)); im.src=src; });
     async function start() {
       const { folder }=controls.current.corridor;
       const response=await fetch(`/assets/${folder}/manifest.json`); if (!response.ok) throw new Error('manifest');

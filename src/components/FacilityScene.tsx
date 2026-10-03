@@ -1,3 +1,4 @@
+import { loadImage as load } from '../utils/loadImage';
 import { useEffect, useRef, useState } from 'react';
 import type { Point } from '../game/corridor';
 import { FacilityInteraction, FacilityMap, camera, clicked, findPath, interactions, keyboardTarget, move, nearby, spawn, worldSize } from '../game/facility';
@@ -69,7 +70,6 @@ export default function FacilityScene(props: Props) {
       canvas.style.width = `${view.width * view.scale}px`; canvas.style.height = `${view.height * view.scale}px`;
     };
     const resize = new ResizeObserver(([e]) => fit(e.contentRect.width, e.contentRect.height)); resize.observe(canvas.parentElement!);
-    const load = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => { const im = new Image(); im.onload = () => resolve(im); im.onerror = () => reject(new Error(src)); im.src = src; });
     /**
      * 每座種植架先畫成一張素材像素大小的圖（外框 + 作物），render 時整張放大，不用每格重算。
      * 回傳的 paint 依遊戲時間重畫作物的生長階段；三個階段的圖一開始就全部載好，換階段不用等。

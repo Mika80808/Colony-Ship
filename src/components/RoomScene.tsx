@@ -9,6 +9,7 @@ import { ACTOR_HEIGHT, approach, cameraTarget, fitViewport } from '../game/viewp
 import { nearbyInspection } from '../game/roomInspection';
 import { isShowering } from '../game/roomFurniture';
 import { DECALS, PIECES, RoomFurnishing, SHELL, setActiveRoom } from '../game/roomRuntime';
+import { loadImage } from '../utils/loadImage';
 
 interface Props {
   /** Which room this is. Mount a new RoomScene (key by room id) to change rooms. */
@@ -101,7 +102,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
     // One element per overlay entry; several may share a file but not a crop.
     const overlayImages = SHELL.overlays.map(() => new Image());
     let disposed = false, raf = 0, last = 0;
-    const load = (img: HTMLImageElement, src: string) => new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject; img.src = src; });
+    const load = (img: HTMLImageElement, src: string) => loadImage(src, img);
     // Showering re-colours the sprite instead of swapping in a second set of
     // artwork: painting skin over the frame with source-atop keeps the pose and
     // silhouette but washes the uniform out, and stays in sync if walk.webp changes.
