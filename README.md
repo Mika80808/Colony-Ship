@@ -45,6 +45,7 @@ Colony-Ship/
 | `docs/scenes/room-a1.md` | A-1 房間 |
 | `docs/scenes/corridor-a.md` | 居住區 A 走廊 |
 | `docs/scenes/bridge.md` | 艦橋 |
+| `docs/scenes/engineering.md` | 工程區 |
 | `docs/characters.md` | 角色素材 |
 | `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名 |
 | `.claude/skills/generate2dmap/SKILL.md` | 2D 地圖生成流程 |

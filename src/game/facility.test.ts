@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FACILITIES, FacilityMap, arrivalDirection, blocked, camera, clicked, findPath, interactions, RADIUS, keyboardTarget, move, nearby, segmentClear, spawn, walkable, worldSize } from './facility';
+import { FACILITIES, FacilityMap, arrivalDirection, blocked, camera, clicked, doorBlocks, doorDistance, DOOR_PASSABLE, findPath, interactions, RADIUS, keyboardTarget, move, nearby, segmentClear, spawn, stepDoor, walkable, worldSize } from './facility';
 import { ACTOR_HEIGHT } from './viewport';
 const load = (folder: string): FacilityMap => JSON.parse(readFileSync(`public/assets/${folder}/map.json`, 'utf8'));
 
@@ -104,3 +104,35 @@ const view = { width: 1600, height: 996 };
 assert.deepEqual(camera({ x: 0, y: 0 }, view, m), { x: 0, y: 0 });
 assert.deepEqual(camera({ x: 99999, y: 99999 }, view, m), { x: 3840 - 1600, y: 2688 - 996 });
 console.log('greenhouse ok');
+// Engineering: a room over a strip of residential corridor; the corridor runs C ↔ D and a heavy door leads up into the room.
+{
+  const e = load('engineering'), T = e.tileSize, door = e.door!;
+  const centre = (x: number, y: number) => ({ x: (x + .5) * T, y: (y + .5) * T });
+  assert.equal(arrivalDirection(e, 'residential_c'), 'right'); assert.equal(arrivalDirection(e, 'residential_d'), 'left');
+  const fromC = spawn(e, 'residential_c'), fromD = spawn(e, 'residential_d');
+  assert.ok(findPath(e, fromC, fromD).length, 'the corridor strip runs straight through from C to D');
+  // Every walkable tile is reachable from the corridor; the only way into the room is the door passage.
+  for (let y = 0; y < e.height; y++) for (let x = 0; x < e.width; x++) {
+    if (blocked(e, x, y)) { assert.equal(walkable(e, centre(x, y)), false, `tile ${x},${y}`); continue; }
+    assert.ok(findPath(e, fromC, centre(x, y)).length, `engineering tile ${x},${y} reachable`);
+  }
+  const { passage } = door, wallTop = passage.y, wallBottom = passage.y + passage.h;
+  for (let y = wallTop; y < wallBottom; y++) for (let x = 0; x < e.width; x++)
+    assert.equal(blocked(e, x, y), x < passage.x || x >= passage.x + passage.w, `corridor wall ${x},${y} is solid except the door`);
+  const inside = centre(8, 10), path = findPath(e, fromC, inside);
+  assert.ok(path.length, 'pathfinding goes through the door even while it is shut');
+  // Shut door: walking up into the passage stops at the threshold; open door lets you through.
+  const below = { x: (passage.x + passage.w / 2) * T, y: wallBottom * T + RADIUS + 4 };
+  assert.ok(walkable(e, below));
+  assert.ok(doorBlocks(e, door, { x: below.x, y: below.y - 10 }, 0), 'a closed door blocks the passage');
+  assert.equal(doorBlocks(e, door, { x: below.x, y: below.y - 10 }, DOOR_PASSABLE), false, 'an open door does not');
+  assert.equal(doorBlocks(e, door, fromC, 0), false, 'the corridor is never blocked by the door');
+  // It opens when you come close, stays shut while you walk past along the corridor, and opening takes openSeconds.
+  assert.ok(doorDistance(e, door, below) < door.trigger);
+  assert.ok(doorDistance(e, door, { x: below.x, y: (e.entrances[0].y + e.entrances[0].h - .5) * T }) > door.trigger, 'walking along the far side of the corridor leaves it shut');
+  let open = 0, seconds = 0; while (open < 1 && seconds < 5) { open = stepDoor(e, door, below, open, .05); seconds += .05; }
+  assert.ok(Math.abs(seconds - door.openSeconds) < .1, `opens in ${door.openSeconds}s`);
+  assert.equal(stepDoor(e, door, fromD, 1, 10), 0, 'closes again once you leave');
+  console.log('engineering ok');
+}
+

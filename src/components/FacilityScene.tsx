@@ -2,7 +2,7 @@ import { loadImage as load } from '../utils/loadImage';
 import { useSceneKeys } from './useSceneKeys';
 import { useEffect, useRef, useState } from 'react';
 import type { Point } from '../game/corridor';
-import { FacilityInteraction, FacilityMap, arrivalDirection, camera, clicked, findPath, interactions, keyboardTarget, move, nearby, spawn, worldSize } from '../game/facility';
+import { FacilityInteraction, FacilityMap, arrivalDirection, camera, clicked, doorBlocks, findPath, interactions, keyboardTarget, move, nearby, spawn, stepDoor, worldSize } from '../game/facility';
 import { ACTOR_HEIGHT, approach, fitViewport } from '../game/viewport';
 import { CropsMeta, RacksMeta, layoutRack, rackBounds, rackKey } from '../game/racks';
 import { dayNumber, stageAt } from '../game/growth';
@@ -36,7 +36,7 @@ export default function FacilityScene(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controls = useRef(props); controls.current = props;
   const [status, setStatus] = useState(`正在載入${props.facility.name}…`);
-  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point } | null, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null });
+  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point } | null, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null, door: null as { frame: HTMLImageElement; left: HTMLImageElement; right: HTMLImageElement } | null, doorOpen: 0, overlays: [] as { image: HTMLImageElement; x: number; y: number }[] });
   const act = (item?: FacilityInteraction) => {
     const s = state.current;
     if (!s.map || controls.current.paused) return;
@@ -119,12 +119,19 @@ export default function FacilityScene(props: Props) {
       for (let i = 0; i < water.length; i++) water[i] = px[i * 4] > 127 ? 1 : 0;
       return { width: im.width, height: im.height, scale: map.width * map.tileSize / im.width, water };
     }
+    /** 自動門的門框與兩片門扇。 */
+    async function loadDoor(folder: string, map: FacilityMap) {
+      if (!map.door) return null;
+      const [frame, left, right] = await Promise.all([map.door.frame.src, map.door.panels.left, map.door.panels.right].map(src => load(`/assets/${folder}/${src}`)));
+      return { frame, left, right };
+    }
     async function start() {
       const { folder } = controls.current.facility;
       const response = await fetch(`/assets/${folder}/map.json`); if (!response.ok) throw new Error('map');
       const map: FacilityMap = await response.json();
       // L0 地面由 tools/art/facility_ground.py 依 map.json 的 terrain 拼成；種植架與擺設依腳點排序。
-      const [background, sprite, racks, decor, water] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.webp'), loadRacks(folder, map), loadDecor(folder, map), loadWater(folder, map)]);
+      const [background, sprite, racks, decor, water, door, overlays] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.webp'), loadRacks(folder, map), loadDecor(folder, map), loadWater(folder, map), loadDoor(folder, map),
+        Promise.all((map.foreground ?? []).map(async o => ({ image: await load(`/assets/${folder}/${o.src}`), x: o.x, y: o.y })))]);
       if (disposed) return;
       const s = state.current, world = worldSize(map);
       // 種植架是放大 2 倍的像素圖（不平滑）；樹和花是從大圖縮小（要平滑）
@@ -134,12 +141,30 @@ export default function FacilityScene(props: Props) {
       ].sort((a, b) => a.bottom - b.bottom);
       s.paintRacks = racks.paint;
       s.water = water; s.fish = water ? spawnFish(water, map.fish ?? 0, 7) : [];
+      s.door = door; s.overlays = overlays;
       const fishRandom = rng(Date.now()); racks.paint(dayNumber(controls.current.gameDate, controls.current.gameTime));
       s.map = map; s.items = interactions(map); s.p = spawn(map, controls.current.arrivedFrom);
       s.direction = arrivalDirection(map, controls.current.arrivedFrom);
       controls.current.onPosition?.(s.p);
       const box = canvas.parentElement!.getBoundingClientRect(); fit(box.width, box.height);
       setStatus(''); canvas.focus({ preventScroll: true });
+      /** 門扇只畫在門洞框裡，往兩側滑開；門框蓋在上面，遮住滑進牆裡的部分。 */
+      const drawDoor = (frameOnly = false) => {
+        const spec = map.door, art = s.door; if (!spec || !art) return;
+        const [x, y, w, h] = spec.opening, slide = s.doorOpen * w / 2;
+        if (!frameOnly) {
+          ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+          ctx.drawImage(art.left, x - slide, y); ctx.drawImage(art.right, x + w / 2 + slide, y);
+          ctx.restore();
+        }
+        ctx.drawImage(art.frame, spec.frame.x, spec.frame.y);
+      };
+      /** 角色走在門洞裡（已經穿過牆面）時，門框要蓋在角色上面。 */
+      const inDoorway = () => {
+        const spec = map.door; if (!spec) return false;
+        const [x, y, w, h] = spec.opening;
+        return s.p.x > x && s.p.x < x + w && s.p.y > spec.frame.y && s.p.y < y + h;
+      };
       const drawPlayer = (moving: boolean) => {
         const sw = sprite.width / 4, sh = sprite.height / 3, h = ACTOR_HEIGHT, w = h * sw / sh;
         ctx.fillStyle = '#05101b66'; ctx.beginPath(); ctx.ellipse(s.p.x, s.p.y - 3, 23, 7, 0, 0, Math.PI * 2); ctx.fill();
@@ -162,12 +187,16 @@ export default function FacilityScene(props: Props) {
           const distance = Math.hypot(dx, dy);
           if (distance) {
             const amount = Math.min(240 * dt, s.path.length ? distance : Infinity);
-            const p = move(map, s.p, dx / distance * amount, dy / distance * amount); const walked = Math.hypot(p.x - s.p.x, p.y - s.p.y); moving = walked > .01; s.p = p;
+            let p = move(map, s.p, dx / distance * amount, dy / distance * amount);
+            // 厚重門還沒開夠：停在門前等，路徑保留，門開了就繼續走
+            if (map.door && doorBlocks(map, map.door, p, s.doorOpen) && !doorBlocks(map, map.door, s.p, s.doorOpen)) p = s.p;
+            const walked = Math.hypot(p.x - s.p.x, p.y - s.p.y); moving = walked > .01; s.p = p;
             if (moving) controls.current.onWalk?.(walked);
             s.direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
             if (moving) s.elapsed += dt;
           }
           if (!s.path.length && s.pending) { const pending = s.pending; s.pending = null; if (nearby(s.p, [pending])) actRef.current(pending); }
+          if (map.door) s.doorOpen = stepDoor(map, map.door, s.p, s.doorOpen, dt);
         }
         const target = camera({ x: s.p.x, y: s.p.y - ACTOR_HEIGHT / 2 }, s.view, map);
         if (s.settled && !frozen) s.camera = { x: approach(s.camera.x, target.x, dt), y: approach(s.camera.y, target.y, dt) };
@@ -183,10 +212,18 @@ export default function FacilityScene(props: Props) {
         // 水底下的魚影：畫在地面上、所有擺設和玩家底下
         if (s.water) for (const f of s.fish) { if (!frozen) stepFish(f, dt, s.water, fishRandom); drawFish(ctx, f); }
         const item = frozen ? undefined : s.seated ? s.items.find(i => i.id === s.seated?.id) : nearby(s.p, s.items);
+        drawDoor();
+        if (map.door && s.doorOpen > 0 && s.doorOpen < 1) {   // 門在動：警示燈閃
+          const [lx, ly] = map.door.lamp, glow = ctx.createRadialGradient(lx, ly, 2, lx, ly, 46);
+          glow.addColorStop(0, `rgba(255,170,60,${.55 + .35 * Math.sin(time / 90)})`); glow.addColorStop(1, 'rgba(255,140,40,0)');
+          ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(lx, ly, 46, 0, Math.PI * 2); ctx.fill();
+        }
         s.standing.forEach(o => { if (drawBeforePlayer(o, s.p, !!s.seated)) o.draw(ctx); });
         ctx.imageSmoothingEnabled = false; drawPlayer(moving && !frozen);
         s.standing.forEach(o => { if (!drawBeforePlayer(o, s.p, !!s.seated)) o.draw(ctx); });
         if (s.seated) s.standing.find(o => o.sprite === 'sofa')?.front?.(ctx);
+        if (inDoorway()) drawDoor(true);
+        for (const o of s.overlays) ctx.drawImage(o.image, o.x, o.y);
         ctx.imageSmoothingEnabled = false;
         if (s.path.length) { const p = s.path.at(-1)!; ctx.strokeStyle = '#71efff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(p.x, p.y, 16, 6, 0, 0, Math.PI * 2); ctx.stroke(); }
         const tip = s.notice && time < s.notice.until ? s.notice : null;

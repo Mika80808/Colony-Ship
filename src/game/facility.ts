@@ -13,13 +13,32 @@ export interface TileRect { x: number; y: number; w: number; h: number }
 export interface Entrance extends TileRect { to: string; label: string; spawn: [number, number] }
 /** An interaction written in map.json, in tile units: `area` is what the player clicks, `stand` is where they walk to. */
 export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number]; seat?: [number, number]; exit?: [number, number] }
-export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; collisionRects?: TileRect[]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[]; racks?: RackSpec[]; decor?: DecorSpec[]; fish?: number }
+/**
+ * 會自動開關的門（工程區的厚重隔音門）。passage 是門洞的格子，碰撞表裡永遠是可走，尋路照常穿過；
+ * 門沒開完時由 doorBlocks 擋住，角色就在門前等它開。座標除了 passage 都是 px。
+ */
+export interface DoorSpec {
+  id: string; passage: TileRect;
+  /** 門扇只畫在這個框裡，往兩側滑出去就被牆遮住：[x, y, 寬, 高]。 */
+  opening: [number, number, number, number];
+  frame: { src: string; x: number; y: number };
+  panels: { left: string; right: string };
+  /** 警示燈中心，門在動的時候閃。 */
+  lamp: [number, number];
+  /** 腳點離門洞多近（px）就開門。 */
+  trigger: number;
+  openSeconds: number;
+}
+/** 蓋在角色上面的圖（例：走廊欄杆）。 */
+export interface OverlaySpec { src: string; x: number; y: number }
+export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; collisionRects?: TileRect[]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[]; racks?: RackSpec[]; decor?: DecorSpec[]; fish?: number; door?: DoorSpec; foreground?: OverlaySpec[] }
 /** `kind` is 'exit' for doorways (with `to`), 'plot' for farm plots, otherwise whatever map.json names it. */
 export interface FacilityInteraction { id: string; kind: string; label: string; text: string; point: Point; area: Rect; to?: string; seat?: Point; exit?: Point }
 
 /** Every facility with its own walkable scene, keyed by sector id. */
 export const FACILITIES: Record<string, { folder: string; name: string }> = {
   greenhouse: { folder: 'greenhouse', name: '溫室' },
+  engineering: { folder: 'engineering', name: '工程部' },
 };
 
 /** Foot-circle radius; comfortably inside a 96px aisle. */
@@ -162,6 +181,26 @@ export function keyboardTarget(p: Point, items: FacilityInteraction[]): Facility
 export const clicked = (p: Point, items: FacilityInteraction[]) => items
   .filter(i => p.x >= i.area.x && p.x < i.area.x + i.area.width && p.y >= i.area.y && p.y < i.area.y + i.area.height)
   .sort((a, b) => a.area.width * a.area.height - b.area.width * b.area.height)[0];
+
+/** 腳點到門洞的距離（px），在門洞裡是 0。 */
+export function doorDistance(m: FacilityMap, door: DoorSpec, p: Point): number {
+  const r = tileRect(m, door.passage);
+  return Math.hypot(Math.max(r.x - p.x, 0, p.x - r.x - r.width), Math.max(r.y - p.y, 0, p.y - r.y - r.height));
+}
+/** 門開到這個程度以上才放人過。 */
+export const DOOR_PASSABLE = .9;
+/** 門還沒開夠時，腳圈碰到門洞就不能走。 */
+export function doorBlocks(m: FacilityMap, door: DoorSpec, p: Point, open: number): boolean {
+  if (open >= DOOR_PASSABLE) return false;
+  const r = tileRect(m, door.passage);
+  const nx = Math.max(r.x, Math.min(p.x, r.x + r.width)), ny = Math.max(r.y, Math.min(p.y, r.y + r.height));
+  return Math.hypot(p.x - nx, p.y - ny) < RADIUS;
+}
+/** 門的開啟程度往目標前進一幀：角色在 trigger 範圍內就開，離開就關。 */
+export function stepDoor(m: FacilityMap, door: DoorSpec, p: Point, open: number, dt: number): number {
+  const target = doorDistance(m, door, p) < door.trigger ? 1 : 0, speed = dt / door.openSeconds;
+  return target > open ? Math.min(1, open + speed) : Math.max(0, open - speed);
+}
 
 /** Camera origin centred on `focus`, clamped to the map. */
 export function camera(focus: Point, view: { width: number; height: number }, m: FacilityMap): Point {
