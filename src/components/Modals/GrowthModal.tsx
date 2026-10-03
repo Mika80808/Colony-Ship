@@ -1,6 +1,6 @@
 import { Sprout, X } from 'lucide-react';
 import ModalShell from './ModalShell';
-import { sound } from '../../utils/sound';
+import { sound } from '../../utils/audio';
 import { GrowthRow, STAGE_NAMES, daysText } from '../../game/growthReport';
 
 interface GrowthModalProps {

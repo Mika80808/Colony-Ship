@@ -169,7 +169,7 @@ export const INITIAL_SECTORS: SectorEntry[] = [
     name: '艦橋',
     source: 'builtin',
     description: '全艦中樞神經，指揮官與高級領航員執勤核心，掌控躍遷星門與航向。',
-    backgroundUrl: '/assets/bridge/central-tower-bridge.png',
+    backgroundUrl: '/assets/bridge-v3/bridge-background-clean.webp',
     connectedTo: ['lab', 'park', 'engineering', 'greenhouse'],
   },
   {
