@@ -92,7 +92,14 @@ with Image.open(FOLDER / "props/window_frame.png") as frame:
             "y": round(top / tile, 4),
             "w": round((end - start) * window["scale"] / tile, 4),
             "h": round((bottom + 1) * window["scale"] / tile, 4),
+            "bodyBlock": True,
         })
+
+# Keep the workstation approach on the open floor below the actor-sized
+# window clearance, and let its clickable area reach that approach point.
+console = next(item for item in data["interactions"] if item["id"] == "console")
+console["area"] = [17, 3, 6, 3]
+console["stand"] = [20, 6]
 
 sofa = next(prop for prop in data["decor"] if prop["sprite"] == "sofa")
 sofa_width, _ = image_size("sofa")
