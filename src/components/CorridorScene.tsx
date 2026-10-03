@@ -57,7 +57,7 @@ export default function CorridorScene(props: Props) {
       const response=await fetch(`/assets/${folder}/manifest.json`); if (!response.ok) throw new Error('manifest');
       const assets: CorridorAsset[]=await response.json();
       const images=await Promise.all(assets.map(a=>load(a.src??`/assets/${folder}/${a.id}.webp`)));
-      const sprite=await load('/assets/player/walk.png');
+      const sprite=await load('/assets/player/walk.webp');
       if(disposed) return;
       const image = (id: string) => images[assets.findIndex(a=>a.id===id)];
       const doorLeaves = new Map(assets.filter(a => a.kind === 'door').map(a => [a.id, createCorridorDoorLeaves(image(a.id))]));

@@ -39,7 +39,7 @@ export default function MonitorModal({ wing, rows, onClose }: MonitorModalProps)
           return (
             <li key={`${r.place}-${r.crop}`} className={`flex items-center gap-3 rounded-xl p-2.5 border ${ok ? 'border-white/[0.08] bg-[#0a1330]/80' : 'border-amber-400/40 bg-amber-400/[0.07]'}`}>
               <div className="w-14 h-14 shrink-0 rounded-lg bg-black/30 flex items-end justify-center overflow-hidden">
-                <img src={`/assets/greenhouse/crops/${r.crop}_${r.stage}.png`} alt="" className="max-h-14 w-auto" style={{ imageRendering: 'pixelated', transform: 'scale(2)', transformOrigin: 'bottom' }} />
+                <img src={`/assets/greenhouse/crops/${r.crop}_${r.stage}.webp`} alt="" className="max-h-14 w-auto" style={{ imageRendering: 'pixelated', transform: 'scale(2)', transformOrigin: 'bottom' }} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

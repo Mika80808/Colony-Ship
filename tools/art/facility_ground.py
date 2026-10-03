@@ -159,7 +159,7 @@ def main(map_path, tex_dir, out):
     img.save(out, quality=86)
     print('saved', out, img.size)
     if getattr(lawn_painter.paint, 'water', None) is not None:
-        water_mask(lawn_painter.paint.water, m, T, os.path.join(os.path.dirname(out), 'water.png'))
+        water_mask(lawn_painter.paint.water, m, T, os.path.join(os.path.dirname(out), 'water.webp'))
 
 FISH_MARGIN = 36   # 魚影中心離岸至少幾 px：岸邊葉團會伸進水面約 30 px，魚不能游到草底下
 MASK_SCALE = 8     # 遮罩每格代表幾 px
@@ -174,7 +174,7 @@ def water_mask(water, m, T, out):
         w[o['y'] * T - FISH_MARGIN:(o['y'] + o['h']) * T + FISH_MARGIN, o['x'] * T:(o['x'] + o['w']) * T] = False
     H, W = w.shape
     blocks = w[:H // MASK_SCALE * MASK_SCALE, :W // MASK_SCALE * MASK_SCALE].reshape(H // MASK_SCALE, MASK_SCALE, W // MASK_SCALE, MASK_SCALE).all(axis=(1, 3))
-    Image.fromarray((blocks * 255).astype('uint8')).save(out)
+    Image.fromarray((blocks * 255).astype('uint8')).convert('RGB').save(out, lossless=True)
     print('water mask', out, blocks.shape[::-1], int(blocks.sum()), 'cells')
 
 def draw_overlay(img, o, path, T):

@@ -79,7 +79,7 @@ for prop in data["decor"]:
 # Feet stop this many world pixels below the frame's lowest opaque pixel.
 SILL_MARGIN = 2
 window = next(prop for prop in data["decor"] if prop["sprite"] == "window_frame")
-with Image.open(FOLDER / "props/window_frame.png") as frame:
+with Image.open(FOLDER / "props/window_frame.webp") as frame:
     alpha = frame.getchannel("A")
     width, height = frame.size
     left = window["x"] * tile - width * window["scale"] / 2

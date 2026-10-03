@@ -54,8 +54,8 @@ def split_sheet(path, cols, rows):
 if __name__ == '__main__':
     OUT.mkdir(parents=True, exist_ok=True)
     for i, piece in enumerate(split_sheet(RAW / 'flower.png', 5, 4)):
-        Image.fromarray(clean(piece)).save(OUT / f'flower_{i + 1:02d}.png')
+        Image.fromarray(clean(piece)).save(OUT / f'flower_{i + 1:02d}.webp', lossless=True)
     for name, piece in zip(TREES, split_sheet(RAW / 'tree.png', 7, 1)):
         im = clean(piece, trunk_floor=True)
-        Image.fromarray(im).save(OUT / f'{name}.png')
+        Image.fromarray(im).save(OUT / f'{name}.webp', lossless=True)
         print(name, im.shape[1], im.shape[0])

@@ -1,5 +1,5 @@
 """溫室作物：把 tools/art/crops/raw/<作物>.png（GPT 生的三階段 1536×1024 透明圖）
-切成三張生長階段小圖 public/assets/greenhouse/crops/<作物>_<1|2|3>.png。
+切成三張生長階段小圖 public/assets/greenhouse/crops/<作物>_<1|2|3>.webp。
 
 - 三階段在原圖大約各佔三分之一；切點取 512／1024 附近最空的那一欄，不靠固定間距。
 - 藤架作物的支柱在原圖是純青色 #00FFFF（照 crops/stake_template.png 畫），這裡扣成透明，
@@ -88,7 +88,7 @@ def process(name):
         bb = small.getbbox()
         if not trellis and bb:                           # 層架作物修掉縮圖後左右多出的空欄
             small = small.crop((bb[0], 0, bb[2], small.height))
-        small.save(OUT / f'{name}_{i + 1}.png')
+        small.save(OUT / f'{name}_{i + 1}.webp', lossless=True)
         meta.append({'w': small.width, 'h': small.height, 'anchor': small.width // 2})
     return {'kind': 'trellis' if trellis else 'shelf', 'stages': meta}
 

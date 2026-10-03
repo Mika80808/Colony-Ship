@@ -7,7 +7,7 @@
 這支腳本：
   - 找出每張圖層裡每一棵樹／灌木（相連的不透明區塊），底部中心 = 種的位置；
   - 跟 props/ 裡的樹比對（含左右翻轉），認得出來就用原圖名稱，楓樹改寫成 tree_maple_{season} 會跟著季節換色；
-    認不出來（改過顏色、合成過）就把那塊直接切成 props/placed_NN.png；
+    認不出來（改過顏色、合成過）就把那塊直接切成 props/placed_NN.webp；
   - 覆寫 map.json 裡原本的樹（tree_*、placed_*），花不動；樹幹所在那格設成不可走。
 用法：greenhouse_tree_layer.py <圖層.png> [...]（不給就讀 photoshop/ 資料夾裡所有整張地圖大小的 PNG，參考圖除外）
 """
@@ -29,7 +29,7 @@ def identify(piece):
     """回傳 (名稱, 縮放, 是否翻轉)；認不出來回傳 None。"""
     best = None
     for name in TREES:
-        src = Image.open(G / 'props' / f'{name}.png').convert('RGBA')
+        src = Image.open(G / 'props' / f'{name}.webp').convert('RGBA')
         ref = np.asarray(src.resize(piece.size, Image.LANCZOS), np.float32)
         for flip in (False, True):
             r = ref[:, ::-1] if flip else ref
@@ -71,7 +71,7 @@ def main(layers):
             if flip: entry['flip'] = True
         else:
             sprite = f'placed_{i + 1:02d}'
-            piece.save(G / 'props' / f'{sprite}.png')
+            piece.save(G / 'props' / f'{sprite}.webp', lossless=True)
             entry = {'sprite': sprite, 'x': round(x, 3), 'y': round(y, 3), 'scale': 1, 'block': True}
         tx, ty = int(x), min(m['height'] - 1, int(y - .01))
         m['collision'][ty][tx] = 1
