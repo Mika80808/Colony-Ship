@@ -144,7 +144,7 @@ function asBuiltin<E extends { id: string; source: EntrySource }>(list: unknown)
  * 種子版本。initialGameData 的既有條目內容有更新、要同步給已經啟動過的瀏覽器時 +1，
  * 並在 SEED_MIGRATIONS 補一段遷移。遷移只能「補空欄位」，不可覆蓋開發者在 UI 改過的內容。
  */
-const SEED_VERSION = 4;
+const SEED_VERSION = 5;
 
 /** 用程式碼裡的值補上存下來條目的空欄位。 */
 function fillEmptyFromCode(stored: NpcEntry[], fields: (keyof NpcEntry)[]): NpcEntry[] {
@@ -197,6 +197,15 @@ const SEED_MIGRATIONS: Record<number, (story: StoryLayer) => StoryLayer> = {
     items: clearPlaceholders(story.items, { effectText: '+0', description: '尚無描述。' }),
     chapters: clearPlaceholders(story.chapters, { summary: '尚無摘要。', fullText: '尚無紀錄內容。' }),
     sectors: clearPlaceholders(story.sectors, { code: 'SEC-00', description: '尚無區域描述。' }),
+  }),
+  // v4 → v5：工程部改定位成外環的維修與研發工坊，拿掉引擎與重力的描述。只換仍是舊種子文字的情況。
+  4: (story) => ({
+    ...story,
+    sectors: story.sectors.map((sector) =>
+      sector.id === 'engineering' && sector.description === '反物質引擎、能源管道與重力維持系統的主要工程檢修中樞。'
+        ? { ...sector, description: INITIAL_SECTORS.find((s) => s.id === 'engineering')!.description }
+        : sector
+    ),
   }),
 };
 

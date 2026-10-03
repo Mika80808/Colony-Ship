@@ -170,7 +170,7 @@ assert.match(
   assert.deepEqual(b.schedules, customSchedule, '遷移不覆蓋已經改過的日程');
 
   writeBuiltinStory(loaded);
-  assert.equal(JSON.parse(memory.get('starport_builtin_story')!).seedVersion, 4);
+  assert.equal(JSON.parse(memory.get('starport_builtin_story')!).seedVersion, 5);
   assert.equal(b.roomId, 'A-2', 'v3 遷移讓布雷茲住進 A-2');
   assert.deepEqual(loadBuiltinStory().npcs.find((n) => n.id === 'blaze')!.schedules, customSchedule, '已是最新版本時不再遷移');
 
@@ -245,6 +245,27 @@ assert.match(
   assert.equal(l.other, '無所畏懼', '手寫內容只是剛好以「無」開頭，不動');
   assert.deepEqual([loaded.items[0].effectText, loaded.items[0].description], ['', '']);
   assert.deepEqual([loaded.chapters[0].summary, loaded.chapters[0].fullText], ['', '第一天。']);
+}
+
+// ---- 種子 v4 → v5：工程部的舊描述換成維修與研發工坊，改過的描述不動
+{
+  const memory = new Map<string, string>();
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => void memory.set(key, value),
+    removeItem: (key: string) => void memory.delete(key),
+  };
+  const oldText = '反物質引擎、能源管道與重力維持系統的主要工程檢修中樞。';
+  const store = (description: string) => memory.set('starport_builtin_story', JSON.stringify({
+    seedVersion: 4, npcs: [], items: [], chapters: [],
+    sectors: INITIAL_SECTORS.map((sector) => (sector.id === 'engineering' ? { ...sector, description } : sector)),
+  }));
+  const engineering = () => loadBuiltinStory().sectors.find((sector) => sector.id === 'engineering')!.description;
+  store(oldText);
+  assert.equal(engineering(), INITIAL_SECTORS.find((sector) => sector.id === 'engineering')!.description);
+  assert.doesNotMatch(engineering(), /引擎|重力/);
+  store('我自己寫的工程部。');
+  assert.equal(engineering(), '我自己寫的工程部。', '改過的描述不動');
 }
 
 // ---- 房號校驗把玩家算進去

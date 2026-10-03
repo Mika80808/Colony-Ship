@@ -201,7 +201,7 @@ export const INITIAL_SECTORS: SectorEntry[] = [
     code: 'SEC-06',
     name: '工程部',
     source: 'builtin',
-    description: '反物質引擎、能源管道與重力維持系統的主要工程檢修中樞。',
+    description: '外環的維修與研發工坊，負責修理設備、製作零件，並管理這一段的電力與管線。工程員的材料與工具都放在這裡，艦上壞掉或需要改良的設備也會送回來。',
     connectedTo: ['park', 'bridge'],
   },
   {
