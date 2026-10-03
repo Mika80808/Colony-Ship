@@ -145,7 +145,7 @@ console.log('greenhouse ok');
   assert.ok(wallY + 58 + 5 <= wallY + 66, 'the whole hidden part is under the 66 px wall-top overlay');
   assert.equal(doorBlocks(e, door, { x: (passage.x + 2) * T, y: wallY + 58 }, 0), false, 'at the shut door you can stand just as deep');
   assert.ok(doorBlocks(e, door, { x: (passage.x + 2) * T, y: wallY + 62 }, 0), 'but no further');
-  const inside = centre(8, 10);
+  const inside = centre(8, 14);   // 中央通道上（維修區機台在第 10–11 列）
   assert.ok(findPath(e, fromC, inside).length, 'with the door open, paths go through it');
   assert.deepEqual(findPath(withDoorClosed(e), fromC, inside), [], 'with the door shut, nothing paths through it');
   // The door is an E interaction you can reach and trigger from either side.

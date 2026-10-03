@@ -15,10 +15,12 @@ import { dayNumber } from './game/growth';
 import { describeRow, growthReport } from './game/growthReport';
 import type { FacilityInteraction, FacilityMap } from './game/facility';
 import greenhouseMap from '../public/assets/greenhouse/map.json';
+import engineeringMap from '../public/assets/engineering/map.json';
 
 /** 溫室的種植架（物資帳算收成用）。地圖 JSON 直接打包進來，不必等場景載入。 */
 const GREENHOUSE_RACKS = (greenhouseMap as unknown as FacilityMap).racks ?? [];
 const GREENHOUSE_MAP = greenhouseMap as unknown as FacilityMap;
+const ENGINEERING_MAP = engineeringMap as unknown as FacilityMap;
 const GREENHOUSE_WIDTH = GREENHOUSE_MAP.width;
 import HeaderHUD from './components/HeaderHUD';
 import LeftSidebar, { Objective } from './components/LeftSidebar';
@@ -423,7 +425,8 @@ export default function App() {
         items,
         presentNpcs,
         locationName: currentSectorName,
-        sceneObjects: currentSectorId === 'greenhouse' ? describeFacilityObjects(GREENHOUSE_MAP, facilityPositionRef.current) : undefined,
+        sceneObjects: currentSectorId === 'greenhouse' ? describeFacilityObjects(GREENHOUSE_MAP, facilityPositionRef.current)
+          : currentSectorId === 'engineering' ? describeFacilityObjects(ENGINEERING_MAP, facilityPositionRef.current) : undefined,
         gameDate,
         gameTime,
         dialogueHistory,

@@ -29,23 +29,23 @@ CROP_X = 252                # 從走廊素材切哪一段：讓地板上的燈�
 RNG = np.random.default_rng(7)
 
 # 室內地面，第 3–18 列、第 1–14 欄。. 防滑鋼板｜g 管線溝蓋板｜h 警示條紋｜x 油污
-# 依規劃圖 v3（tools/art/engineering_plan.py）往下移一列：北牆立面佔三列。機台還沒擺，腳下先鋪鋼板。
-FLOOR = [
+# 位置對應 engineering_objects.py 的 v5 機台分區；機台腳下鋪鋼板。
+FLOOR = [  # 依 v5 分區：製造機前與維修區四周畫警示條紋、西牆公用設備旁一條管線溝，油污在油桶、製造機、維修區旁
     "..............",  # 3
     "..............",  # 4
-    "..............",  # 5
-    "..hhhhhhhhhh..",  # 6
-    "..gg..x...gg..",  # 7
-    "..gg......gg..",  # 8
-    "..gg......gg..",  # 9
-    "..gg......gx..",  # 10
-    "..gg......gg..",  # 11
-    "..gg..x...gg..",  # 12
-    "..gg......gg..",  # 13
-    "..xg......gx..",  # 14
-    "..gg......gg..",  # 15
-    "..gg.x....gg..",  # 16
-    ".....hhhh.....",  # 17
+    "......x.......",  # 5
+    "..gggggghhhhhh",  # 6  製造機前的警示區；管線溝從西牆接過來
+    "..g........x..",  # 7
+    "..g...........",  # 8
+    "..g..hhhh.....",  # 9  維修區四周
+    "..g..h..h.....",  # 10
+    "..g..h..h.....",  # 11
+    "..g.xhhhh.....",  # 12
+    "..g...........",  # 13
+    "..g...........",  # 14
+    "..g...........",  # 15
+    "..............",  # 16
+    ".....hhhh.....",  # 17 大門前
     "....xhhhh.....",  # 18
 ]
 
@@ -357,6 +357,16 @@ def main():
             elif y < corridor_bottom: row.append(0)
             else: row.append(1)
         collision.append(row)
+    # 機台（engineering_objects.py）：圖切好了（props/<id>.webp 存在）才擺上去，佔地當碰撞、說明文字當互動
+    from engineering_objects import OBJECTS, sprite_size
+    decor, items = [], []
+    for oid, label, ox, oy, ow, od, oh, _batch, stand, text in OBJECTS:
+        if not os.path.exists(os.path.join(OUT, 'props', f'{oid}.webp')): continue
+        for ty in range(oy, oy + od):
+            for tx in range(ox, ox + ow): collision[ty][tx] = 1
+        decor.append({'sprite': oid, 'id': oid, 'x': ox + ow / 2, 'y': oy + od, 'scale': 1, 'block': True})
+        sh = sprite_size(ow, od, oh, oid)[1] / T
+        if text: items.append({'id': oid, 'kind': 'machine', 'label': label, 'text': text, 'area': [ox, round(oy + od - sh, 4), ow, round(sh, 4)], 'stand': list(stand)})
     mid = (corridor_top + corridor_bottom) / 2
     stop = math.ceil((O + FEET_UNDER_CAP + 22) / T * 10000) / 10000   # 腳圈半徑 22：腳點停在牆頂下 FEET_UNDER_CAP（無條件進位，不會差一點點就擋住）
     wall_rects = [{'x': 0, 'y': stop, 'w': passage['x'], 'h': corridor_top - stop},
@@ -380,7 +390,8 @@ def main():
             'trigger': 150, 'openSeconds': 1.4,
         },
         'foreground': [{'src': 'wall_cap.webp', 'x': 0, 'y': O}, {'src': 'foreground.webp', 'x': 0, 'y': O + 746}],
-        'interactions': [],
+        'interactions': items,
+        'decor': decor,
     }
     with open(os.path.join(OUT, 'map.json'), 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False)

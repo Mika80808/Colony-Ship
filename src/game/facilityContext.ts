@@ -1,7 +1,16 @@
 import type { Point } from './corridor';
 import type { FacilityMap } from './facility';
 
+/** 工程區機台（sprite 名稱就是 engineering_objects.py 的 id）。 */
+const ENGINEERING_NAMES: Record<string, string> = {
+  valves: '管線閥門組', 'rnd-bench': '研發桌', 'robot-arm': '組裝機械手臂', 'fab-console': '設計終端', drums: '耗材油桶',
+  fabricator: '大型製造機', materials: '材料架', 'section-monitor': '製造機操作台', 'power-panel': '配電盤', 'tool-wall': '工具牆',
+  repair: '維修中機台', workbench: '檢修工作台', 'tool-cart': '工具推車', 'parts-shelves': '零件貨架', lockers: '休息角置物櫃',
+  'repair-queue': '待修品架', crates: '貨箱', 'repair-pallet': '剛送來的待修品',
+};
+
 const propName = (sprite: string): string => {
+  if (ENGINEERING_NAMES[sprite]) return ENGINEERING_NAMES[sprite];
   if (sprite === 'sofa') return '三人沙發';
   if (sprite === 'fire_table') return '圓形火盆桌';
   if (sprite === 'window_frame') return '挑高觀景窗';
@@ -42,7 +51,8 @@ export function describeFacilityObjects(map: FacilityMap, player?: Point | null)
     const byDistance = <T extends { x: number; y: number }>(a: T, b: T) => Math.hypot(a.x - px, a.y - py) - Math.hypot(b.x - px, b.y - py);
     for (const rack of [...map.racks ?? []].sort((a, b) => byDistance({ x: a.x + a.w / 2, y: a.y + a.h / 2 }, { x: b.x + b.w / 2, y: b.y + b.h / 2 })).slice(0, 2))
       add(`種植架（${rack.crops.join('、')}）`, rack.x + rack.w / 2, rack.y + rack.h / 2);
-    for (const decor of [...map.decor ?? []].filter(d => !['sofa', 'fire_table', 'window_frame', 'desk_console'].includes(d.sprite)).sort(byDistance).slice(0, 8))
+    const listed = new Set((map.interactions ?? []).map(i => i.id));   // 已經以互動名稱列出的物件不重複
+    for (const decor of [...map.decor ?? []].filter(d => !['sofa', 'fire_table', 'window_frame', 'desk_console'].includes(d.sprite) && !(d.id && listed.has(d.id))).sort(byDistance).slice(0, 8))
       add(propName(decor.sprite), decor.x, decor.y);
   }
 
