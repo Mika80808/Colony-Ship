@@ -26,5 +26,5 @@ assert.equal(spawnFish({ width: 2, height: 2, scale, water: new Uint8Array(4) },
 
 // The greenhouse asks for fish and ships the water mask they swim in.
 const map = JSON.parse(readFileSync('public/assets/greenhouse/map.json', 'utf8'));
-assert.ok(map.fish > 0); assert.ok(existsSync('public/assets/greenhouse/water.png'));
+assert.ok(map.fish > 0); assert.ok(existsSync('public/assets/greenhouse/water.webp'));
 console.log('fish ok');

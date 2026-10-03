@@ -7,5 +7,5 @@ for i in range(12):
     assert im.getchannel('A').getextrema()==(0,255)
     pos=((i%4)*172+6,(i//4)*172+6)
     atlas.alpha_composite(im,pos); preview.alpha_composite(im,pos)
-atlas.save(ROOT / 'public/assets/player/walk.png')
+atlas.save(ROOT / 'public/assets/player/walk.webp', lossless=True)
 preview.save(ROOT / 'tmp/sprites/player-preview.png')

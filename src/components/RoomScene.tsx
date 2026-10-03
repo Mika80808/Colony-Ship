@@ -104,7 +104,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
     const load = (img: HTMLImageElement, src: string) => new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = reject; img.src = src; });
     // Showering re-colours the sprite instead of swapping in a second set of
     // artwork: painting skin over the frame with source-atop keeps the pose and
-    // silhouette but washes the uniform out, and stays in sync if walk.png changes.
+    // silhouette but washes the uniform out, and stays in sync if walk.webp changes.
     const skin = document.createElement('canvas');
     const skinCtx = skin.getContext('2d')!;
     const skinToned = (sprite: HTMLImageElement, sx: number, sy: number, sw: number, sh: number) => {
@@ -271,7 +271,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
         sprites.current.set(npc.id, sprite);
         return [load(sprite, npc.walkUrl)];
       }),
-      load(playerSprite, '/assets/player/walk.png'),
+      load(playerSprite, '/assets/player/walk.webp'),
       ...SHELL.overlays.map((overlay, index) => load(overlayImages[index], ASSETS + overlay.image)),
       ...DECALS.map((decal, index) => load(decalImages[index], ASSETS + decal.image)),
       ...objects.map((item, index) => load(furnitureImages[index], ASSETS + item.image + (item.id.startsWith('bed-') ? '?v=bed-layers-2' : ''))),

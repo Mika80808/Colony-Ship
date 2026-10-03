@@ -1,5 +1,5 @@
 /**
- * 水底下的魚影：灰色半透明剪影，在水面遮罩（public/assets/<folder>/water.png，由 tools/art/facility_ground.py 產生）
+ * 水底下的魚影：灰色半透明剪影，在水面遮罩（public/assets/<folder>/water.webp，由 tools/art/facility_ground.py 產生）
  * 裡慢慢游、轉彎、偶爾停下來。遮罩白色＝魚中心可以到的地方，已扣掉岸邊與玻璃走廊底下。
  * 只有畫面效果，不存檔、不影響碰撞；同一個種子每次的初始位置都一樣。
  */

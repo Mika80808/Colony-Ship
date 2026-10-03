@@ -1,5 +1,5 @@
 """把使用者在 Photoshop 擺好位置的圖層（整張地圖大小 3840×2688、透明底）原樣放進 map.json 的 decor。
-跟 greenhouse_tree_layer.py 不同：不比對素材、不換季，圖層裡每一塊不透明區域直接切成 props/<名稱>[_N].png，
+跟 greenhouse_tree_layer.py 不同：不比對素材、不換季，圖層裡每一塊不透明區域直接切成 props/<名稱>[_N].webp，
 位置就是它在圖層上的位置（底部中心），前後排序看底部，縮放 1。重跑會先移除同名的舊項目。
 擋路的格子不在這裡改（大型擺設的佔地要看形狀），直接改 map.json 的 collision。
 
@@ -43,7 +43,7 @@ def main(pairs):
         m['decor'] = [d for d in m.get('decor', []) if not (d['sprite'] == name or d['sprite'].startswith(name + '_'))]
         for i, (piece, l, t, r, b) in enumerate(found):
             sprite = name if len(found) == 1 else f'{name}_{i + 1}'
-            piece.save(G / 'props' / f'{sprite}.png')
+            piece.save(G / 'props' / f'{sprite}.webp', lossless=True)
             m['decor'].append({'sprite': sprite, 'x': round((l + r) / 2 / T, 4), 'y': round(b / T, 4), 'scale': 1})
             print(f'{layer.name} → {sprite}  x {l}–{r}  y {t}–{b}（格 {l / T:.2f}–{r / T:.2f}, {t / T:.2f}–{b / T:.2f}）')
     (G / 'map.json').write_text(json.dumps(m, ensure_ascii=False), encoding='utf-8')

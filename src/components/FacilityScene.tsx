@@ -79,9 +79,9 @@ export default function FacilityScene(props: Props) {
       const specs = map.racks;
       const json = async <T,>(src: string) => { const r = await fetch(src); if (!r.ok) throw new Error(src); return r.json() as Promise<T>; };
       const [meta, crops] = await Promise.all([json<RacksMeta>(`/assets/${folder}/racks.json`), json<CropsMeta>(`/assets/${folder}/crops/crops.json`)]);
-      const frames = { shelf: await load(`/assets/${folder}/rack_shelf.png`), trellis: await load(`/assets/${folder}/rack_trellis.png`) };
+      const frames = { shelf: await load(`/assets/${folder}/rack_shelf.webp`), trellis: await load(`/assets/${folder}/rack_trellis.webp`) };
       const names = [...new Set(specs.flatMap(r => r.crops))].filter(c => crops[c]).flatMap(c => [1, 2, 3].map(i => `${c}_${i}`));
-      const images = new Map(await Promise.all(names.map(async n => [n, await load(`/assets/${folder}/crops/${n}.png`)] as const)));
+      const images = new Map(await Promise.all(names.map(async n => [n, await load(`/assets/${folder}/crops/${n}.webp`)] as const)));
       const racks = specs.map(r => { const image = document.createElement('canvas'); image.width = meta.width; image.height = meta.height; return { image, ...rackBounds(r, meta, map.tileSize) }; });
       const paint = (day: number) => specs.forEach((r, i) => {
         const g = racks[i].image.getContext('2d')!;
@@ -112,10 +112,10 @@ export default function FacilityScene(props: Props) {
         } : undefined,
       }));
     }
-    /** 水面遮罩（facility_ground.py 產生的 water.png，1 px = 8 px 世界座標）；沒有就不放魚。 */
+    /** 水面遮罩（facility_ground.py 產生的 water.webp，1 px = 8 px 世界座標）；沒有就不放魚。 */
     async function loadWater(folder: string, map: FacilityMap): Promise<WaterMask | null> {
       if (!map.fish) return null;
-      const im = await load(`/assets/${folder}/water.png`).catch(() => null);
+      const im = await load(`/assets/${folder}/water.webp`).catch(() => null);
       if (!im) return null;
       const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
       const g = c.getContext('2d')!; g.drawImage(im, 0, 0);
@@ -128,7 +128,7 @@ export default function FacilityScene(props: Props) {
       const response = await fetch(`/assets/${folder}/map.json`); if (!response.ok) throw new Error('map');
       const map: FacilityMap = await response.json();
       // L0 地面由 tools/art/facility_ground.py 依 map.json 的 terrain 拼成；種植架與擺設依腳點排序。
-      const [background, sprite, racks, decor, water] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.png'), loadRacks(folder, map), loadDecor(folder, map), loadWater(folder, map)]);
+      const [background, sprite, racks, decor, water] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.webp'), loadRacks(folder, map), loadDecor(folder, map), loadWater(folder, map)]);
       if (disposed) return;
       const s = state.current, world = worldSize(map);
       // 種植架是放大 2 倍的像素圖（不平滑）；樹和花是從大圖縮小（要平滑）

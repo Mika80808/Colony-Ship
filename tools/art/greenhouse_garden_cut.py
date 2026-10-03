@@ -39,7 +39,7 @@ def main():
         h, w = piece.shape[:2]
         f = size / (h if side == 'h' else w)
         im = Image.fromarray(piece).resize((max(1, round(w * f)), max(1, round(h * f))), Image.LANCZOS)
-        im.save(OUT / f'{name}.png'); shutil.copy(OUT / f'{name}.png', PS / f'{name}.png')
+        im.save(OUT / f'{name}.webp', lossless=True); shutil.copy(OUT / f'{name}.webp', PS / f'{name}.webp')
         print(name, im.size)
 
 

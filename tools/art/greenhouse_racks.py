@@ -1,11 +1,11 @@
 """溫室種植架外框：從 greenhouse_rack_base.png（左端／中段／右端各 48 px）拼成一整排 12 格，
 輸出兩種空架，作物由遊戲依生長階段疊上去：
 
-- rack_shelf.png   層架：三層托盤，開口補深色背板。
-- rack_trellis.png 藤架：保留頂框與最下層托盤，中間拆空，每株一根木支柱（支柱屬於架子，一開始就架好）。
+- rack_shelf.webp   層架：三層托盤，開口補深色背板。
+- rack_trellis.webp 藤架：保留頂框與最下層托盤，中間拆空，每株一根木支柱（支柱屬於架子，一開始就架好）。
 - racks.json       作物擺放位置（素材像素，遊戲裡放大 2 倍畫：一排 576×144 → 12×3 格）。
 
-rack_shelf.png／rack_trellis.png 產生後使用者手動修過細節（改得更對稱，尺寸與層高、支柱位置不變），
+rack_shelf.webp／rack_trellis.webp 產生後使用者手動修過細節（改得更對稱，尺寸與層高、支柱位置不變），
 所以預設不覆蓋已存在的圖，只重寫 racks.json；真的要從頭重產才加 --force（手修的部分會不見）。
 """
 import json
@@ -76,14 +76,14 @@ def trellis():
 
 
 def save(name, rgb, alpha):
-    Image.fromarray(np.dstack([np.clip(rgb, 0, 255).astype(np.uint8), alpha]), 'RGBA').save(OUT / name)
+    Image.fromarray(np.dstack([np.clip(rgb, 0, 255).astype(np.uint8), alpha]), 'RGBA').save(OUT / name, lossless=True)
 
 
 if __name__ == '__main__':
     import sys
     force = '--force' in sys.argv
     (t_rgb, t_alpha), stakes = trellis()
-    for name, img in (('rack_shelf.png', shelf()), ('rack_trellis.png', (t_rgb, t_alpha))):
+    for name, img in (('rack_shelf.webp', shelf()), ('rack_trellis.webp', (t_rgb, t_alpha))):
         if force or not (OUT / name).exists(): save(name, *img)
         else: print(f'{name} 已存在（使用者手修過），不覆蓋；要重產請加 --force')
     meta = {

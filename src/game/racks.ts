@@ -1,7 +1,7 @@
 /**
  * 種植架（map.json 的 racks）：架子外框 + 依生長階段替換的作物圖。
- * 素材在 public/assets/<folder>/：rack_shelf.png／rack_trellis.png／racks.json（tools/art/greenhouse_racks.py），
- * crops/<作物>_<1|2|3>.png 與 crops/crops.json（tools/art/greenhouse_crops.py）。
+ * 素材在 public/assets/<folder>/：rack_shelf.webp／rack_trellis.webp／racks.json（tools/art/greenhouse_racks.py），
+ * crops/<作物>_<1|2|3>.webp 與 crops/crops.json（tools/art/greenhouse_crops.py）。
  * 位置單位都是素材像素，畫的時候整排放大 racks.json 的 scale 倍（2 → 一排 12×3 格）。
  */
 export type RackKind = 'shelf' | 'trellis';
