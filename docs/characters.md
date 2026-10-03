@@ -19,7 +19,7 @@ RGBA 688×516，4 欄（正／背／左／右）× 3 列（站立／步態一／
 
 1. `python tools/prepare_lucian.py`：從 `tmp/sprites/lucian-extraction-source.png` 去背並輸出透明橫排。
 2. 執行 sprite-pipeline 的 `normalize_sprite_strip.py --input tmp/sprites/lucian-strip.png --out-dir tmp/sprites/frames --frames 12 --frame-size 160`。
-3. `python tools/pack_lucian.py`：輸出遊戲圖集及 `tmp/sprites/preview.png` 預覽。
+3. `python tools/pack_walk_atlas.py tmp/sprites/frames public/assets/lucian/walk.webp`：輸出遊戲圖集及 `tmp/sprites/preview.png` 預覽（原 pack_lucian.py）。
 
 最後使用的 imagegen 提示詞：
 
