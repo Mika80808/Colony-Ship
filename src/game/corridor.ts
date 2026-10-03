@@ -2,7 +2,7 @@ export interface Point { x: number; y: number }
 export interface Rect { x: number; y: number; width: number; height: number }
 export interface CorridorAsset extends Rect { id: string; kind: string; src?: string }
 export const WIDTH = 3560, HEIGHT = 996, RADIUS = 17;
-export const RIGHT_EXIT_X = WIDTH - 45;
+export const RIGHT_EXIT_X = WIDTH - 45, LEFT_EXIT_X = 45;
 export const SPAWN = { x: 500, y: 530 };
 export const COLLISIONS: Rect[] = [
   { x: 278, y: 347, width: 136, height: 38 },
@@ -51,6 +51,12 @@ export function walkable(p: Point, collisions = COLLISIONS): boolean {
 export function rightEdgeExit(p: Point, dx: number, corridor: CorridorConfig): string | null {
   return dx > 0 && p.x >= RIGHT_EXIT_X && walkable(p, corridor.collisions)
     ? FACILITY_SECTOR[corridor.right]
+    : null;
+}
+/** 左端同理：走出走廊左端就進入左邊的設施。 */
+export function leftEdgeExit(p: Point, dx: number, corridor: CorridorConfig): string | null {
+  return dx < 0 && p.x <= LEFT_EXIT_X && walkable(p, corridor.collisions)
+    ? FACILITY_SECTOR[corridor.left]
     : null;
 }
 export function move(p: Point, dx: number, dy: number, collisions = COLLISIONS): Point {

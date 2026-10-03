@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FACILITIES, FacilityMap, arrivalDirection, blocked, camera, clicked, doorBlocks, doorDistance, DOOR_PASSABLE, findPath, interactions, RADIUS, keyboardTarget, move, nearby, segmentClear, spawn, stepDoor, walkable, worldSize } from './facility';
+import { FACILITIES, FacilityMap, arrivalDirection, blocked, camera, clicked, doorBlocks, doorDistance, doorStand, DOOR_PASSABLE, findPath, interactions, RADIUS, keyboardTarget, move, nearby, segmentClear, spawn, stepDoor, walkable, withDoorClosed, worldSize } from './facility';
 import { ACTOR_HEIGHT } from './viewport';
 const load = (folder: string): FacilityMap => JSON.parse(readFileSync(`public/assets/${folder}/map.json`, 'utf8'));
 
@@ -121,20 +121,30 @@ console.log('greenhouse ok');
   const { passage } = door, wallTop = passage.y, wallBottom = passage.y + passage.h;
   for (let y = wallTop; y < wallBottom; y++) for (let x = 0; x < e.width; x++)
     assert.equal(blocked(e, x, y), x < passage.x || x >= passage.x + passage.w, `corridor wall ${x},${y} is solid except the door`);
-  const inside = centre(8, 10), path = findPath(e, fromC, inside);
-  assert.ok(path.length, 'pathfinding goes through the door even while it is shut');
+  const inside = centre(8, 10);
+  assert.ok(findPath(e, fromC, inside).length, 'with the door open, paths go through it');
+  assert.deepEqual(findPath(withDoorClosed(e), fromC, inside), [], 'with the door shut, nothing paths through it');
+  // The door is an E interaction you can reach and trigger from either side.
+  const doorItem = interactions(e).find(i => i.kind === 'door')!;
+  assert.ok(doorItem, 'the door is an interaction');
+  for (const side of [fromC, inside]) {
+    const stand = doorStand(e, door, side);
+    assert.ok(findPath(withDoorClosed(e), side, stand).length, 'you can walk up to the shut door');
+    assert.equal(nearby(stand, interactions(e))?.id, door.id, 'standing at the door, E picks the door');
+  }
   // Shut door: walking up into the passage stops at the threshold; open door lets you through.
   const below = { x: (passage.x + passage.w / 2) * T, y: wallBottom * T + RADIUS + 4 };
   assert.ok(walkable(e, below));
   assert.ok(doorBlocks(e, door, { x: below.x, y: below.y - 10 }, 0), 'a closed door blocks the passage');
   assert.equal(doorBlocks(e, door, { x: below.x, y: below.y - 10 }, DOOR_PASSABLE), false, 'an open door does not');
   assert.equal(doorBlocks(e, door, fromC, 0), false, 'the corridor is never blocked by the door');
-  // It opens when you come close, stays shut while you walk past along the corridor, and opening takes openSeconds.
+  // Opening takes openSeconds; standing at the door keeps it within reach, the far side of the corridor is out of reach (it closes).
   assert.ok(doorDistance(e, door, below) < door.trigger);
-  assert.ok(doorDistance(e, door, { x: below.x, y: (e.entrances[0].y + e.entrances[0].h - .5) * T }) > door.trigger, 'walking along the far side of the corridor leaves it shut');
-  let open = 0, seconds = 0; while (open < 1 && seconds < 5) { open = stepDoor(e, door, below, open, .05); seconds += .05; }
+  assert.ok(doorDistance(e, door, fromD) > door.trigger, 'walking off along the corridor lets it close');
+  let open = 0, seconds = 0; while (open < 1 && seconds < 5) { open = stepDoor(door, open, true, .05); seconds += .05; }
   assert.ok(Math.abs(seconds - door.openSeconds) < .1, `opens in ${door.openSeconds}s`);
-  assert.equal(stepDoor(e, door, fromD, 1, 10), 0, 'closes again once you leave');
+  assert.equal(stepDoor(door, 1, false, 10), 0, 'closes when no longer wanted');
+  assert.equal(stepDoor(door, 0, false, 10), 0, 'never opens by itself');
   console.log('engineering ok');
 }
 

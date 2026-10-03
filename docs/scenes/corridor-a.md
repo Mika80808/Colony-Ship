@@ -10,6 +10,7 @@
 - 碰撞與互動：src/game/corridor.ts。素材座標：public/assets/corridor-a/manifest.json。
 - 角色腳底限制在 x=25～3535、y=397～775，並避開各物件的接地碰撞範圍。
 - 沿走廊右端走出去會進入溫室；右側溫室招牌只作指引，點擊不傳送。從這裡進入溫室時角色面向右方。
+- 所有居住區走廊的左右兩端都一樣：那一側的設施有場景，就能直接走進去（B 左端進溫室、C 右端與 D 左端進工程區），程式在 corridor.ts 的 rightEdgeExit／leftEdgeExit。
 - 視窗自適應，鏡頭跟隨角色左右移動；彈窗或抽屜開啟時暫停。
 
 檢查：npm run lint；node --import tsx src/game/corridor.test.ts；npm run build。

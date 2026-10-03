@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { COLLISIONS, CORRIDORS, RIGHT_EXIT_X, SPAWN, WIDTH, walkable, move, findPath, segmentClear, nearby, interactions, signNotice, benchSeat, doorRoomId, spawnOutside, rightEdgeExit } from './corridor';
+import { COLLISIONS, CORRIDORS, RIGHT_EXIT_X, SPAWN, WIDTH, walkable, move, findPath, segmentClear, nearby, interactions, signNotice, benchSeat, doorRoomId, spawnOutside, rightEdgeExit, leftEdgeExit, LEFT_EXIT_X } from './corridor';
 import { ROOMS } from '../data/initialGameData';
 import { readFileSync } from 'node:fs';
 assert.ok(walkable(SPAWN));
@@ -9,6 +9,11 @@ const rightEnd=move({x:RIGHT_EXIT_X-10,y:530},20,0);
 assert.equal(rightEdgeExit(rightEnd,1,CORRIDORS.residential_a),'greenhouse','Walking right at A corridor end enters the greenhouse');
 assert.equal(rightEdgeExit(rightEnd,-1,CORRIDORS.residential_a),null,'Walking back left does not exit');
 assert.equal(rightEdgeExit({x:WIDTH-25,y:397},1,CORRIDORS.residential_a),null,'A blocked wall edge is not an exit');
+const leftEnd=move({x:LEFT_EXIT_X+10,y:530},-20,0);
+assert.equal(leftEdgeExit(leftEnd,-1,CORRIDORS.residential_d),'engineering','Walking left at D corridor end enters engineering');
+assert.equal(leftEdgeExit(leftEnd,-1,CORRIDORS.residential_b),'greenhouse','Walking left at B corridor end enters the greenhouse');
+assert.equal(leftEdgeExit(leftEnd,1,CORRIDORS.residential_d),null,'Walking back right does not exit');
+assert.equal(rightEdgeExit(rightEnd,1,CORRIDORS.residential_c),'engineering','Walking right at C corridor end enters engineering');
 assert.ok(move({x:1100,y:475},500,0).x<1174,'Movement cannot tunnel through a bench');
 for(const [a,b] of [[{x:1100,y:475},{x:1430,y:475}],[SPAWN,{x:3450,y:530}],[{x:1264,y:544},{x:1264,y:410}]]) {
  const path=findPath(a,b);assert.ok(path.length);let previous=a;

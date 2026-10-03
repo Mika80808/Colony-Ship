@@ -14,18 +14,18 @@ export interface Entrance extends TileRect { to: string; label: string; spawn: [
 /** An interaction written in map.json, in tile units: `area` is what the player clicks, `stand` is where they walk to. */
 export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number]; seat?: [number, number]; exit?: [number, number] }
 /**
- * 會自動開關的門（工程區的厚重隔音門）。passage 是門洞的格子，碰撞表裡永遠是可走，尋路照常穿過；
- * 門沒開完時由 doorBlocks 擋住，角色就在門前等它開。座標除了 passage 都是 px。
+ * 要按 E（或點門）才會開的門（工程區的厚重隔音門），走遠了自己關上。passage 是門洞的格子：
+ * 碰撞表裡是可走，門關著時尋路改用 withDoorClosed 的地圖，移動由 doorBlocks 擋住。座標除了 passage 都是 px。
  */
 export interface DoorSpec {
-  id: string; passage: TileRect;
+  id: string; label: string; passage: TileRect;
   /** 門扇只畫在這個框裡，往兩側滑出去就被牆遮住：[x, y, 寬, 高]。 */
   opening: [number, number, number, number];
   frame: { src: string; x: number; y: number };
   panels: { left: string; right: string };
   /** 警示燈中心，門在動的時候閃。 */
   lamp: [number, number];
-  /** 腳點離門洞多近（px）就開門。 */
+  /** 腳點離門洞超過這個距離（px），開著的門就自己關上。 */
   trigger: number;
   openSeconds: number;
 }
@@ -162,6 +162,7 @@ export function interactions(m: FacilityMap): FacilityInteraction[] {
   return [
     ...m.entrances.map(e => ({ ...at(`exit-${e.to}`, 'exit', e.label, '', e, { x: e.x + e.w / 2, y: e.y + e.h / 2 }), to: e.to })),
     ...(m.interactions ?? []).map(i => ({ ...at(i.id, i.kind, i.label, i.text, { x: i.area[0], y: i.area[1], w: i.area[2], h: i.area[3] }, { x: i.stand[0], y: i.stand[1] }), ...(i.seat ? { seat: { x: i.seat[0] * m.tileSize, y: i.seat[1] * m.tileSize } } : {}), ...(i.exit ? { exit: { x: i.exit[0] * m.tileSize, y: i.exit[1] * m.tileSize } } : {}) })),
+    ...(m.door ? [((stand: Point) => at(m.door!.id, 'door', m.door!.label, '', m.door!.passage, { x: stand.x / m.tileSize, y: stand.y / m.tileSize }))(doorStand(m, m.door, { x: 0, y: Infinity }))] : []),
     ...(m.plots ?? []).map((p, i, all) => at(`plot-${i + 1}`, 'plot', all.length > 1 ? `種植區 ${i + 1}` : '種植區', '這塊土地還空著。（種植系統尚未開放）', p, { x: p.x + p.w / 2, y: p.y + p.h / 2 })),
   ];
 }
@@ -196,10 +197,21 @@ export function doorBlocks(m: FacilityMap, door: DoorSpec, p: Point, open: numbe
   const nx = Math.max(r.x, Math.min(p.x, r.x + r.width)), ny = Math.max(r.y, Math.min(p.y, r.y + r.height));
   return Math.hypot(p.x - nx, p.y - ny) < RADIUS;
 }
-/** 門的開啟程度往目標前進一幀：角色在 trigger 範圍內就開，離開就關。 */
-export function stepDoor(m: FacilityMap, door: DoorSpec, p: Point, open: number, dt: number): number {
-  const target = doorDistance(m, door, p) < door.trigger ? 1 : 0, speed = dt / door.openSeconds;
-  return target > open ? Math.min(1, open + speed) : Math.max(0, open - speed);
+/** 門的開啟程度往目標（開 1／關 0）前進一幀。 */
+export function stepDoor(door: DoorSpec, open: number, wanted: boolean, dt: number): number {
+  const speed = dt / door.openSeconds;
+  return wanted ? Math.min(1, open + speed) : Math.max(0, open - speed);
+}
+/** 門關著時給尋路用的地圖：門洞的格子當成牆。 */
+export function withDoorClosed(m: FacilityMap): FacilityMap {
+  if (!m.door) return m;
+  const { x, y, w, h } = m.door.passage;
+  return { ...m, collision: m.collision.map((row, ty) => row.map((v, tx) => (tx >= x && tx < x + w && ty >= y && ty < y + h ? 1 : v))) };
+}
+/** 門前站的位置：角色在門的哪一側就站在那一側。 */
+export function doorStand(m: FacilityMap, door: DoorSpec, p: Point): Point {
+  const r = tileRect(m, door.passage), above = p.y < r.y + r.height / 2;
+  return { x: r.x + r.width / 2, y: above ? r.y - RADIUS - 6 : r.y + r.height + RADIUS + 6 };
 }
 
 /** Camera origin centred on `focus`, clamped to the map. */

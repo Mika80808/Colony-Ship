@@ -2,7 +2,7 @@ import { loadImage as load } from '../utils/loadImage';
 import { useSceneKeys } from './useSceneKeys';
 import { useEffect, useRef, useState } from 'react';
 import type { Point } from '../game/corridor';
-import { FacilityInteraction, FacilityMap, arrivalDirection, camera, clicked, doorBlocks, findPath, interactions, keyboardTarget, move, nearby, spawn, stepDoor, worldSize } from '../game/facility';
+import { FacilityInteraction, FacilityMap, arrivalDirection, camera, clicked, doorBlocks, doorDistance, doorStand, findPath, interactions, keyboardTarget, move, nearby, spawn, stepDoor, withDoorClosed, worldSize } from '../game/facility';
 import { ACTOR_HEIGHT, approach, fitViewport } from '../game/viewport';
 import { CropsMeta, RacksMeta, layoutRack, rackBounds, rackKey } from '../game/racks';
 import { dayNumber, stageAt } from '../game/growth';
@@ -36,7 +36,7 @@ export default function FacilityScene(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controls = useRef(props); controls.current = props;
   const [status, setStatus] = useState(`正在載入${props.facility.name}…`);
-  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point } | null, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null, door: null as { frame: HTMLImageElement; left: HTMLImageElement; right: HTMLImageElement } | null, doorOpen: 0, overlays: [] as { image: HTMLImageElement; x: number; y: number }[] });
+  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point } | null, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null, door: null as { frame: HTMLImageElement; left: HTMLImageElement; right: HTMLImageElement } | null, doorOpen: 0, doorWanted: false, closedMap: null as FacilityMap | null, overlays: [] as { image: HTMLImageElement; x: number; y: number }[] });
   const act = (item?: FacilityInteraction) => {
     const s = state.current;
     if (!s.map || controls.current.paused) return;
@@ -44,6 +44,11 @@ export default function FacilityScene(props: Props) {
     item ??= keyboardTarget(s.p, s.items); if (!item) return;
     s.path = []; s.pending = null; keys.current.clear();
     if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to);
+    else if (item.kind === 'door') {
+      // 按 E 開門；開著時再按一次關上（站在門洞裡不能關）
+      const inPassage = s.map.door && doorDistance(s.map, s.map.door, s.p) === 0;
+      if (!(s.doorWanted && inPassage)) s.doorWanted = !s.doorWanted;
+    }
     else if (item.kind === 'seat' && item.seat) { s.seated = { id: item.id, exit: item.exit ?? item.point }; s.p = item.seat; s.direction = 'down'; s.notice = null; }
     else {
       // An empty text means the object has no tip: show no bubble at all.
@@ -136,7 +141,7 @@ export default function FacilityScene(props: Props) {
       ].sort((a, b) => a.bottom - b.bottom);
       s.paintRacks = racks.paint;
       s.water = water; s.fish = water ? spawnFish(water, map.fish ?? 0, 7) : [];
-      s.door = door; s.overlays = overlays;
+      s.door = door; s.overlays = overlays; s.closedMap = withDoorClosed(map);
       const fishRandom = rng(Date.now()); racks.paint(dayNumber(controls.current.gameDate, controls.current.gameTime));
       s.map = map; s.items = interactions(map); s.p = spawn(map, controls.current.arrivedFrom);
       s.direction = arrivalDirection(map, controls.current.arrivedFrom);
@@ -196,7 +201,10 @@ export default function FacilityScene(props: Props) {
             if (moving) s.elapsed += dt;
           }
           if (!s.path.length && s.pending) { const pending = s.pending; s.pending = null; if (nearby(s.p, [pending])) actRef.current(pending); }
-          if (map.door) s.doorOpen = stepDoor(map, map.door, s.p, s.doorOpen, dt);
+          if (map.door) {
+            if (s.doorWanted && doorDistance(map, map.door, s.p) > map.door.trigger) s.doorWanted = false;   // 走遠了自己關
+            s.doorOpen = stepDoor(map.door, s.doorOpen, s.doorWanted, dt);
+          }
         }
         const target = camera({ x: s.p.x, y: s.p.y - ACTOR_HEIGHT / 2 }, s.view, map);
         if (s.settled && !frozen) s.camera = { x: approach(s.camera.x, target.x, dt), y: approach(s.camera.y, target.y, dt) };
@@ -269,7 +277,9 @@ export default function FacilityScene(props: Props) {
         const r = e.currentTarget.getBoundingClientRect(), p = { x: (e.clientX - r.left) / r.width * s.view.width + s.camera.x, y: (e.clientY - r.top) / r.height * s.view.height + s.camera.y };
         const item = clicked(p, s.items);
         if (item && nearby(s.p, s.items)?.id === item.id) { act(item); return; }
-        const path = findPath(s.map, s.p, item?.point ?? p);
+        // 門關著時不穿門找路；點門本身就走到門前（角色那一側），到了再開
+        const nav = s.doorWanted || s.doorOpen > 0 || !s.closedMap ? s.map : s.closedMap;
+        const path = findPath(nav, s.p, item?.kind === 'door' && s.map.door ? doorStand(s.map, s.map.door, s.p) : item?.point ?? p);
         s.path = path; s.pending = path.length ? item ?? null : null;
         if (!path.length) controls.current.onNotice('那裡無法通行。');
       }} />

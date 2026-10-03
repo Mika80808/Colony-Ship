@@ -349,14 +349,14 @@ def main():
     data = {
         'tileSize': T, 'width': W, 'height': H,
         'legend': {'0': '可行走', '1': '碰撞'},
-        'note': '由 tools/art/engineering_build.py 產生，不要手改。室內第 0–18 列（0–2 列北牆），下方是沿用居住區走廊素材的走廊：左通居住區 C、右通 D。門洞 passage 永遠可以尋路，門沒開完時程式擋住不讓走進去。',
+        'note': '由 tools/art/engineering_build.py 產生，不要手改。室內第 0–18 列（0–2 列北牆），下方是沿用居住區走廊素材的走廊：左通居住區 C、右通 D。門要按 E（或點門）才開，走遠自己關；門關著時尋路不穿過門洞，門沒開完時程式擋住不讓走進去。',
         'collision': collision,
         'entrances': [
             {'x': 0, 'y': corridor_top, 'w': 1, 'h': corridor_bottom - corridor_top, 'to': 'residential_c', 'label': '往居住區 C', 'spawn': [2, mid]},
             {'x': W - 1, 'y': corridor_top, 'w': 1, 'h': corridor_bottom - corridor_top, 'to': 'residential_d', 'label': '往居住區 D', 'spawn': [W - 2, mid]},
         ],
         'door': {
-            'id': 'blast-door', 'passage': passage,
+            'id': 'blast-door', 'label': '厚重隔音門', 'passage': passage,
             'opening': [OPEN_X, OPEN_TOP, OPEN_W, OPEN_H],
             'frame': {'src': 'door_frame.webp', 'x': DOOR_ZONE[0], 'y': O},
             'panels': {'left': 'door_left.webp', 'right': 'door_right.webp'},
