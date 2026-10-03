@@ -2,7 +2,7 @@ import { loadImage as load } from '../utils/loadImage';
 import { useSceneKeys } from './useSceneKeys';
 import { corridorDoorFrame, createCorridorDoorLeaves, drawCorridorDoor } from '../game/corridorDoor';
 import { useEffect, useRef, useState } from 'react';
-import { CorridorAsset, CorridorConfig, HEIGHT, WIDTH, SPAWN, Point, Interaction, findPath, move, interactions, nearby, signNotice, benchSeat, doorRoomId, spawnOutside, signFacility, FACILITY_SECTOR } from '../game/corridor';
+import { CorridorAsset, CorridorConfig, HEIGHT, WIDTH, SPAWN, Point, Interaction, findPath, move, interactions, nearby, signNotice, benchSeat, doorRoomId, spawnOutside, rightEdgeExit, signFacility, FACILITY_SECTOR } from '../game/corridor';
 import { FACILITIES } from '../game/facility';
 import { ACTOR_HEIGHT, fitViewport } from '../game/viewport';
 
@@ -12,7 +12,7 @@ interface Props {
   returnRoomId?: string | null;
   /** The facility the player just walked out of; they reappear under its sign. */
   arrivedFrom?: string | null;
-  /** Walk through a facility sign into that facility's scene. */
+  /** Walk off the corridor edge into the neighbouring facility. */
   onEnterFacility?: (sectorId: string) => void;
   onEnterRoom: (roomId: string) => void; onNotice: (text: string) => void;
   /** 每幀走了幾 px（推進遊戲時間用，見 game/clock.ts）。 */
@@ -101,6 +101,8 @@ export default function CorridorScene(props: Props) {
               const p=move(s.p,dx/distance*amount,dy/distance*amount,controls.current.corridor.collisions);const walked=Math.hypot(p.x-s.p.x,p.y-s.p.y);moving=walked>.01;s.p=p;if(moving)controls.current.onWalk?.(walked);
               s.direction=Math.abs(dx)>Math.abs(dy)?(dx>0?'right':'left'):(dy>0?'down':'up');
               if(moving)s.elapsed+=dt;
+              const sector=rightEdgeExit(s.p,dx,controls.current.corridor);
+              if(sector&&FACILITIES[sector]&&controls.current.onEnterFacility){keys.current.clear();controls.current.onEnterFacility(sector);return;}
             }
             if(!s.path.length&&s.pending) { const pending=s.pending;s.pending=null;if(nearby(s.p,[pending]))actRef.current(); }
           }
@@ -139,7 +141,9 @@ export default function CorridorScene(props: Props) {
         const r=e.currentTarget.getBoundingClientRect(), p={x:(e.clientX-r.left)/r.width*s.view+s.camera,y:(e.clientY-r.top)/r.height*HEIGHT};
         const item=s.items.find(i=>Math.abs(i.point.x-p.x)<(i.kind==='bench'?103:65)&&(i.kind==='bench'?p.y>=381&&p.y<=506:i.kind==='door'?p.y>=198&&p.y<=347:p.y>=160&&p.y<=230));
         const target=item?.kind==='bench'?benchSeat(item,p.x):item;
-        s.pending=target??null;s.path=findPath(s.p,target?.point??p,props.corridor.collisions);
+        const sector=FACILITY_SECTOR[props.corridor.right];
+        const exitClick=p.x>=WIDTH-50&&p.y>=397&&p.y<=775&&sector&&FACILITIES[sector];
+        s.pending=target??null;s.path=findPath(s.p,target?.point??(exitClick?{x:WIDTH-25,y:530}:p),props.corridor.collisions);
       }}/>
       {status&&<p role="status" className="corridor-status">{status}</p>}
     </div>

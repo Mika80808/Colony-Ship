@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FACILITIES, FacilityMap, blocked, camera, clicked, findPath, interactions, RADIUS, keyboardTarget, move, nearby, segmentClear, spawn, walkable, worldSize } from './facility';
+import { FACILITIES, FacilityMap, arrivalDirection, blocked, camera, clicked, findPath, interactions, RADIUS, keyboardTarget, move, nearby, segmentClear, spawn, walkable, worldSize } from './facility';
 import { ACTOR_HEIGHT } from './viewport';
 const load = (folder: string): FacilityMap => JSON.parse(readFileSync(`public/assets/${folder}/map.json`, 'utf8'));
 
@@ -20,6 +20,8 @@ for (const [sector, { folder }] of Object.entries(FACILITIES)) {
 
 // Greenhouse specifics.
 const m = load('greenhouse');
+assert.equal(arrivalDirection(m,'residential_a'),'right','A corridor enters from the left and faces right');
+assert.equal(arrivalDirection(m,'residential_b'),'left','B corridor enters from the right and faces left');
 const s = m.tileSize, centre = (x: number, y: number) => ({ x: (x + .5) * s, y: (y + .5) * s });
 assert.equal(s, 96); assert.deepEqual(worldSize(m), { width: 3840, height: 2688 });
 assert.equal(m.collision.length, m.height); for (const row of m.collision) assert.equal(row.length, m.width);

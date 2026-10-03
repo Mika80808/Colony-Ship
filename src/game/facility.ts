@@ -129,6 +129,13 @@ export function spawn(m: FacilityMap, from?: string | null): Point {
   const e = m.entrances.find(e => e.to === from) ?? m.entrances[0];
   return { x: e.spawn[0] * m.tileSize, y: e.spawn[1] * m.tileSize };
 }
+/** Face into the facility when arriving through a side entrance. */
+export function arrivalDirection(m: FacilityMap, from?: string | null): 'left' | 'right' | 'up' {
+  const e = m.entrances.find(e => e.to === from) ?? m.entrances[0];
+  if (e.x === 0) return 'right';
+  if (e.x + e.w === m.width) return 'left';
+  return 'up';
+}
 
 export function interactions(m: FacilityMap): FacilityInteraction[] {
   const at = (id: string, kind: string, label: string, text: string, area: TileRect, stand: Point): FacilityInteraction =>

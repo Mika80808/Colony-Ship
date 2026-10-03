@@ -50,6 +50,7 @@
 
 - A-1 房間：可遊玩，說明見 `docs/scenes/room-a1.md`。
 - 居住區 A 走廊：可遊玩，說明見 `docs/scenes/corridor-a.md`。走廊 B–D 只有擺放設定，素材沿用 A 走廊。
+- A 走廊右端步行接溫室；溫室招牌不再觸發傳送，從 A 走廊進溫室時角色面向右方。
 - 艦橋：可遊玩，說明見 `docs/scenes/bridge.md`。
 - 工程區：只有規劃圖腳本 `tools/art/engineering_plan.py`，還沒有場景。設施場景目前只登記溫室。
 

@@ -2,7 +2,7 @@ import { loadImage as load } from '../utils/loadImage';
 import { useSceneKeys } from './useSceneKeys';
 import { useEffect, useRef, useState } from 'react';
 import type { Point } from '../game/corridor';
-import { FacilityInteraction, FacilityMap, camera, clicked, findPath, interactions, keyboardTarget, move, nearby, spawn, worldSize } from '../game/facility';
+import { FacilityInteraction, FacilityMap, arrivalDirection, camera, clicked, findPath, interactions, keyboardTarget, move, nearby, spawn, worldSize } from '../game/facility';
 import { ACTOR_HEIGHT, approach, fitViewport } from '../game/viewport';
 import { CropsMeta, RacksMeta, layoutRack, rackBounds, rackKey } from '../game/racks';
 import { dayNumber, stageAt } from '../game/growth';
@@ -136,6 +136,7 @@ export default function FacilityScene(props: Props) {
       s.water = water; s.fish = water ? spawnFish(water, map.fish ?? 0, 7) : [];
       const fishRandom = rng(Date.now()); racks.paint(dayNumber(controls.current.gameDate, controls.current.gameTime));
       s.map = map; s.items = interactions(map); s.p = spawn(map, controls.current.arrivedFrom);
+      s.direction = arrivalDirection(map, controls.current.arrivedFrom);
       controls.current.onPosition?.(s.p);
       const box = canvas.parentElement!.getBoundingClientRect(); fit(box.width, box.height);
       setStatus(''); canvas.focus({ preventScroll: true });

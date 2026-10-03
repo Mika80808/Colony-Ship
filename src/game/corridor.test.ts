@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
-import { COLLISIONS, CORRIDORS, SPAWN, walkable, move, findPath, segmentClear, nearby, interactions, signNotice, benchSeat, doorRoomId, spawnOutside } from './corridor';
+import { COLLISIONS, CORRIDORS, RIGHT_EXIT_X, SPAWN, WIDTH, walkable, move, findPath, segmentClear, nearby, interactions, signNotice, benchSeat, doorRoomId, spawnOutside, rightEdgeExit } from './corridor';
 import { ROOMS } from '../data/initialGameData';
 import { readFileSync } from 'node:fs';
 assert.ok(walkable(SPAWN));
 for(const r of COLLISIONS) assert.equal(walkable({x:r.x+r.width/2,y:r.y+r.height/2}),false);
 for(const p of [{x:500,y:100},{x:500,y:790},{x:0,y:550},{x:3560,y:550}]) assert.equal(walkable(p),false);
+const rightEnd=move({x:RIGHT_EXIT_X-10,y:530},20,0);
+assert.equal(rightEdgeExit(rightEnd,1,CORRIDORS.residential_a),'greenhouse','Walking right at A corridor end enters the greenhouse');
+assert.equal(rightEdgeExit(rightEnd,-1,CORRIDORS.residential_a),null,'Walking back left does not exit');
+assert.equal(rightEdgeExit({x:WIDTH-25,y:397},1,CORRIDORS.residential_a),null,'A blocked wall edge is not an exit');
 assert.ok(move({x:1100,y:475},500,0).x<1174,'Movement cannot tunnel through a bench');
 for(const [a,b] of [[{x:1100,y:475},{x:1430,y:475}],[SPAWN,{x:3450,y:530}],[{x:1264,y:544},{x:1264,y:410}]]) {
  const path=findPath(a,b);assert.ok(path.length);let previous=a;
@@ -41,6 +45,8 @@ for (const [sectorId, c] of Object.entries(CORRIDORS)) {
 }
 {
  const assets=JSON.parse(readFileSync('public/assets/corridor-a/manifest.json','utf8'));
+ assert.equal(interactions(assets,CORRIDORS.residential_a).some(i=>i.id==='sign-greenhouse'),false,'A greenhouse sign is decorative, not a portal');
+ assert.ok(findPath({x:3450,y:530},{x:WIDTH-25,y:530}).length,'The right walkway reaches the greenhouse exit');
  assert.deepEqual(spawnOutside(assets,CORRIDORS.residential_a,'A-1'),SPAWN,'leaving A-1 lands exactly where it always has');
  assert.deepEqual(spawnOutside(assets,CORRIDORS.residential_a,null),SPAWN,'arriving from elsewhere uses the corridor spawn');
  assert.deepEqual(spawnOutside(assets,CORRIDORS.residential_a,'B-2'),SPAWN,"another sector's room falls back to the spawn");

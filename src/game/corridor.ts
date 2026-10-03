@@ -2,6 +2,7 @@ export interface Point { x: number; y: number }
 export interface Rect { x: number; y: number; width: number; height: number }
 export interface CorridorAsset extends Rect { id: string; kind: string; src?: string }
 export const WIDTH = 3560, HEIGHT = 996, RADIUS = 17;
+export const RIGHT_EXIT_X = WIDTH - 45;
 export const SPAWN = { x: 500, y: 530 };
 export const COLLISIONS: Rect[] = [
   { x: 278, y: 347, width: 136, height: 38 },
@@ -46,6 +47,12 @@ export function walkable(p: Point, collisions = COLLISIONS): boolean {
   if (p.x < 25 || p.x > WIDTH - 25 || p.y < 397 || p.y > 775) return false;
   return !collisions.some(r => p.x > r.x - RADIUS && p.x < r.x + r.width + RADIUS && p.y > r.y - RADIUS && p.y < r.y + r.height + RADIUS);
 }
+/** Crossing the walkable right end of a corridor leads into its neighbouring facility. */
+export function rightEdgeExit(p: Point, dx: number, corridor: CorridorConfig): string | null {
+  return dx > 0 && p.x >= RIGHT_EXIT_X && walkable(p, corridor.collisions)
+    ? FACILITY_SECTOR[corridor.right]
+    : null;
+}
 export function move(p: Point, dx: number, dy: number, collisions = COLLISIONS): Point {
   const result = { ...p }, steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 8));
   for (let i = 0; i < steps; i++) {
@@ -88,7 +95,7 @@ export function findPath(from: Point, to: Point, collisions = COLLISIONS): Point
 }
 export interface Interaction { id: string; label: string; point: Point; kind: 'door' | 'bench' | 'sign' }
 export function interactions(assets: CorridorAsset[], corridor = CORRIDORS.residential_a): Interaction[] {
-  return assets.filter(a => ['door','bench','sign'].includes(a.kind)).map(a => ({
+  return assets.filter(a => ['door','bench','sign'].includes(a.kind) && !(corridor.letter === 'A' && a.id === 'sign-greenhouse')).map(a => ({
     id: a.id, kind: a.kind as Interaction['kind'],
     label: a.kind === 'door' ? `${corridor.letter}-${a.id.split('-')[1]} 房門` : a.kind === 'bench' ? '坐下休息' : `${FACILITY_NAMES[signFacility(a.id)]}方向`,
     point: { x: a.x+a.width/2, y: a.kind === 'bench' ? 544 : 415 },

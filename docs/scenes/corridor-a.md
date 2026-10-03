@@ -9,6 +9,7 @@
 - 地板、牆面、星空各自載入。繪圖時以門片遮罩清除牆面中重複的關門影像。
 - 碰撞與互動：src/game/corridor.ts。素材座標：public/assets/corridor-a/manifest.json。
 - 角色腳底限制在 x=25～3535、y=397～775，並避開各物件的接地碰撞範圍。
+- 沿走廊右端走出去會進入溫室；右側溫室招牌只作指引，點擊不傳送。從這裡進入溫室時角色面向右方。
 - 視窗自適應，鏡頭跟隨角色左右移動；彈窗或抽屜開啟時暫停。
 
 檢查：npm run lint；node --import tsx src/game/corridor.test.ts；npm run build。
