@@ -14,6 +14,7 @@ description: 星際港場景物件（機台、家具、擺設）的繪製流程�
 - 跟 RPG Maker、星露谷一樣：地板格是正方形；**矮的東西（桌子、控制台、推車）主要看到頂面**，高的東西（櫃子、貨架、機台）看到正面加頂面。
 - 不要等角（isometric）斜轉，不要透視收縮。
 - 光源左上。風格：clean hand-painted HD 2D game art、soft cel shading、crisp dark outlines、low texture noise，不是像素畫。
+- **年代感：2070 年的星艦科技，乾淨、保養良好**。不要鏽斑、大片油污、破舊工業風（工程區第一批生成太舊，使用者手修掉鏽斑並刪掉四張電腦桌）。prompt 要寫 clean, well-maintained 2070 starship equipment, minimal wear, no rust；區域特色（例：工程區的警示黃）只當點綴。
 - 舊規範「頂面每格 16 px／96 格 24 px」**不適用於場景物件**：照那個畫白模，模型會畫成正面圖。
 
 ## 流程
@@ -45,7 +46,7 @@ Add these props naturally on top of the existing map (positions are percent of i
 1. <物件>: x <左-右>%, bottom edge at y <%>, <高矮>. <造型描述>
 ...
 
-Style: clean hand-painted HD 2D game art matching the floor, soft cel shading, crisp dark outlines, low texture noise, not pixel art. <區域材質，見 starport-asset-gen 第四節>. Light from the upper left.
+Style: clean hand-painted HD 2D game art matching the floor, soft cel shading, crisp dark outlines, low texture noise, not pixel art. Clean, well-maintained 2070 starship equipment, minimal wear, no rust. <區域材質，見 starport-asset-gen 第四節>. Light from the upper left.
 No characters, no UI, no text, no labels, no numbers, no watermark, no glow halos.
 ```
 
