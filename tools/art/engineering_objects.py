@@ -42,9 +42,29 @@ SEAT_SPRITES = {'chair': ('batch11_small', 4, 78), 'stool': ('batch11_small', 5,
 # 生出來的比例跟參考圖差很多的，改照高度縮放（遊戲 px）：機械手臂的手臂往旁邊伸，照寬度縮會太小
 HEIGHT_FIT = {'robot-arm': 258}
 
+# 備用素材：已生好、切好，還沒擺進地圖（等使用者決定工廠流程）。{sheet: [(order, 圖名, 遊戲寬 px, 名稱)]}
+# 寬度依佔地格數估（一格 96 px），參考既有的椅子 78、工具推車 165。
+SPARES = {
+    'batch16_conveyors': [(0, 'conveyor-h', 384, '輸送帶（橫）'), (1, 'conveyor-v', 106, '輸送帶（直）')],
+    'batch17_workbench_kit': [
+        (0, 'esd-bench', 250, '防靜電精密工作台'), (1, 'diag-cart', 150, '診斷測試推車'), (2, 'solder-station', 130, '焊接排煙站'),
+        (3, 'stack-cart', 110, '模組工具箱推車'), (4, 'scan-arch', 200, '品檢掃描門'), (5, 'cobot', 130, '移動式協作手臂'),
+        (6, 'printer-3d', 120, '3D 列印機'), (7, 'eng-stool', 62, '工程師高腳椅'), (8, 'parts-drawers', 100, '零件抽屜櫃')],
+    'batch18_logistics': [
+        (0, 'lift-tower', 130, '自動倉儲塔'), (1, 'amr', 110, '自走搬運機器人'), (2, 'shop-crane', 170, '移動吊臂'),
+        (3, 'case-dolly', 140, '工具箱台車'), (4, 'gas-rack', 120, '氣瓶架'), (5, 'scrap-bins', 180, '回收分類桶'),
+        (6, 'charge-locker', 125, '電池充電櫃'), (7, 'material-cart', 170, '板材管材推車'), (8, 'spare-pallet', 150, '備品棧板')],
+    'batch19_crew_corner': [
+        (0, 'coffee-counter', 160, '咖啡吧台'), (1, 'plan-board', 170, '移動白板'), (2, 'sofa', 192, '雙人沙發'),
+        (3, 'side-table', 66, '小邊桌'), (4, 'eyewash', 115, '洗眼沖淋站'), (5, 'extinguisher', 46, '滅火器'),
+        (6, 'mini-fridge', 70, '小冰箱'), (7, 'step-ladder', 110, '移動登高梯'), (8, 'ppe-rack', 120, '防護裝備架')],
+}
+
 def sheets():
     """{sheet: [(order, sprite 名稱, 目標寬, 目標高或 None)]}，切圖用。"""
     out = {}
     for oid, _, _, _, width, _, sheet, order, *_ in OBJECTS: out.setdefault(sheet, []).append((order, oid, width, HEIGHT_FIT.get(oid)))
     for name, (sheet, order, width) in SEAT_SPRITES.items(): out.setdefault(sheet, []).append((order, name, width, None))
+    for sheet, items in SPARES.items():
+        for order, name, width, _ in items: out.setdefault(sheet, []).append((order, name, width, None))
     return {k: sorted(v) for k, v in out.items()}

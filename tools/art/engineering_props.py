@@ -20,6 +20,8 @@ from engineering_objects import sheets
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 RAW = os.path.join(ROOT, 'tools/art/engineering/raw')
 OUT = os.path.join(ROOT, 'public/assets/engineering/props')
+# 格子排得比較擠的表：併塊距離調小，免得把上下相鄰的兩件併成一件
+JOIN = {'batch17_workbench_kit': 10, 'batch18_logistics': 10, 'batch19_crew_corner': 10}
 
 def remove_background(im):
     a = np.asarray(im).astype(np.int16)
@@ -73,7 +75,7 @@ def cut(sheet, raw=None):
     plan = sheets()[sheet]
     im = Image.open(raw or os.path.join(RAW, f'{sheet}.png')).convert('RGBA')
     rgba = remove_background(im)
-    boxes = objects_in(rgba, len(plan))
+    boxes = objects_in(rgba, len(plan), join=JOIN.get(sheet, 40))
     src = Image.fromarray(rgba)
     os.makedirs(OUT, exist_ok=True)
     for (order, name, width, height), (x0, y0, x1, y1) in zip(plan, boxes):
