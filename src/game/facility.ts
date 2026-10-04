@@ -119,12 +119,13 @@ export function findPath(m: FacilityMap, from: Point, to: Point, escaping = true
   const h = (x: number, y: number) => Math.hypot(x - goal[0], y - goal[1]);
   const g = new Map([[id(start[0], start[1]), 0]]), parent = new Map<number, number>();
   const open = [{ x: start[0], y: start[1], f: h(start[0], start[1]) }], closed = new Set<number>();
-  let found = false;
+  // 終點那格的中心可能被精細碰撞（collisionRects）蓋住：任何一格中心能直線走到終點，就算到了
+  let found = false, last = goalId;
   while (open.length) {
     let best = 0; for (let i = 1; i < open.length; i++) if (open[i].f < open[best].f) best = i;
     const { x, y } = open.splice(best, 1)[0], cur = id(x, y);
     if (closed.has(cur)) continue; closed.add(cur);
-    if (cur === goalId) { found = true; break; }
+    if (cur === goalId || segmentClear(m, tileCentre(m, x, y), to)) { found = true; last = cur; break; }
     for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
       const nx = x + dx, ny = y + dy;
       if (!walkable(m, tileCentre(m, nx, ny)) || !segmentClear(m, tileCentre(m, x, y), tileCentre(m, nx, ny)) || (dx && dy && (!walkable(m, tileCentre(m, x + dx, y)) || !walkable(m, tileCentre(m, x, y + dy))))) continue;
@@ -135,8 +136,8 @@ export function findPath(m: FacilityMap, from: Point, to: Point, escaping = true
   }
   if (!found) return [];
   const tiles: Point[] = [];
-  for (let c: number | undefined = goalId; c !== undefined; c = parent.get(c)) tiles.unshift(tileCentre(m, c % W, Math.floor(c / W)));
-  const points = [from, ...tiles.slice(1, -1), to], path: Point[] = [];
+  for (let c: number | undefined = last; c !== undefined; c = parent.get(c)) tiles.unshift(tileCentre(m, c % W, Math.floor(c / W)));
+  const points = [from, ...tiles.slice(1, last === goalId ? -1 : undefined), to], path: Point[] = [];
   for (let i = 0; i < points.length - 1;) {
     let j = points.length - 1;
     while (j > i + 1 && !segmentClear(m, points[i], points[j])) j--;

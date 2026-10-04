@@ -4,9 +4,15 @@
 
 機台依工作流程分區（v5，2026-10-04）：大門內側右邊收件區（待修品架、剛送來的待修品、貨箱）、左邊休息角；中央 4 格寬通道從大門直通維修區（維修中機台在通道盡頭，四周警示條紋，兩旁工作台與工具推車）；右上製造區（大型製造機、操作台，東牆材料架供料、零件架靠近維修區）；左上研發角（研發桌、組裝手臂、設計終端，離門最遠）；西牆公用設備（閥門組接北牆管線、配電盤、工具牆）。
 
-- 機台清單（位置、大小、互動文字）在 `tools/art/engineering_objects.py`，地圖、白模、預覽都從這裡產生。投影規則：物件正面朝南、頂面每格 24 px，圖要蓋滿佔地（d ≤ 1.33 h），所以高的靠牆、矮的只佔 1 格深。
-- 白模畫出真實輪廓（桌腳、開放層架、管子、手臂），空的地方留洋紅，生圖才不會每件都變成櫃子。白模表與 prompt 在 `場景/工程區/`，原圖 `tools/art/engineering/raw/batch2_props_A.png`、`batch3_props_B.png`，切圖位置 `tools/art/engineering/props_sheets.json`（B 表的待修品架與材料架位置跟白模相反，已在 json 對調並註記）。
-- 流程：`engineering_props.py whitebox`（白模表）→ Codex 生圖 → `engineering_props.py cut`（切成 `public/assets/engineering/props/<id>.webp`，去洋紅）→ `engineering_build.py`（有圖的機台才放進 map.json：decor、佔地碰撞、互動）→ `engineering_door.py cut`（換回生圖的門）。
+- 機台照 `.claude/skills/starport-scene-props/` 的流程做（2026-10-04 v6）：先在底圖上生兩張擺設參考圖（`tools/art/engineering/raw/batch4_dressed_top.png`、`batch5_dressed_bottom.png`），再依參考圖分 6 批生最終物件（`batch6`–`batch11`），prompt 在 `場景/工程區/`。第一版（batch2、batch3）是正面圖，已淘汰。
+- 機台清單 `tools/art/engineering_objects.py`：位置與大小是量自參考圖的遊戲 px（底部中心、圖寬、碰撞深度），加上在哪張生圖第幾件。椅子、凳子在 `SEATS`，不擋路。
+- **要修改時**：
+  - 改圖：修 `tools/art/engineering/raw/<批次>.png`，再跑 `uv run --with pillow --with numpy --with scipy python tools/art/engineering_props.py <批次>`（或 `all`）。直接改 `public/assets/engineering/props/<名稱>.webp` 也可以，但重切會被蓋掉。
+  - 改位置、大小、碰撞、互動文字：改 `engineering_objects.py`。
+  - 改完都要重跑 `engineering_build.py`，再跑 `engineering_door.py cut tools/art/engineering/raw/batch1_door.png`。
+- 切圖：自動找出每件（相距 40 px 內的併成一件，散落零件併給 80 px 內的大塊），依閱讀順序對到清單，縮到參考圖量出的寬度；比例差太多的（機械手臂）改照高度（`HEIGHT_FIT`）。
+- 碰撞是每件從底邊往上 depth 格的精細矩形（collisionRects）；互動站位由 `engineering_build.py` 自動挑：從入口走得到、在互動範圍內（離圖 ≤ 48 px）、最靠近正前方、不站在椅子上。
+- 第 3 列第 1–4 欄夾在閥門組／研發桌和北牆之間，走不到，是刻意的。
 - GM 會拿到工程區的物件清單與玩家附近的物件（facilityContext.ts）。
 
 - 地圖 16 × 30 格（每格 96 px）。室內第 0–18 列，其中 0–2 列是北牆立面；第 19 列以下是走廊。

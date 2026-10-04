@@ -132,6 +132,7 @@ console.log('greenhouse ok');
   for (let y = 0; y < e.height; y++) for (let x = 0; x < e.width; x++) {
     if (blocked(e, x, y)) { assert.equal(walkable(e, centre(x, y)), false, `tile ${x},${y}`); continue; }
     if (!walkable(e, centre(x, y))) continue;   // 牆簷底下那一列只有上緣能站
+    if (y === 3 && x <= 4) { assert.deepEqual(findPath(e, fromC, centre(x, y)), [], `tile ${x},${y} is behind the valves and R&D bench`); continue; }
     assert.ok(findPath(e, fromC, centre(x, y)).length, `engineering tile ${x},${y} reachable`);
   }
   const { passage } = door, wallTop = passage.y, wallBottom = passage.y + passage.h;

@@ -6,7 +6,7 @@ const ENGINEERING_NAMES: Record<string, string> = {
   valves: '管線閥門組', 'rnd-bench': '研發桌', 'robot-arm': '組裝機械手臂', 'fab-console': '設計終端', drums: '耗材油桶',
   fabricator: '大型製造機', materials: '材料架', 'section-monitor': '製造機操作台', 'power-panel': '配電盤', 'tool-wall': '工具牆',
   repair: '維修中機台', workbench: '檢修工作台', 'tool-cart': '工具推車', 'parts-shelves': '零件貨架', lockers: '休息角置物櫃',
-  'repair-queue': '待修品架', crates: '貨箱', 'repair-pallet': '剛送來的待修品',
+  'repair-queue': '待修品架', crates: '貨箱', 'repair-pallet': '剛送來的待修品', chair: '辦公椅', stool: '圓凳',
 };
 
 const propName = (sprite: string): string => {

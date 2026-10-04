@@ -381,17 +381,58 @@ def main():
             elif y < corridor_bottom: row.append(0)
             else: row.append(1)
         collision.append(row)
-    # 機台（engineering_objects.py）：圖切好了（props/<id>.webp 存在）才擺上去，佔地當碰撞、說明文字當互動
-    from engineering_objects import OBJECTS, sprite_size
-    decor, items = [], []
-    for oid, label, ox, oy, ow, od, oh, _batch, stand, text in OBJECTS:
-        if not os.path.exists(os.path.join(OUT, 'props', f'{oid}.webp')): continue
-        for ty in range(oy, oy + od):
-            for tx in range(ox, ox + ow): collision[ty][tx] = 1
-        decor.append({'sprite': oid, 'id': oid, 'x': ox + ow / 2, 'y': oy + od, 'scale': 1, 'block': True})
-        sh = sprite_size(ow, od, oh, oid)[1] / T
-        if text: items.append({'id': oid, 'kind': 'machine', 'label': label, 'text': text, 'area': [ox, round(oy + od - sh, 4), ow, round(sh, 4)], 'stand': list(stand)})
+    # 機台（engineering_objects.py v6）：圖切好了（props/<名稱>.webp 存在）才擺上去。
+    # 位置是遊戲 px（底部中心），碰撞是從底邊往上 depth 格的精細矩形（collisionRects），點擊範圍是整張圖
+    from engineering_objects import OBJECTS, SEATS
+    decor, items, object_rects = [], [], []
+    r4 = lambda v: round(v, 4)
+    for oid, label, cx, bottom, width, depth, _sheet, _order, text, stand in OBJECTS:
+        path = os.path.join(OUT, 'props', f'{oid}.webp')
+        if not os.path.exists(path): continue
+        w, h = Image.open(path).size
+        decor.append({'sprite': oid, 'id': oid, 'x': r4(cx / T), 'y': r4(bottom / T), 'scale': 1, 'block': depth > 0})
+        if depth:
+            pad = min(12, w * .06)
+            object_rects.append({'x': r4((cx - w / 2 + pad) / T), 'y': r4(bottom / T - depth), 'w': r4((w - 2 * pad) / T), 'h': depth})
+        if text:
+            sx, sy = stand or (cx, bottom + 40)
+            items.append({'id': oid, 'kind': 'machine', 'label': label, 'text': text,
+                          'area': [r4((cx - w / 2) / T), r4((bottom - h) / T), r4(w / T), r4(h / T)], 'stand': [r4(sx / T), r4(sy / T)]})
+    for sid, sprite, cx, bottom in SEATS:
+        if os.path.exists(os.path.join(OUT, 'props', f'{sprite}.webp')):
+            decor.append({'sprite': sprite, 'id': sid, 'x': r4(cx / T), 'y': r4(bottom / T), 'scale': 1})
     mid = (corridor_top + corridor_bottom) / 2
+    # 互動站位自動挑：從入口出發走得到、在互動範圍內（離圖 ≤ 48 px）、最靠近物件正前方中點的位置
+    stop_ = math.ceil((O + FEET_UNDER_CAP + 22) / T * 10000) / 10000
+    all_rects = [(0, stop_, passage['x'], corridor_top - stop_), (passage['x'] + passage['w'], stop_, W - passage['x'] - passage['w'], corridor_top - stop_)] +                 [(r['x'], r['y'], r['w'], r['h']) for r in object_rects]
+    def free(px, py, R=24):
+        if px < R or py < R or px > W * T - R or py > H * T - R: return False
+        for ty in range(int((py - R) // T), min(H - 1, int((py + R) // T)) + 1):
+            for tx in range(int((px - R) // T), min(W - 1, int((px + R) // T)) + 1):
+                if collision[ty][tx] and math.hypot(px - max(tx * T, min(px, tx * T + T)), py - max(ty * T, min(py, ty * T + T))) < R: return False
+        for rx, ry, rw, rh in all_rects:
+            x0, y0 = rx * T, ry * T
+            if math.hypot(px - max(x0, min(px, x0 + rw * T)), py - max(y0, min(py, y0 + rh * T))) < R: return False
+        return True
+    STEP = 12
+    start = (round(2 * T / STEP), round(mid * T / STEP))
+    seen, todo = {start}, [start]
+    while todo:
+        gx, gy = todo.pop()
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            n = (gx + dx, gy + dy)
+            if n not in seen and free(n[0] * STEP, n[1] * STEP): seen.add(n); todo.append(n)
+    for it in items:
+        ax, ay, aw, ah = (v * T for v in it['area'])
+        fx, fy = ax + aw / 2, ay + ah + 30                       # 正前方中點
+        def ok(g):
+            px, py = g[0] * STEP, g[1] * STEP
+            d = math.hypot(px - max(ax, min(px, ax + aw)), py - max(ay, min(py, ay + ah)))
+            near_seat = any(abs(px - scx) < 50 and -60 < py - sb < 30 for _, _, scx, sb in SEATS)   # 不要站在椅子上
+            return 0 < d <= 48 and not near_seat
+        best = min((g for g in seen if ok(g)), key=lambda g: math.hypot(g[0] * STEP - fx, g[1] * STEP - fy), default=None)
+        if best is None: raise SystemExit(f'{it["id"]}: 找不到走得到的互動站位')
+        it['stand'] = [r4(best[0] * STEP / T), r4(best[1] * STEP / T)]
     stop = math.ceil((O + FEET_UNDER_CAP + 22) / T * 10000) / 10000   # 腳圈半徑 22：腳點停在牆頂下 FEET_UNDER_CAP（無條件進位，不會差一點點就擋住）
     wall_rects = [{'x': 0, 'y': stop, 'w': passage['x'], 'h': corridor_top - stop},
                   {'x': passage['x'] + passage['w'], 'y': stop, 'w': W - passage['x'] - passage['w'], 'h': corridor_top - stop}]
@@ -400,7 +441,7 @@ def main():
         'legend': {'0': '可行走', '1': '碰撞'},
         'note': '由 tools/art/engineering_build.py 產生，不要手改。室內第 0–18 列（0–2 列北牆），下方是沿用居住區走廊素材的走廊：左通居住區 C、右通 D。門要按 E（或點門）才開，走遠自己關；門關著時尋路不穿過門洞，門沒開完時程式擋住不讓走進去。',
         'collision': collision,
-        'collisionRects': wall_rects,
+        'collisionRects': wall_rects + object_rects,
         'entrances': [
             {'x': 0, 'y': corridor_top, 'w': 1, 'h': corridor_bottom - corridor_top, 'to': 'residential_c', 'label': '往居住區 C', 'spawn': [2, mid]},
             {'x': W - 1, 'y': corridor_top, 'w': 1, 'h': corridor_bottom - corridor_top, 'to': 'residential_d', 'label': '往居住區 D', 'spawn': [W - 2, mid]},
