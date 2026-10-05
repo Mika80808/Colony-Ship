@@ -383,14 +383,15 @@ def main():
         collision.append(row)
     # 機台（engineering_objects.py v6）：圖切好了（props/<名稱>.webp 存在）才擺上去。
     # 位置是遊戲 px（底部中心），碰撞是從底邊往上 depth 格的精細矩形（collisionRects），點擊範圍是整張圖
-    from engineering_objects import OBJECTS, SEATS
+    from engineering_objects import OBJECTS, SEATS, SHARED_SPRITE
     decor, items, object_rects = [], [], []
     r4 = lambda v: round(v, 4)
     for oid, label, cx, bottom, width, depth, _sheet, _order, text, stand in OBJECTS:
-        path = os.path.join(OUT, 'props', f'{oid}.webp')
+        sprite = SHARED_SPRITE.get(oid, oid)
+        path = os.path.join(OUT, 'props', f'{sprite}.webp')
         if not os.path.exists(path): continue
         w, h = Image.open(path).size
-        decor.append({'sprite': oid, 'id': oid, 'x': r4(cx / T), 'y': r4(bottom / T), 'scale': 1, 'block': depth > 0})
+        decor.append({'sprite': sprite, 'id': oid, 'x': r4(cx / T), 'y': r4(bottom / T), 'scale': 1, 'block': depth > 0})
         if depth:
             pad = min(12, w * .06)
             object_rects.append({'x': r4((cx - w / 2 + pad) / T), 'y': r4(bottom / T - depth), 'w': r4((w - 2 * pad) / T), 'h': depth})

@@ -8,8 +8,9 @@ the canvas.
 Output: 688x688, 172px cells, the same spec as Lucian's walk.webp --
 feet on y=166 (RoomScene draws the sprite 166/172 above the floor point),
 centred on x=86, and one scale for the whole sheet chosen so the first
-standing frame is as tall as Lucian's. A single scale keeps the walk bob the
-artist drew; scaling each frame to fit would flatten it.
+standing frame is as tall as Lucian's (or a little shorter, when that would
+push the tallest step frame out of its cell). A single scale keeps the walk
+bob the artist drew; scaling each frame to fit would flatten it.
 
 Usage: pack_walk_sheet.py <source> <out.webp>
 """
@@ -47,11 +48,12 @@ def main():
     cells = [[sheet.crop((c0, r0, c1, r1)) for c0, c1 in cols] for r0, r1 in rows]
     cells = [[cell.crop(cell.getbbox()) for cell in row] for row in cells]
     scale = STAND_HEIGHT / cells[0][0].height
-    # A bob frame taller than the standing one can overflow the feet line; shrink the
-    # whole sheet just enough to fit (one scale keeps the drawn bob intact).
+    # A tall step frame (big bob or a hair flick) would poke out of the cell;
+    # shrink the whole sheet just enough instead of cropping that one frame.
     tallest = max(cell.height for row in cells for cell in row)
     if tallest * scale > FEET_Y:
         scale = FEET_Y / tallest
+        print(f'tallest frame {tallest}px: scale lowered to fit the cell')
 
     atlas = Image.new('RGBA', (CELL * 4, CELL * 4))
     for r, row in enumerate(cells):

@@ -53,15 +53,27 @@
 - 居住區 A 走廊：可遊玩，說明見 `docs/scenes/corridor-a.md`。走廊 B–D 只有擺放設定，素材沿用 A 走廊。
 - A 走廊右端步行接溫室；溫室招牌不再觸發傳送，從 A 走廊進溫室時角色面向右方。
 - 艦橋：可遊玩，說明見 `docs/scenes/bridge.md`。
-- 工程區：可遊玩，14 件機台已擺（RPG 斜俯視、乾淨的 2070 年風格，使用者手修過；電腦桌已刪；依工作流程分區：收件區、中央通道、維修區、製造區、研發角），說明見 `docs/scenes/engineering.md`。下方走廊沿用居住區走廊素材，左通 C、右通 D；厚重門要按 E（或點門）才開、走遠自己關，門沒開完會擋人。居住區走廊左右兩端都能直接走進有場景的設施（B 左端進溫室、C 右端與 D 左端進工程區）。定位是外環的維修與研發工坊，沒有引擎與重力裝置。
-  - 備用物件（2026-10-04，還沒擺進地圖，等使用者決定工廠流程；**batch17–19 跳過擺設參考圖直接生，多數高物件是正面圖，不合 RPG 規範，待照流程重畫**）：輸送帶橫、直各一（batch16），加上三批各 9 件：精密工作站（batch17：防靜電工作台、診斷推車、焊接排煙站、模組工具箱推車、品檢掃描門、協作手臂、3D 列印機、高腳椅、零件抽屜櫃）、倉儲物流（batch18：自動倉儲塔、搬運機器人、移動吊臂、工具箱台車、氣瓶架、回收分類桶、電池充電櫃、板材管材推車、備品棧板）、休息與安全角（batch19：咖啡吧台、移動白板、沙發、小邊桌、洗眼沖淋站、滅火器、小冰箱、登高梯、防護裝備架）。清單在 `tools/art/engineering_objects.py` 的 `SPARES`，圖在 `public/assets/engineering/props/`；造型參考 ToughBuilt StackTech（石墨灰框、黃色扣件、青藍燈條）。
+- 工程區：可遊玩，14 件機台已擺（RPG 斜俯視、乾淨的舊版風格，使用者手修過；電腦桌已刪；依工作流程分區：收件區、中央通道、維修區、製造區、研發角），說明見 `docs/scenes/engineering.md`。下方走廊沿用居住區走廊素材，左通 C、右通 D；厚重門要按 E（或點門）才開、走遠自己關，門沒開完會擋人。居住區走廊左右兩端都能直接走進有場景的設施（B 左端進溫室、C 右端與 D 左端進工程區）。定位是外環的維修與研發工坊，沒有引擎與重力裝置。
+  - **設計語言改定（2026-10-04）：世界觀是 2050 年高科技星艦，物件要 sci-fi workshop concept**（霧面石墨＋白色複合外殼、圓角、隱藏螺絲、嵌入燈條；不要外露螺栓、粗保險桿腳、波紋軟管、舊螢幕）。規範寫進兩個 skill；風格參考圖 `場景/工程區/style_ref_*.png`。舊風格的生圖紀錄搬到 `場景/_舊風格封存/工程區_2026-10-04/`（使用者確認後可刪）。地圖上已擺的 14 件還是舊風格，流程定了再換。
+  - 新風格備用物件（還沒擺進地圖）：
+    - 精密工作站 9 件：參考圖 batch20b → 最終 batch21（工作台、掃描門、3D 列印機、抽屜櫃）、batch22（診斷推車、焊接站、協作手臂、工具箱推車、高腳椅），取代舊的 batch17 正面圖（同檔名）。
+    - 大型機台 4 件：參考圖 batch27（不限尺寸）→ 最終 batch28（大型製造機 `mega-fabricator`、自動診修艙 `diag-repair`：斷層掃描＋內建手臂，診斷／測試／維修合一）、batch29（全息設計桌 `holo-desk`、材料回收機 `recycler`）。
+    - 倉儲物流有新風格參考圖 batch23，使用者決定不做最終物件；休息與安全角不重做。
+    - 目錄圖：`場景/工程區/catalog_workbench.png`、`catalog_machines.png`。
+  - 舊風格備用物件（batch16、18、19，跳過擺設參考圖，多數是正面圖）：輸送帶橫、直各一（batch16）、倉儲物流（batch18：自動倉儲塔、搬運機器人、移動吊臂、工具箱台車、氣瓶架、回收分類桶、電池充電櫃、板材管材推車、備品棧板）、休息與安全角（batch19：咖啡吧台、移動白板、沙發、小邊桌、洗眼沖淋站、滅火器、小冰箱、登高梯、防護裝備架）。清單在 `tools/art/engineering_objects.py` 的 `SPARES`，圖在 `public/assets/engineering/props/`。
+
+## 中央廣場（規劃中）
+
+- 2026-10-05 v2 分區（使用者給全艦配置圖 `tools/art/plaza/station_layout_ref.png` 後改版）：RPG 構圖、圓形廣場＋十字通道（上研究室、右農業區、下醫療室、左工程區），圓外是星空底圖。中央塔是直筒，塔身畫到地圖頂、玩家在後面時半透明；電梯門朝南。北半圈兩間有 NPC 的大店面（西北酒吧、東北餐廳＋進貨口），東西兩側無人小店（物資店、服飾店），店面一律正面朝鏡頭；美食街座位環繞中央塔。電子投影已刪除。說明見 `docs/scenes/plaza.md`，規劃圖 `tools/art/plaza/plaza_plan_v2.png`（`tools/art/plaza_plan.py`）。
+- 營業時間模組 `src/game/shopHours.ts`（餐廳 08–20、酒吧 20–02，含測試）。
+- 下一步：使用者確認 v2 配置與待決定事項後做底圖。
 
 ## 角色素材
 
 詳見 `docs/characters.md`。
 
-- 五位 NPC（路西恩、布雷茲、艾登、伊森、盧卡）素材統一規格：角色卡、立繪、六表情（neutral／happy／sad／angry／surprised／shy）、688×688 行走圖，全部在 `public/assets/<小寫 id>/`。整理腳本 `tools/art/characters_build.py`（可重跑、結果一致），驗收總覽 `tools/art/characters/review_sheet.png`。
-- 2026-10-05（T1，Codex 實作、Claude Code 驗收）：Aiden／Ethan／Luca 目錄改小寫、`normal`→`neutral`、`troubled`→`sad`、行走圖從 1254 原圖縮成 688；布雷茲六表情由 Codex 生成的表情表切出；艾登、伊森、盧卡登錄成內建 NPC（中文名暫用音譯，人物設定待補，不指定房號、日程、部門）。故事書可編輯沒有日程的既有角色。
+- 五位 NPC（路西恩、布雷茲、艾登、伊森、路卡）素材統一規格：角色卡、立繪、六表情（neutral／happy／sad／angry／surprised／shy）、688×688 行走圖，全部在 `public/assets/<小寫 id>/`。整理腳本 `tools/art/characters_build.py`（可重跑、結果一致），驗收總覽 `tools/art/characters/review_sheet.png`。
+- 2026-10-05（T1，Codex 實作、Claude Code 驗收）：Aiden／Ethan／Luca 目錄改小寫、`normal`→`neutral`、`troubled`→`sad`、行走圖從 1254 原圖縮成 688；布雷茲六表情由 Codex 生成的表情表切出；艾登、伊森、路卡登錄成內建 NPC（中文名暫用音譯，人物設定待補，不指定房號、日程、部門）。故事書可編輯沒有日程的既有角色。
 - `tools/pack_walk_sheet.py`：走路影格比站姿高、會超出腳底線時，整張改用剛好放得下的比例（盧卡需要）。
 - 玩家：只有行走圖，造型由玩家自訂，不做頭像、立繪、表情。
 - 2026-10-05（T3，Codex 實作、Claude Code 驗收）：10 位候選男角體型立繪（黑色無袖背心＋黑短褲、赤腳），供挑選角色外型；女性向，身高 176–194 cm，體型涵蓋精瘦、力量、纖細、壯碩、泳將、成熟、高挑、拳擊、書卷、格鬥。成品 `tools/art/candidates/C01~C10.webp`、身高比例並排圖 `tools/art/candidates/lineup.png`、提示詞 `prompts.md`，腳本 `tools/art/candidates_build.py`。不進遊戲。

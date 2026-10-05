@@ -71,8 +71,8 @@ export const INITIAL_RELATIONSHIP = '陌生';
 
 /**
  * 世界觀設定：NPC。
- * 路西恩、布雷茲、艾登、伊森、盧卡皆有角色卡、立繪、六種表情與行走圖。
- * 艾登、伊森、盧卡的人物設定待補，暫不指定房號、日程或部門。
+ * 路西恩、布雷茲、艾登、伊森、路卡皆有角色卡、立繪、六種表情與行走圖。
+ * 艾登、伊森、路卡的人物設定待補，暫不指定房號、日程或部門。
  * 好感、關係、所在位置是本局進度，不寫在這裡。
  */
 export const INITIAL_NPCS: NpcEntry[] = [
@@ -167,7 +167,7 @@ export const INITIAL_NPCS: NpcEntry[] = [
     },
   },
   {
-    id: 'luca', source: 'builtin', name: '盧卡', age: '', gender: '男', position: '',
+    id: 'luca', source: 'builtin', name: '路卡', age: '', gender: '男', position: '',
     appearance: '銀白色短髮、淺色眼睛，戴多枚耳飾，穿著白色外套與黑色高領內搭，頸前掛護目鏡。',
     personality: '', background: '', other: '人物設定待補。',
     portraitUrl: '/assets/luca/neutral.webp', fullBodyUrl: '/assets/luca/profile.webp',

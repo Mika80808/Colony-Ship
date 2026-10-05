@@ -31,7 +31,19 @@ OBJECTS = [
     # 大門內側：收件區
     ('crates',          '貨箱',          1024, 1476, 248, 1, 'batch11_small', 1, '', None),
     ('repair-pallet',   '待修品',        1056, 1758, 192, .9, 'batch11_small', 3, '剛送來的一台故障設備，吊牌上寫著「居住區 C」。', (930, 1760)),
+    # v7（2026-10-04）：全息設計桌、個人流水線、兩張純維修組裝工作桌、雜物；量自全室參考圖 batch12（參考圖 1 px＝1.7819 遊戲 px）
+    ('assembly-line',   '個人流水線',     623, 529, 508, 1.2, 'batch13_line', 0, '料斗把零件一個個送上輸送帶，機械手臂組好後經過掃描門，落進成品箱。', None),
+    ('holo-table',      '全息設計桌',     552, 870, 321, 1.2, 'batch14_tables', 0, '桌面上投影著一個零件的立體線框，正一點一點旋轉調整。', None),
+    ('workbench-a',     '組裝工作台',     543, 1336, 296, 1, 'batch14_tables', 1, '組裝到一半的零件旁邊，工具照順序排好。', None),
+    ('workbench-b',     '組裝工作台',     550, 1572, 297, 1, 'batch14_tables', 1, '工作台上攤著拆下來的軸承和一盤螺絲。', None),
+    ('drone-dock',      '維修無人機',    1078, 852, 221, 1, 'batch15_clutter', 0, '維修無人機停在充電座上，指示燈慢慢地閃。', None),
+    ('cable-spools',    '電纜捲',         463, 994, 143, .7, 'batch15_clutter', 1, '', None),
+    ('panel-stack',     '備用艙板',      1325, 770, 184, .6, 'batch15_clutter', 2, '', None),
+    ('part-bins',       '零件盒',        1045, 1280, 148, .7, 'batch15_clutter', 3, '', None),
+    ('toolbox',         '工具箱',         646, 1128, 89, 0, 'batch15_clutter', 4, '', None),
 ]
+# 共用同一張圖的物件：{物件 id: 用哪件的圖}（兩張工作台長一樣）
+SHARED_SPRITE = {'workbench-b': 'workbench-a'}
 
 # 椅子、凳子：不擋路、不能互動，同一張圖可以擺很多次（id, 圖, cx, bottom）
 # 2026-10-04 使用者刪掉四張電腦桌（太舊工業風），配桌子的椅凳也先不擺；圖保留，要用時加回來，例：('chair-console', 'chair', 997, 730)
@@ -40,16 +52,22 @@ SEATS = []
 SEAT_SPRITES = {'chair': ('batch11_small', 4, 78), 'stool': ('batch11_small', 5, 57)}
 
 # 生出來的比例跟參考圖差很多的，改照高度縮放（遊戲 px）：機械手臂的手臂往旁邊伸，照寬度縮會太小
-HEIGHT_FIT = {'robot-arm': 258}
+HEIGHT_FIT = {'robot-arm': 258, 'solder-station': 157, 'cobot': 126}
 
 # 備用素材：已生好、切好，還沒擺進地圖（等使用者決定工廠流程）。{sheet: [(order, 圖名, 遊戲寬 px, 名稱)]}
 # 寬度依佔地格數估（一格 96 px），參考既有的椅子 78、工具推車 165。
 SPARES = {
     'batch16_conveyors': [(0, 'conveyor-h', 384, '輸送帶（橫）'), (1, 'conveyor-v', 106, '輸送帶（直）')],
-    'batch17_workbench_kit': [
-        (0, 'esd-bench', 250, '防靜電精密工作台'), (1, 'diag-cart', 150, '診斷測試推車'), (2, 'solder-station', 130, '焊接排煙站'),
-        (3, 'stack-cart', 110, '模組工具箱推車'), (4, 'scan-arch', 200, '品檢掃描門'), (5, 'cobot', 130, '移動式協作手臂'),
-        (6, 'printer-3d', 120, '3D 列印機'), (7, 'eng-stool', 62, '工程師高腳椅'), (8, 'parts-drawers', 100, '零件抽屜櫃')],
+    # 精密工作站（2050 sci-fi 設計，2026-10-04 重畫）：寬度量自擺設參考圖 batch20b（參考圖 128 px＝1 格＝96 遊戲 px）
+    'batch21_workbench_large': [
+        (0, 'esd-bench', 164, '防靜電精密工作台'), (1, 'scan-arch', 157, '品檢掃描門'),
+        (2, 'printer-3d', 105, '3D 列印機'), (3, 'parts-drawers', 87, '零件抽屜櫃')],
+    'batch22_workbench_small': [
+        (0, 'diag-cart', 90, '診斷測試推車'), (1, 'solder-station', 102, '焊接排煙站'), (2, 'cobot', 80, '移動式協作手臂'),
+        (3, 'stack-cart', 68, '模組工具箱推車'), (4, 'eng-stool', 54, '工程師高腳椅')],
+    # 大型機台（2050 sci-fi，2026-10-04）：寬度量自擺設參考圖 batch27（不限尺寸，由模型決定大小）
+    'batch28_machines_a': [(0, 'mega-fabricator', 306, '大型製造機'), (1, 'diag-repair', 206, '自動診修艙')],
+    'batch29_machines_b': [(0, 'holo-desk', 233, '全息設計桌'), (1, 'recycler', 191, '材料回收機')],
     'batch18_logistics': [
         (0, 'lift-tower', 130, '自動倉儲塔'), (1, 'amr', 110, '自走搬運機器人'), (2, 'shop-crane', 170, '移動吊臂'),
         (3, 'case-dolly', 140, '工具箱台車'), (4, 'gas-rack', 120, '氣瓶架'), (5, 'scrap-bins', 180, '回收分類桶'),
@@ -63,8 +81,9 @@ SPARES = {
 def sheets():
     """{sheet: [(order, sprite 名稱, 目標寬, 目標高或 None)]}，切圖用。"""
     out = {}
-    for oid, _, _, _, width, _, sheet, order, *_ in OBJECTS: out.setdefault(sheet, []).append((order, oid, width, HEIGHT_FIT.get(oid)))
+    for oid, _, _, _, width, _, sheet, order, *_ in OBJECTS:
+        if oid not in SHARED_SPRITE: out.setdefault(sheet, []).append((order, oid, width, HEIGHT_FIT.get(oid)))
     for name, (sheet, order, width) in SEAT_SPRITES.items(): out.setdefault(sheet, []).append((order, name, width, None))
     for sheet, items in SPARES.items():
-        for order, name, width, _ in items: out.setdefault(sheet, []).append((order, name, width, None))
+        for order, name, width, _ in items: out.setdefault(sheet, []).append((order, name, width, HEIGHT_FIT.get(name)))
     return {k: sorted(v) for k, v in out.items()}
