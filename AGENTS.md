@@ -6,7 +6,7 @@
 ## 分工
 
 - Claude Code：寫程式、接場景、去背切圖、拼接素材、維護文件。
-- Codex：生圖。生圖前先讀 `.claude/skills/starport-asset-gen/SKILL.md`（素材規範）與對應場景的提示詞檔。做整張地圖或場景（底圖、道具包、碰撞與區域）時，再讀 `.claude/skills/generate2dmap/SKILL.md`。畫場景裡的機台、家具、擺設時，照 `.claude/skills/starport-scene-props/SKILL.md` 的流程（先在底圖上生擺設參考圖，再生最終物件）。
+- Codex：生圖。開工先看 `docs/tasks/` 有沒有指派給你的任務單（狀態「待執行」），照任務單交件；Claude Code 負責驗收。生圖前先讀 `.claude/skills/starport-asset-gen/SKILL.md`（素材規範）與對應場景的提示詞檔。做整張地圖或場景（底圖、道具包、碰撞與區域）時，再讀 `.claude/skills/generate2dmap/SKILL.md`。畫場景裡的機台、家具、擺設時，照 `.claude/skills/starport-scene-props/SKILL.md` 的流程（先在底圖上生擺設參考圖，再生最終物件）。
 - 一律用繁體中文溝通與寫文件。
 
 ## 每次開工與收工
@@ -28,6 +28,7 @@
 | `tools/art/greenhouse_crop_prompts.md` | 溫室 19 種作物三階段提示詞與排位配置 |
 | `docs/scenes/` | 各場景說明：A-1 房間、居住區 A 走廊、艦橋、工程區 |
 | `docs/characters.md` | 角色素材與行走圖處理流程 |
+| `docs/tasks/` | 指派給 Codex 的任務單：要生什麼、規格、交件與驗收方式 |
 | `README.md` | 執行方式、目錄結構 |
 
 ## 程式結構

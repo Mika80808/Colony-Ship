@@ -3,13 +3,17 @@
 | 角色 | 位置 | 內容 |
 |---|---|---|
 | 玩家 | `public/assets/player/` | 行走圖 |
-| Aiden、Ethan、Luca | `public/assets/<名字>/` | 行走圖、頭像、各種表情 |
+| 艾登 Aiden、伊森 Ethan、路卡 Luca | `public/assets/<名字>/` | 行走圖、頭像、各種表情；行走圖原圖在 `tools/art/<小寫名字>/raw/walk-sheet.webp` |
 | Lucian（路西恩） | `public/assets/lucian/` | 行走圖、頭像、各種表情 |
-| Blaze | `public/assets/blaze/` | 行走圖、頭像（尚無表情圖）；原始設定圖在 `tools/art/blaze/raw/` |
+| 布雷茲 Blaze | `public/assets/blaze/` | 行走圖、頭像（尚無表情圖，已指派 Codex，見 `docs/tasks/codex-角色素材.md`）；原始設定圖在 `tools/art/blaze/raw/` |
 
-## 行走圖集規格
+## 檔案規格
 
-RGBA 688×516，4 欄（正／背／左／右）× 3 列（站立／步態一／步態二），每格 172×172。
+- 表情圖：`neutral`、`happy`、`sad`、`angry`、`surprised`、`shy`，514×514，同一套構圖。對話框預設頭像用 `neutral`。原圖用 `tools/prepare_expressions.py` 轉檔。
+- `portrait.webp`：512×512，故事書角色卡。`profile.webp`：540×960 透明背景立繪。
+- NPC 行走圖：RGBA 688×688，4 欄（下／上／左／右）× 4 列走路影格，每格 172，腳底在 y=166。原圖用 `tools/pack_walk_sheet.py` 正規化。
+- 玩家行走圖：RGBA 688×516，4 欄 × 3 列（站立／步態一／步態二）。玩家外觀自填，不做頭像與立繪。
+- 盤點與驗收：`python tools/check_character_assets.py`（列出每個角色缺什麼）；Codex 交來的表情原圖用 `--raw <資料夾>` 驗收。
 
 ## 路西恩行走圖的處理流程
 

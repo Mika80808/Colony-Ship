@@ -71,7 +71,8 @@ export const INITIAL_RELATIONSHIP = '陌生';
 
 /**
  * 世界觀設定：NPC。
- * 路西恩有完整素材（含表情圖）；布雷茲有立繪、半身像與行走圖，還沒有表情圖。
+ * 路西恩、艾登、伊森、路卡有完整素材（含表情圖）；布雷茲有立繪、半身像與行走圖，還沒有表情圖。
+ * 艾登、伊森、路卡的職位、房號、日程是依造型暫定的，人物設定待補。
  * 好感、關係、所在位置是本局進度，不寫在這裡。
  */
 export const INITIAL_NPCS: NpcEntry[] = [
@@ -127,6 +128,84 @@ export const INITIAL_NPCS: NpcEntry[] = [
         { start: 17, end: 0, locationId: 'park', nature: 'free' },
       ],
     }],
+  },
+  {
+    id: 'aiden', source: 'builtin', name: '艾登', age: '', gender: '男', position: '工程部技師',
+    appearance: '黑色短亂髮、深色皮膚，額頭戴護目鏡；穿黑色連身工作服，橘色飾條與背帶，常拿著扳手。',
+    personality: '', background: '', other: '人物設定待補。',
+    department: 'engineering', roomId: 'A-3',
+    // 暫定日程。
+    schedules: [{
+      kind: 'base',
+      slots: [
+        { start: 0, end: 8, locationId: 'A-3', nature: 'sleep' },
+        { start: 8, end: 17, locationId: 'engineering', nature: 'duty' },
+        { start: 17, end: 0, locationId: 'park', nature: 'free' },
+      ],
+    }],
+    portraitUrl: '/assets/Aiden/neutral.webp', fullBodyUrl: '/assets/Aiden/profile.webp',
+    cardUrl: '/assets/Aiden/portrait.webp',
+    walkUrl: '/assets/Aiden/walk.webp',
+    expressionUrls: {
+      neutral: '/assets/Aiden/neutral.webp',
+      happy: '/assets/Aiden/happy.webp',
+      sad: '/assets/Aiden/sad.webp',
+      angry: '/assets/Aiden/angry.webp',
+      surprised: '/assets/Aiden/surprised.webp',
+      shy: '/assets/Aiden/shy.webp',
+    },
+  },
+  {
+    id: 'ethan', source: 'builtin', name: '伊森', age: '', gender: '男', position: '艦橋行政官',
+    appearance: '紫色長髮在頸後束成低馬尾、戴細框眼鏡；白襯衫配黑色背心與領帶，手上常拿著平板。',
+    personality: '', background: '', other: '人物設定待補。',
+    department: 'bridge', roomId: 'A-4',
+    // 暫定日程。
+    schedules: [{
+      kind: 'base',
+      slots: [
+        { start: 0, end: 8, locationId: 'A-4', nature: 'sleep' },
+        { start: 8, end: 17, locationId: 'bridge', nature: 'duty' },
+        { start: 17, end: 0, locationId: 'park', nature: 'free' },
+      ],
+    }],
+    portraitUrl: '/assets/Ethan/neutral.webp', fullBodyUrl: '/assets/Ethan/profile.webp',
+    cardUrl: '/assets/Ethan/portrait.webp',
+    walkUrl: '/assets/Ethan/walk.webp',
+    expressionUrls: {
+      neutral: '/assets/Ethan/neutral.webp',
+      happy: '/assets/Ethan/happy.webp',
+      sad: '/assets/Ethan/sad.webp',
+      angry: '/assets/Ethan/angry.webp',
+      surprised: '/assets/Ethan/surprised.webp',
+      shy: '/assets/Ethan/shy.webp',
+    },
+  },
+  {
+    id: 'luca', source: 'builtin', name: '路卡', age: '', gender: '男', position: '研究室研究員',
+    appearance: '銀白色中長髮、淡色眼睛；穿白色與黑色拼接的研究工作服，腰間掛工具包，胸前別識別證。',
+    personality: '', background: '', other: '人物設定待補。',
+    department: 'lab', roomId: 'A-5',
+    // 暫定日程。
+    schedules: [{
+      kind: 'base',
+      slots: [
+        { start: 0, end: 8, locationId: 'A-5', nature: 'sleep' },
+        { start: 8, end: 17, locationId: 'lab', nature: 'duty' },
+        { start: 17, end: 0, locationId: 'park', nature: 'free' },
+      ],
+    }],
+    portraitUrl: '/assets/Luca/neutral.webp', fullBodyUrl: '/assets/Luca/profile.webp',
+    cardUrl: '/assets/Luca/portrait.webp',
+    walkUrl: '/assets/Luca/walk.webp',
+    expressionUrls: {
+      neutral: '/assets/Luca/neutral.webp',
+      happy: '/assets/Luca/happy.webp',
+      sad: '/assets/Luca/sad.webp',
+      angry: '/assets/Luca/angry.webp',
+      surprised: '/assets/Luca/surprised.webp',
+      shy: '/assets/Luca/shy.webp',
+    },
   },
 ];
 
