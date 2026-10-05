@@ -74,16 +74,39 @@ assert.deepEqual(JSON.parse(JSON.stringify(loadBuiltinStory().npcs)), JSON.parse
 // --- 素材路徑必須指到真的檔案 ---
 // 少一張圖在畫面上是安靜地壞：破圖或空框，要等剛好走到那個畫面才看得到。
 {
-  const { existsSync, readFileSync } = await import('node:fs');
-  for (const npc of INITIAL_NPCS) {
-    const urls = [npc.portraitUrl, npc.fullBodyUrl, npc.cardUrl, npc.walkUrl, ...Object.values(npc.expressionUrls ?? {})].filter(Boolean) as string[];
-    for (const url of urls) assert.ok(existsSync(`public${url}`), `${npc.name} 的素材 ${url} 不存在`);
-    if (npc.walkUrl) {
-      // WebP 的 VP8L（無損）標頭：寬高各 14 bit，存在第 21 位元組起。
-      const bytes = readFileSync(`public${npc.walkUrl}`);
-      assert.equal(bytes.toString('ascii', 12, 16), 'VP8L', `${npc.name} 的行走圖應為無損 WebP`);
-      const bits = bytes.readUInt32LE(21);
-      assert.deepEqual([(bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1], [688, 688], `${npc.name} 的行走圖應為 688×688`);
+  const { existsSync, readFileSync, readdirSync } = await import('node:fs');
+  const expressions = ['neutral', 'happy', 'sad', 'angry', 'surprised', 'shy'] as const;
+  for (const npc of INITIAL_NPCS.filter((entry) => entry.source === 'builtin')) {
+    assert.deepEqual(Object.keys(npc.expressionUrls ?? {}).sort(), [...expressions].sort(), `${npc.name} 應有六個表情鍵`);
+    assert.equal(npc.portraitUrl, npc.expressionUrls?.neutral, `${npc.name} 的預設頭像應為 neutral`);
+    // 不先 filter(Boolean)：缺少整個欄位也必須被檢出。
+    const assets = [
+      [npc.portraitUrl, [514, 514]], [npc.fullBodyUrl, [540, 960]],
+      [npc.cardUrl, [512, 512]], [npc.walkUrl, [688, 688]],
+      ...Object.values(npc.expressionUrls ?? {}).map((url) => [url, [514, 514]] as const),
+    ] as const;
+    assert.ok(readdirSync('public/assets').includes(npc.id), `${npc.name} 的目錄必須使用小寫 id`);
+    for (const [url, size] of assets) {
+      assert.ok(url, `${npc.name} 缺少素材路徑`);
+      assert.ok(url.startsWith(`/assets/${npc.id}/`), `${npc.name} 的素材應位於自己的小寫目錄`);
+      assert.ok(existsSync(`public${url}`), `${npc.name} 的素材 ${url} 不存在`);
+      assert.ok(readdirSync(`public/assets/${npc.id}`).includes(url.split('/').at(-1)!), `${url} 檔名大小寫不符`);
+      const bytes = readFileSync(`public${url}`);
+      assert.equal(bytes.toString('ascii', 0, 4), 'RIFF', `${url} 應為 WebP`);
+      assert.equal(bytes.toString('ascii', 8, 12), 'WEBP', `${url} 應為 WebP`);
+      // 有 Photoshop / ICC metadata 的 WebP 會先有 VP8X，逐段尋找 VP8L。
+      let losslessOffset: number | undefined;
+      for (let offset = 12; offset + 8 <= bytes.length;) {
+        const length = bytes.readUInt32LE(offset + 4);
+        if (bytes.toString('ascii', offset, offset + 4) === 'VP8L') {
+          losslessOffset = offset;
+          break;
+        }
+        offset += 8 + length + (length % 2);
+      }
+      assert.ok(losslessOffset !== undefined, `${url} 應為無損 WebP`);
+      const bits = bytes.readUInt32LE(losslessOffset + 9);
+      assert.deepEqual([(bits & 0x3fff) + 1, ((bits >> 14) & 0x3fff) + 1], size, `${url} 尺寸不符`);
     }
   }
 }

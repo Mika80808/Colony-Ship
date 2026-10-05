@@ -47,6 +47,11 @@ def main():
     cells = [[sheet.crop((c0, r0, c1, r1)) for c0, c1 in cols] for r0, r1 in rows]
     cells = [[cell.crop(cell.getbbox()) for cell in row] for row in cells]
     scale = STAND_HEIGHT / cells[0][0].height
+    # A bob frame taller than the standing one can overflow the feet line; shrink the
+    # whole sheet just enough to fit (one scale keeps the drawn bob intact).
+    tallest = max(cell.height for row in cells for cell in row)
+    if tallest * scale > FEET_Y:
+        scale = FEET_Y / tallest
 
     atlas = Image.new('RGBA', (CELL * 4, CELL * 4))
     for r, row in enumerate(cells):

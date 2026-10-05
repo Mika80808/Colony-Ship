@@ -60,9 +60,10 @@
 
 詳見 `docs/characters.md`。
 
-- Aiden、Ethan、Luca、Lucian：行走圖、頭像、各種表情齊全。
-- Blaze：只有行走圖與頭像，沒有表情圖。
-- 玩家：行走圖。
+- 五位 NPC（路西恩、布雷茲、艾登、伊森、盧卡）素材統一規格：角色卡、立繪、六表情（neutral／happy／sad／angry／surprised／shy）、688×688 行走圖，全部在 `public/assets/<小寫 id>/`。整理腳本 `tools/art/characters_build.py`（可重跑、結果一致），驗收總覽 `tools/art/characters/review_sheet.png`。
+- 2026-10-05（T1，Codex 實作、Claude Code 驗收）：Aiden／Ethan／Luca 目錄改小寫、`normal`→`neutral`、`troubled`→`sad`、行走圖從 1254 原圖縮成 688；布雷茲六表情由 Codex 生成的表情表切出；艾登、伊森、盧卡登錄成內建 NPC（中文名暫用音譯，人物設定待補，不指定房號、日程、部門）。故事書可編輯沒有日程的既有角色。
+- `tools/pack_walk_sheet.py`：走路影格比站姿高、會超出腳底線時，整張改用剛好放得下的比例（盧卡需要）。
+- 玩家：只有行走圖，造型由玩家自訂，不做頭像、立繪、表情。
 
 ## 專案整理（2026-10-03）
 

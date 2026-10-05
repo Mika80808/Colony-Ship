@@ -331,7 +331,10 @@ export default function StoryModal({
       // 校驗失敗不儲存，錯誤標在對應欄位上。
       const errors: NpcFormErrors = {
         ...(value('name') ? {} : { name: '姓名必填' }),
-        ...validateSchedules(schedules, scheduleLocationIds(builtinSectors, rooms)),
+        ...validateSchedules(
+          schedules, scheduleLocationIds(builtinSectors, rooms),
+          editingId !== null && pristineSchedulesRef.current === '[]'
+        ),
         ...validateRoom(value('roomId'), editingId, npcs, rooms, playerRoomId),
       };
       if (Object.keys(errors).length) {
@@ -582,6 +585,7 @@ export default function StoryModal({
                   locations={builtinSectors}
                   rooms={rooms}
                   errors={formErrors}
+                  allowUnscheduled={editingId !== null && pristineSchedulesRef.current === '[]'}
                 />
               )}
 

@@ -1,0 +1,8 @@
+- **尚未完成交件**：系統 Python 啟動回覆「存取被拒」，素材腳本無法執行。
+- **Aiden／Ethan／Luca**：三位 NPC 已接入遊戲；小寫目錄、表情改名及行走圖縮放已寫入腳本，尚未產出整理後檔案。
+- **Lucian**：既有九張素材全部保留，SHA256 確認未變。
+- **Blaze**：已接上六表情路徑；指定表情表順序已確認，六張切圖尚未產出。sad／angry 差異較細微，保留原表，不重生。
+- **生圖／轉檔**：本次沒有生圖；轉檔、切圖、縮放均已寫入 `tools/art/characters_build.py`，待執行。`review_sheet.png` 尚未產生。
+- **程式與文件**：已修正既有空日程角色無法儲存人物資料的問題，更新素材測試、角色文件、進度與修正紀錄。
+- **驗證結果**：`npm run lint`、`npm run build`、`story.test.ts`、`npcSchedule.test.ts`、`roomActors.test.ts`、`roomRuntime.test.ts` 均通過；`portrait.test.ts` 因 Blaze 的 `neutral.webp` 尚不存在而失敗。重跑一致性與總覽圖檢查尚未完成。
+- 玩家素材未變；未讀寫外部設定稿，未執行 commit、push 或 git pull。

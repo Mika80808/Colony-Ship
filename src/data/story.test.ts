@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { NPCData, NpcSchedule, StoryLayer } from '../types';
 import { EMPTY_OVERRIDES, EMPTY_RUN_STORY, INITIAL_NPCS, INITIAL_SECTORS, ROOMS } from './initialGameData';
-import { fillMissingBuiltin, loadBuiltinStory, mergeStory, scheduleLocationIds, splitEntries, writeBuiltinStory } from './story';
+import { fillMissingBuiltin, findRoomOccupant, loadBuiltinStory, mergeStory, scheduleLocationIds, splitEntries, writeBuiltinStory } from './story';
+import { locateNpc, planRelocation } from './npcSchedule';
 import { slotHours, validateRoom, validateSchedules } from './storyValidation';
 
 /**
@@ -82,6 +83,9 @@ assert.deepEqual(
 );
 
 assert.ok(validateSchedules([], locations).schedules, '沒有保底組');
+assert.deepEqual(validateSchedules([], locations, true), {}, '既有未排日程的角色可保留空日程');
+assert.ok(validateSchedules([{ kind: 'duty', slots: [{ start: 0, end: 0, locationId: 'lab', nature: 'duty' }] }], locations, true).schedules,
+  '開始填寫日程後仍必須有保底組');
 assert.ok(validateSchedules([base([{ start: 0, end: 0, locationId: 'lab', nature: 'free' }]), base([{ start: 0, end: 0, locationId: 'lab', nature: 'free' }])], locations).schedules, '兩組保底');
 
 {
@@ -138,8 +142,32 @@ assert.match(
 {
   const ids = scheduleLocationIds(INITIAL_SECTORS, ROOMS);
   for (const npc of INITIAL_NPCS) {
-    assert.deepEqual(validateSchedules(npc.schedules ?? [], ids), {}, `${npc.name} 的種子日程應通過校驗`);
+    if (npc.schedules?.length) {
+      assert.deepEqual(validateSchedules(npc.schedules, ids), {}, `${npc.name} 的種子日程應通過校驗`);
+    }
   }
+}
+
+// ---- 設定待補的三位 NPC：可讀取故事書，不占房間，也不被日程移入場景
+{
+  const pending = INITIAL_NPCS.filter((npc) => ['aiden', 'ethan', 'luca'].includes(npc.id));
+  assert.equal(pending.length, 3);
+  const story = mergeStory({ ...builtin, npcs: pending }, EMPTY_RUN_STORY, EMPTY_OVERRIDES);
+  for (const npc of story.npcs) {
+    assert.equal(npc.source, 'builtin');
+    assert.deepEqual([npc.age, npc.position, npc.personality, npc.background], ['', '', '', '']);
+    assert.equal(npc.other, '人物設定待補。');
+    assert.equal(npc.roomId, undefined);
+    assert.equal(npc.department, undefined);
+    assert.equal(npc.schedules, undefined);
+    assert.equal(npc.location, undefined);
+    assert.deepEqual(validateRoom('', npc.id, story.npcs, ROOMS), {});
+    for (let hour = 0; hour < 24; hour++) assert.equal(locateNpc(npc.schedules, hour, npc.affection), null);
+  }
+  for (const room of ROOMS) assert.equal(findRoomOccupant(story.npcs, room.id), undefined);
+  assert.deepEqual(planRelocation(story.npcs, 8, null), { apply: {}, deferred: [] });
+  assert.deepEqual(planRelocation(story.npcs, 8, 'A-1'), { apply: {}, deferred: [] });
+  assert.deepEqual(story.npcs.filter((npc) => npc.location === 'A-1'), [], '房間在場名單不包含未安排位置的角色');
 }
 
 // ---- 內建內容：種子遷移只補空欄位、補上缺少的條目
@@ -175,9 +203,10 @@ assert.match(
   assert.deepEqual(loadBuiltinStory().npcs.find((n) => n.id === 'blaze')!.schedules, customSchedule, '已是最新版本時不再遷移');
 
   const { next, added } = fillMissingBuiltin(loaded);
-  assert.equal(added, 1, '只補上缺少的研究室');
+  assert.equal(added, 4, '補上缺少的研究室與三位設定待補的 NPC');
   assert.ok(next.sectors.some((sector) => sector.id === 'lab'));
-  assert.deepEqual(next.npcs, loaded.npcs, '既有條目不動');
+  assert.deepEqual(next.npcs.slice(0, loaded.npcs.length), loaded.npcs, '既有條目不動');
+  assert.deepEqual(next.npcs.slice(loaded.npcs.length).map((npc) => npc.id), ['aiden', 'ethan', 'luca']);
   assert.equal(fillMissingBuiltin(next).added, 0);
 }
 

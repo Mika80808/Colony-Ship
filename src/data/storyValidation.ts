@@ -66,7 +66,9 @@ export function validateScheduleGroup(group: NpcSchedule, locationIds: Set<strin
   return problems.length ? problems.join('；') : null;
 }
 
-export function validateSchedules(schedules: NpcSchedule[], locationIds: Set<string>): NpcFormErrors {
+/** 既有角色原本尚未安排日程時，可只編輯人物資料而保留空日程。 */
+export function validateSchedules(schedules: NpcSchedule[], locationIds: Set<string>, allowUnscheduled = false): NpcFormErrors {
+  if (allowUnscheduled && schedules.length === 0) return {};
   const errors: NpcFormErrors = {};
   const baseCount = schedules.filter((group) => group.kind === 'base').length;
   // 保底是查不到其他組時的最後退路，兩組以上就無從決定該用哪一組，所以限定一組。

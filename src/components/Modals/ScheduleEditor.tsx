@@ -19,6 +19,8 @@ interface ScheduleEditorProps {
   locations: SectorEntry[];
   rooms: RoomDef[];
   errors: NpcFormErrors;
+  /** 既有角色還沒有日程，可先補人物資料。 */
+  allowUnscheduled?: boolean;
 }
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
@@ -34,7 +36,7 @@ const selectClass =
  * 時段可跨午夜（起點大於終點），起訖相同表示整天。
  * 涵蓋與重疊在儲存時才檢查（storyValidation.ts），編輯途中允許不完整。
  */
-export default function ScheduleEditor({ schedules, onChange, locations, rooms, errors }: ScheduleEditorProps) {
+export default function ScheduleEditor({ schedules, onChange, locations, rooms, errors, allowUnscheduled = false }: ScheduleEditorProps) {
   const defaultLocation = locations[0]?.id ?? '';
   const knownLocation = (id: string) => locations.some((loc) => loc.id === id) || rooms.some((room) => room.id === id);
 
@@ -77,7 +79,9 @@ export default function ScheduleEditor({ schedules, onChange, locations, rooms, 
       {errors.schedules && <div className="text-[12px] text-rose-300">{errors.schedules}</div>}
 
       {schedules.length === 0 && (
-        <div className="text-[12px] text-slate-500">尚未設定日程。至少需要一組「保底」。</div>
+        <div className="text-[12px] text-slate-500">
+          {allowUnscheduled ? '尚未安排日程，可先補人物資料。開始安排時，至少需要一組「保底」。' : '尚未設定日程。至少需要一組「保底」。'}
+        </div>
       )}
 
       {schedules.map((group, groupIndex) => {
