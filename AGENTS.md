@@ -26,7 +26,7 @@
 | `.claude/skills/generate2dmap/` | 2D 地圖生成流程（取自 agent-sprite-forge，MIT）：分層底圖、道具包切圖、碰撞與區域、預覽；腳本需要 Pillow、numpy |
 | `tools/asset-prompts.md` | 角色與房間家具的生圖提示詞 |
 | `tools/art/greenhouse_crop_prompts.md` | 溫室 19 種作物三階段提示詞與排位配置 |
-| `docs/scenes/` | 各場景說明：A-1 房間、居住區 A 走廊、艦橋、工程區 |
+| `docs/scenes/` | 各場景說明：A-1 房間、居住區 A 走廊、艦橋、工程區、中央廣場（規劃） |
 | `docs/characters.md` | 角色素材與行走圖處理流程 |
 | `docs/tasks/` | 指派給 Codex 的任務單：要生什麼、規格、交件與驗收方式 |
 | `README.md` | 執行方式、目錄結構 |
