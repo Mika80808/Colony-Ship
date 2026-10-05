@@ -170,15 +170,14 @@ assert.match(
   assert.deepEqual(b.schedules, customSchedule, '遷移不覆蓋已經改過的日程');
 
   writeBuiltinStory(loaded);
-  assert.equal(JSON.parse(memory.get('starport_builtin_story')!).seedVersion, 6);
-  assert.deepEqual(loaded.npcs.map((n) => n.id), ['lucian', 'blaze', 'aiden', 'ethan', 'luca'], 'v6 遷移補上艾登、伊森、路卡');
+  assert.equal(JSON.parse(memory.get('starport_builtin_story')!).seedVersion, 5);
   assert.equal(b.roomId, 'A-2', 'v3 遷移讓布雷茲住進 A-2');
   assert.deepEqual(loadBuiltinStory().npcs.find((n) => n.id === 'blaze')!.schedules, customSchedule, '已是最新版本時不再遷移');
 
   const { next, added } = fillMissingBuiltin(loaded);
-  assert.equal(added, 1, '只補上缺少的研究室');
+  assert.equal(added, 4, '補上缺少的研究室與艾登、伊森、路卡');
   assert.ok(next.sectors.some((sector) => sector.id === 'lab'));
-  assert.deepEqual(next.npcs, loaded.npcs, '既有條目不動');
+  assert.deepEqual(next.npcs.slice(0, loaded.npcs.length), loaded.npcs, '既有條目不動');
   assert.equal(fillMissingBuiltin(next).added, 0);
 }
 
@@ -267,29 +266,6 @@ assert.match(
   assert.doesNotMatch(engineering(), /引擎|重力/);
   store('我自己寫的工程部。');
   assert.equal(engineering(), '我自己寫的工程部。', '改過的描述不動');
-}
-
-// ---- 種子 v5 → v6：補上艾登、伊森、路卡；已有的不重複，房號被佔走就不給房號
-{
-  const memory = new Map<string, string>();
-  (globalThis as { localStorage?: unknown }).localStorage = {
-    getItem: (key: string) => memory.get(key) ?? null,
-    setItem: (key: string, value: string) => void memory.set(key, value),
-    removeItem: (key: string) => void memory.delete(key),
-  };
-  const lucian = INITIAL_NPCS.find((n) => n.id === 'lucian')!;
-  const ethan = INITIAL_NPCS.find((n) => n.id === 'ethan')!;
-  memory.set('starport_builtin_story', JSON.stringify({
-    seedVersion: 5, items: [], chapters: [], sectors: INITIAL_SECTORS,
-    npcs: [{ ...lucian, roomId: 'A-3' }, { ...ethan, name: '我改過的伊森' }],
-  }));
-  const npcs = loadBuiltinStory().npcs;
-  assert.deepEqual(npcs.map((n) => n.id), ['lucian', 'ethan', 'aiden', 'luca']);
-  assert.equal(npcs.find((n) => n.id === 'ethan')!.name, '我改過的伊森', '已有的條目不動');
-  const aiden = npcs.find((n) => n.id === 'aiden')!;
-  assert.equal(aiden.roomId, undefined, 'A-3 已有人住就不給房號');
-  assert.equal(aiden.schedules![0].slots[0].locationId, 'residential_a', '睡眠時段改到 A 區走廊');
-  assert.equal(npcs.find((n) => n.id === 'luca')!.roomId, 'A-5');
 }
 
 // ---- 房號校驗把玩家算進去

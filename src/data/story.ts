@@ -144,7 +144,7 @@ function asBuiltin<E extends { id: string; source: EntrySource }>(list: unknown)
  * 種子版本。initialGameData 的既有條目內容有更新、要同步給已經啟動過的瀏覽器時 +1，
  * 並在 SEED_MIGRATIONS 補一段遷移。遷移只能「補空欄位」，不可覆蓋開發者在 UI 改過的內容。
  */
-const SEED_VERSION = 6;
+const SEED_VERSION = 5;
 
 /** 用程式碼裡的值補上存下來條目的空欄位。 */
 function fillEmptyFromCode(stored: NpcEntry[], fields: (keyof NpcEntry)[]): NpcEntry[] {
@@ -207,17 +207,6 @@ const SEED_MIGRATIONS: Record<number, (story: StoryLayer) => StoryLayer> = {
         : sector
     ),
   }),
-  // v5 → v6：新增艾登、伊森、路卡。只補 id 還不存在的；房號已被別人住走就不給房號。
-  5: (story) => {
-    const ids = ['aiden', 'ethan', 'luca'];
-    const known = new Set(story.npcs.map((npc) => npc.id));
-    const added = INITIAL_NPCS.filter((npc) => ids.includes(npc.id) && !known.has(npc.id)).map((npc) =>
-      story.npcs.some((other) => other.roomId === npc.roomId)
-        ? { ...npc, roomId: undefined, schedules: npc.schedules?.map((g) => ({ ...g, slots: g.slots.map((slot) => (slot.locationId === npc.roomId ? { ...slot, locationId: 'residential_a' } : slot)) })) }
-        : npc
-    );
-    return { ...story, npcs: [...story.npcs, ...added] };
-  },
 };
 
 /** 欄位值等於佔位字時清成空白。 */
