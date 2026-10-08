@@ -161,7 +161,7 @@ export async function generateDiaryDraft(context: DiaryDraftContext): Promise<Di
       role: 'user',
       content: [
         `# 玩家角色\n${describePlayer(context.profile)}`,
-        `# 日期與地點\n星曆 ${context.gameDate}，${context.locationName}`,
+        `# 日期與地點\n${context.gameDate}，${context.locationName}`,
         `# 已有的日記標題\n${context.existingTitles.join('、') || '（無）'}`,
         `# 對話紀錄\n${transcript}`,
       ].join('\n\n'),

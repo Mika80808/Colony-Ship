@@ -6,7 +6,7 @@ import { CROP_NAMES, daysText, describeRow, growthReport } from './growthReport'
 import { rackKey } from './racks';
 
 const m: FacilityMap = JSON.parse(readFileSync('public/assets/greenhouse/map.json', 'utf8'));
-const racks = m.racks!, start = dayNumber('2154-10-24', '08:45');
+const racks = m.racks!, start = dayNumber('2090-10-24', '08:45');
 const report = growthReport(racks, start, m.width);
 
 // One row per planting, every crop has a Chinese name, and the stage matches what the scene draws.

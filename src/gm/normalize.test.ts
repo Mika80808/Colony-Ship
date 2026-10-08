@@ -22,7 +22,7 @@ const context: GmContext = {
     routine: '08:00 工程部值班\n20:00 回房間',
   }],
   locationName: '測試區',
-  gameDate: '2154-10-24',
+  gameDate: '2090-10-24',
   gameTime: '08:45',
   dialogueHistory: [],
   objectives: [
@@ -182,7 +182,7 @@ assert.throws(() => extractJsonObject('這不是 json'), SyntaxError);
 // 局勢區塊：日常活動與時間要一起送出，只給其中一個 GM 沒辦法用
 const { buildContextBlock } = await import('./prompt');
 const block = buildContextBlock(context);
-assert.ok(block.includes('2154-10-24 08:45'), '局勢要帶上目前時間');
+assert.ok(block.includes('2090-10-24 08:45'), '局勢要帶上目前時間');
 assert.ok(block.includes('日常活動'), '在場 NPC 的日常活動要送進局勢');
 assert.ok(block.includes('08:00 工程部值班'), '作息的每一行都要保留');
 assert.ok(block.includes('20:00 回房間'), '多行作息不能只送第一行');

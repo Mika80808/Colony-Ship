@@ -5,7 +5,7 @@
 機台依工作流程分區（v5，2026-10-04）：大門內側右邊收件區（待修品架、剛送來的待修品、貨箱）、左邊休息角；中央 4 格寬通道從大門直通維修區（維修中機台在通道盡頭，四周警示條紋，兩旁工作台與工具推車）；右上製造區（大型製造機、操作台，東牆材料架供料、零件架靠近維修區）；左上研發角（研發桌、組裝手臂、設計終端，離門最遠）；西牆公用設備（閥門組接北牆管線、配電盤、工具牆）。
 
 - 機台照 `.claude/skills/starport-scene-props/` 的流程做（2026-10-04 v6）：先在底圖上生兩張擺設參考圖（`tools/art/engineering/raw/batch4_dressed_top.png`、`batch5_dressed_bottom.png`），再依參考圖分 6 批生最終物件（`batch6`–`batch11`），prompt 在 `場景/工程區/`。第一版（batch2、batch3）是正面圖，已淘汰。
-- 2026-10-04 使用者手修原圖：去掉鏽斑油污，改成乾淨的星艦科技風（之後定為 2050 年 sci-fi workshop concept，見 PROGRESS）；刪掉四張電腦桌（研發桌、設計終端、製造機操作台、檢修工作台），配桌的椅凳也先不擺（圖保留在 props/chair、stool）。原圖改成透明背景。
+- 2026-10-04 使用者手修原圖：去掉鏽斑油污，改成乾淨的星艦科技風（之後定為 2090 年 sci-fi workshop concept，見 PROGRESS）；刪掉四張電腦桌（研發桌、設計終端、製造機操作台、檢修工作台），配桌的椅凳也先不擺（圖保留在 props/chair、stool）。原圖改成透明背景。
 - 機台清單 `tools/art/engineering_objects.py`：位置與大小是量自參考圖的遊戲 px（底部中心、圖寬、碰撞深度），加上在哪張生圖第幾件。椅子、凳子在 `SEATS`，不擋路。
 - **要修改時**：
   - 改圖：修 `tools/art/engineering/raw/<批次>.png`，再跑 `uv run --with pillow --with numpy --with scipy python tools/art/engineering_props.py <批次>`（或 `all`）。直接改 `public/assets/engineering/props/<名稱>.webp` 也可以，但重切會被蓋掉。

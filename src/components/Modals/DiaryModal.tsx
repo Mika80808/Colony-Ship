@@ -14,7 +14,7 @@ interface DiaryModalProps {
   onDeleteEntry?: (id: string) => void;
   /** 日記作者，即玩家角色的名字。 */
   playerName: string;
-  /** 遊戲內日期。日記記的是星曆，不是現實時間。 */
+  /** 遊戲內日期。日記記的是遊戲日期，不是現實時間。 */
   gameDate: string;
   /** 請助理 AI 依對話紀錄寫一份草稿。回傳的草稿會填進編輯表單，由玩家確認後才儲存。 */
   onGenerateDraft?: () => Promise<{ title: string; summary: string; content: string; tags: string[] }>;
@@ -384,7 +384,7 @@ export default function DiaryModal({
                     <span>{editingId ? '修改日誌' : '新增日誌'}</span>
                   </span>
                   <span className="font-hud text-[12px] text-slate-400">
-                    {/* 顯示的是星曆，不是現實時間；修改時顯示該篇原本的日期。 */}
+                    {/* 顯示的是遊戲日期，不是現實時間；修改時顯示該篇原本的日期。 */}
                     {(editingId && entries.find((entry) => entry.id === editingId)?.date) || gameDate}
                   </span>
                 </div>

@@ -15,8 +15,8 @@ const DEFAULT_DAYS = 40;
 /** 週期進度到哪裡換下一階段：前 35% 幼苗、35%–75% 生長中、之後可採收。 */
 export const STAGE_AT = [.35, .75] as const;
 
-const EPOCH = Date.UTC(2154, 0, 1);
-/** 遊戲時間（'2154-10-24'、'08:45'）→ 從星曆 2154 年初起算的天數，含小數。 */
+const EPOCH = Date.UTC(2090, 0, 1);
+/** 遊戲時間（'2090-10-24'、'08:45'）→ 從 2090 年初起算的天數，含小數。只拿來算相對天數與作物相位。 */
 export function dayNumber(date: string, time: string): number {
   const [y, mo, d] = date.split('-').map(Number), [h, mi] = time.split(':').map(Number);
   return (Date.UTC(y, mo - 1, d, h, mi) - EPOCH) / 86_400_000;

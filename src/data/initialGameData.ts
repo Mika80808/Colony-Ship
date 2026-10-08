@@ -341,5 +341,5 @@ export const INITIAL_QUICK_REPLIES: string[] = [
 ];
 
 /** 遊戲內時間起點。時鐘顯示這個，不與現實時鐘綁定。 */
-export const GAME_START_DATE = '2154-10-24';
+export const GAME_START_DATE = '2090-10-24';
 export const GAME_START_TIME = '08:45';

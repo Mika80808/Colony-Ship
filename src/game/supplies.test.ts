@@ -8,7 +8,7 @@ import { rackKey } from './racks';
 const m: FacilityMap = JSON.parse(readFileSync('public/assets/greenhouse/map.json', 'utf8'));
 const racks = m.racks!;
 for (const r of racks) for (const c of r.crops) assert.ok(CROP_CATEGORY[c], `${c} belongs to a supply category`);
-const start = dayNumber('2154-10-24', '08:45');
+const start = dayNumber('2090-10-24', '08:45');
 
 // A planting is harvested exactly when its picture goes from ripe back to seedling.
 const lettuce = racks.find(r => r.crops.includes('lettuce'))!;

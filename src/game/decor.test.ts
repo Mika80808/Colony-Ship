@@ -3,13 +3,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { walkable, type FacilityMap } from './facility';
 import { decorSprites, seasonOf, spriteFor } from './decor';
 
-assert.equal(seasonOf('2154-10-24'), 'autumn'); assert.equal(seasonOf('2154-01-05'), 'winter'); assert.equal(seasonOf('2154-12-31'), 'winter');
-assert.equal(seasonOf('2154-03-01'), 'spring'); assert.equal(seasonOf('2154-08-31'), 'summer');
+assert.equal(seasonOf('2090-10-24'), 'autumn'); assert.equal(seasonOf('2090-01-05'), 'winter'); assert.equal(seasonOf('2090-12-31'), 'winter');
+assert.equal(seasonOf('2090-03-01'), 'spring'); assert.equal(seasonOf('2090-08-31'), 'summer');
 
 const m: FacilityMap = JSON.parse(readFileSync('public/assets/greenhouse/map.json', 'utf8'));
 const decor = m.decor!;
 // Seasonal sprites follow the calendar; every sprite any season could ask for is on disk.
-assert.equal(spriteFor({ sprite: 'tree_maple_{season}', x: 1, y: 1, scale: 1 }, '2154-10-24'), 'tree_maple_autumn');
+assert.equal(spriteFor({ sprite: 'tree_maple_{season}', x: 1, y: 1, scale: 1 }, '2090-10-24'), 'tree_maple_autumn');
 for (const n of decorSprites(decor)) assert.ok(existsSync(`public/assets/greenhouse/props/${n}.webp`), n);
 // Every blocked decorative prop has a fitted footprint, independent of the coarse tile grid.
 assert.ok((m.collisionRects?.length ?? 0) > decor.filter(d => d.block).length + 1, 'narrow rectangles follow the panoramic window sill');

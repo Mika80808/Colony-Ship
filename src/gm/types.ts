@@ -22,7 +22,7 @@ export interface GmContext {
   locationName: string;
   /** Current map object names and coordinates for spatial reasoning; not UI labels. */
   sceneObjects?: string;
-  /** 星曆日期與時刻。NPC 的日常活動要對得上時間才有意義。 */
+  /** 遊戲日期與時刻。NPC 的日常活動要對得上時間才有意義。 */
   gameDate: string;
   gameTime: string;
   dialogueHistory: DialogueTurn[];

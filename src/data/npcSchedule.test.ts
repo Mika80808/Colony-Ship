@@ -45,19 +45,19 @@ assert.equal(locateNpc([base, { kind: 'duty', slots: [{ start: 20, end: 22, loca
 assert.equal(locateNpc([base, { kind: 'event', slots: [{ start: 0, end: 0, locationId: 'medical', nature: 'free' }] }], 10, 999), 'park');
 
 // ---- 時鐘
-assert.deepEqual(addMinutes('2154-10-24', '23:50', 20), { date: '2154-10-25', time: '00:10' }, '跨日');
-assert.deepEqual(addMinutes('2154-12-31', '23:00', 90), { date: '2155-01-01', time: '00:30' }, '跨年');
+assert.deepEqual(addMinutes('2090-10-24', '23:50', 20), { date: '2090-10-25', time: '00:10' }, '跨日');
+assert.deepEqual(addMinutes('2090-12-31', '23:00', 90), { date: '2091-01-01', time: '00:30' }, '跨年');
 
 // ---- 檢查點：區間判定，不是等值
-const at = (time: string, date = '2154-10-24') => ({ date, time });
+const at = (time: string, date = '2090-10-24') => ({ date, time });
 assert.ok(crossesCheckpoint(at('08:50'), at('09:10')), '跨過 09:00');
 assert.ok(crossesCheckpoint(at('08:50'), at('09:00')), '剛好推進到 09:00 算跨過');
 assert.ok(!crossesCheckpoint(at('09:00'), at('09:30')), '從 09:00 出發不算再跨一次');
 assert.ok(!crossesCheckpoint(at('09:10'), at('17:59')), '兩個檢查點之間');
 assert.ok(crossesCheckpoint(at('17:00'), at('22:00')), '一次跨過多個');
-assert.ok(crossesCheckpoint(at('23:30'), at('01:30', '2154-10-25')), '跨午夜跨過 01:00');
-assert.ok(!crossesCheckpoint(at('21:30'), at('00:30', '2154-10-25')), '跨午夜但沒到 01:00');
-assert.ok(crossesCheckpoint(at('10:00'), at('10:00', '2154-10-26')), '推進一整天以上一定跨過');
+assert.ok(crossesCheckpoint(at('23:30'), at('01:30', '2090-10-25')), '跨午夜跨過 01:00');
+assert.ok(!crossesCheckpoint(at('21:30'), at('00:30', '2090-10-25')), '跨午夜但沒到 01:00');
+assert.ok(crossesCheckpoint(at('10:00'), at('10:00', '2090-10-26')), '推進一整天以上一定跨過');
 assert.ok(!crossesCheckpoint(at('10:00'), at('10:00')), '沒推進');
 
 // ---- 重算
