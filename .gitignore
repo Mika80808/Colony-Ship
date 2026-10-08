@@ -12,3 +12,6 @@ __pycache__/
 
 # GPT 生成的作物原圖（約 22 MB），只留在本機；切好的成品在 public/assets/greenhouse/crops/
 tools/art/crops/raw/
+
+# 醫療室完整疊圖（tools/art/medical_build.py 每次重跑會重新產生，約 5 MB）
+tools/art/medical/base_full.png

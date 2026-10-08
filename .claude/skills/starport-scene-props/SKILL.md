@@ -14,7 +14,7 @@ description: 星際港場景物件（機台、家具、擺設）的繪製流程�
 - 跟 RPG Maker、星露谷一樣：地板格是正方形；**矮的東西（桌子、控制台、推車）主要看到頂面**，高的東西（櫃子、貨架、機台）看到正面加頂面。
 - 不要等角（isometric）斜轉，不要透視收縮。
 - 光源左上。風格：clean hand-painted HD 2D game art、soft cel shading、crisp dark outlines、low texture noise，不是像素畫。
-- **年代感：2050 年的高科技星艦，物件是 sci-fi concept 設計**。光寫「乾淨、沒鏽」不夠：模型會畫出乾淨但造型老派的東西（外露螺栓、粗保險桿腳、波紋軟管、方盒舊螢幕、物件身上的黃黑條紋），工程區 batch20 就因此整批作廢。prompt 要寫出設計語言並列出禁止項（見下方範本的 Design language 一段）；區域特色（例：工程區的警示黃）只當小點綴。
+- **年代感：2090 年的高科技太空站（世界觀見 `docs/world.md`），物件是 sci-fi concept 設計**。光寫「乾淨、沒鏽」不夠：模型會畫出乾淨但造型老派的東西（外露螺栓、粗保險桿腳、波紋軟管、方盒舊螢幕、物件身上的黃黑條紋），工程區 batch20 就因此整批作廢。prompt 要寫出設計語言並列出禁止項（見下方範本的 Design language 一段）；區域特色（例：工程區的警示黃）只當小點綴。
 - 設計語言可以附使用者給的風格參考圖（工程區：`場景/工程區/style_ref_*.png`），prompt 寫明只參考設計語言，不照它的鏡頭、寫實渲染、商標文字。
 - 舊規範「頂面每格 16 px／96 格 24 px」**不適用於場景物件**：照那個畫白模，模型會畫成正面圖。
 
@@ -41,7 +41,7 @@ Use Image1 as the exact base map reference: it is <哪一區> of a <場景> in a
 Create a dressed-reference version of the same map by adding props only.
 Preserve exactly: camera, framing, image size and aspect ratio (<寬 x 高>), <地板、牆的特徵>. Do not crop, zoom, rotate, repaint or redesign the room.
 
-Design language for every prop: clean modular sci-fi equipment of a high-tech starship in the year 2050, smooth matte graphite and white composite panels, rounded and chamfered corners, flush hidden fasteners, slim integrated cyan #4DD0E1 light strips, flush flat screens, cables hidden inside the bodies. Not retro, not vintage, not old industrial: no exposed bolts or rivets, no chunky bumper feet, no ribbed hoses, no exposed wiring, no boxy old monitors, no yellow-black stripes on the props.
+Design language for every prop: clean modular sci-fi equipment of a high-tech space station in the year 2090, smooth matte graphite and white composite panels, rounded and chamfered corners, flush hidden fasteners, slim integrated cyan #4DD0E1 light strips, flush flat screens, cables hidden inside the bodies. Not retro, not vintage, not old industrial: no exposed bolts or rivets, no chunky bumper feet, no ribbed hoses, no exposed wiring, no boxy old monitors, no yellow-black stripes on the props.
 
 Draw every prop in the same camera as the room, like objects in a top-down RPG such as RPG Maker or Stardew Valley: low objects (desks, consoles, worktables) clearly show their top surfaces as seen from above, tall objects (cabinets, racks, machines) show their front face plus their top. All props stand on the floor; their front bottom edge sits at the stated bottom position. No isometric diagonal rotation, no perspective convergence.
 
@@ -103,7 +103,7 @@ No characters, no UI, no text, no labels, no numbers, no watermark, no glow halo
 | 互動站位走不到、按 E 沒反應 | 手填站位：落在格線上、離物件超過 56 px、或在縫裡 | 站位用程式挑（步驟 5） |
 | 終點格中心被精細碰撞蓋住就找不到路 | 尋路只走格子中心 | facility.ts 的 findPath 已改成：任一格中心能直線走到終點就算到 |
 | 一件物件被切成兩件、順序全亂 | 並排的東西（兩個油桶）中間有空隙 | 切圖先把 40 px 內的塊併成一件 |
-| 物件乾淨但看起來很中古（工程區 batch20） | prompt 只寫 clean / no rust，Image2 又拿舊設計表叫模型照抄 | 寫出 2050 sci-fi 設計語言＋禁止項；不要拿舊風格的物件表當設計來源，改用文字描述＋使用者的風格參考圖 |
+| 物件乾淨但看起來很中古（工程區 batch20） | prompt 只寫 clean / no rust，Image2 又拿舊設計表叫模型照抄 | 寫出 2090 sci-fi 設計語言＋禁止項；不要拿舊風格的物件表當設計來源，改用文字描述＋使用者的風格參考圖 |
 | 照搬別的場景格局 | 沒先想這裡的功能 | 步驟 2 先寫動線與分區 |
 | 「備用物件」又變回正面圖（冰箱、櫃子、沙發只剩一條薄頂面） | 跳過步驟 3，直接生 3 × 3 物件表，參考圖只拿來「抓鏡頭」——模型單獨畫物件時一律退回正面 | **沒有例外**：還沒定位置的物件也要先上擺設參考圖（底圖用空房間 `場景/工程區/base_showroom.png`，3 × 3 擺開），最終物件再拿底圖＋參考圖生 |
 

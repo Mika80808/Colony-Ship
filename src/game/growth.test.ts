@@ -4,12 +4,12 @@ import type { FacilityMap } from './facility';
 import { CYCLE_DAYS, dayNumber, progress, stageAt } from './growth';
 import { rackKey } from './racks';
 
-assert.equal(dayNumber('2154-01-01', '00:00'), 0);
-assert.equal(dayNumber('2154-01-02', '12:00'), 1.5);
-assert.ok(dayNumber('2154-10-24', '08:45') > dayNumber('2154-10-24', '08:44'));
+assert.equal(dayNumber('2090-01-01', '00:00'), 0);
+assert.equal(dayNumber('2090-01-02', '12:00'), 1.5);
+assert.ok(dayNumber('2090-10-24', '08:45') > dayNumber('2090-10-24', '08:44'));
 
 // One full cycle goes seedling → growing → ready → replanted seedling, in that order, and then repeats exactly.
-const days = CYCLE_DAYS.lettuce, start = dayNumber('2154-10-24', '08:45');
+const days = CYCLE_DAYS.lettuce, start = dayNumber('2090-10-24', '08:45');
 const seen: number[] = [];
 for (let d = 0; d <= days * 2; d += .25) { const s = stageAt('lettuce', 'k', start + d); if (seen.at(-1) !== s) seen.push(s); }
 for (let i = 1; i < seen.length; i++) assert.equal(seen[i], seen[i - 1] === 3 ? 1 : seen[i - 1] + 1, `stage order ${seen}`);

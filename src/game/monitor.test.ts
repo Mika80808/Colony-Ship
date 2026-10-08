@@ -6,7 +6,7 @@ import { growthReport } from './growthReport';
 import { healthOf, monitorRows } from './monitor';
 
 const m: FacilityMap = JSON.parse(readFileSync('public/assets/greenhouse/map.json', 'utf8'));
-const day = dayNumber('2154-10-24', '08:45');
+const day = dayNumber('2090-10-24', '08:45');
 
 // Each wing's monitor lists only its own plantings; together they cover the whole report.
 const left = monitorRows(m.racks!, day, m.width, 'left'), right = monitorRows(m.racks!, day, m.width, 'right');

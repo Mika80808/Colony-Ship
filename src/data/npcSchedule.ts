@@ -53,7 +53,7 @@ export const hourOf = (time: string) => Number(time.slice(0, 2));
 export const CHECKPOINTS = ['01:00', '09:00', '18:00', '21:00'];
 const CHECKPOINT_MINUTES = CHECKPOINTS.map((time) => hourOf(time) * 60 + Number(time.slice(3, 5)));
 
-/** 星曆日期與時刻換成分鐘數，方便跨日比較。 */
+/** 遊戲日期與時刻換成分鐘數，方便跨日比較。 */
 function toMinutes(date: string, time: string): number {
   const [y, m, d] = date.split('-').map(Number);
   return Date.UTC(y, m - 1, d) / 60000 + hourOf(time) * 60 + Number(time.slice(3, 5));

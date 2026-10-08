@@ -171,4 +171,25 @@ console.log('greenhouse ok');
   assert.equal(stepDoor(door, 0, false, 10), 0, 'never opens by itself');
   console.log('engineering ok');
 }
+// Medical bay: same room-over-corridor layout (B ↔ C); interior walls as tall as the corridor wall, thin partitions between the wards.
+{
+  const md = load('medical'), T = md.tileSize;
+  const centre = (x: number, y: number) => ({ x: (x + .5) * T, y: (y + .5) * T });
+  assert.equal(arrivalDirection(md, 'residential_b'), 'right'); assert.equal(arrivalDirection(md, 'residential_c'), 'left');
+  const fromB = spawn(md, 'residential_b');
+  assert.ok(findPath(md, fromB, spawn(md, 'residential_c')).length, 'the corridor strip runs from B to C');
+  for (let y = 0; y < md.height; y++) for (let x = 0; x < md.width; x++) {
+    if (blocked(md, x, y) || !walkable(md, centre(x, y))) continue;
+    assert.ok(findPath(md, fromB, centre(x, y)).length, `medical tile ${x},${y} reachable`);
+  }
+  // 每一區都進得去（地圖座標＝規劃圖列號 +2）：兩間研究室、休息區、診間、三間病房、病房前走道、手術室、候診、藥局櫃台前
+  for (const [name, x, y] of [['醫療研究', 4, 8], ['休息區', 12, 8], ['藥物研究', 20, 8], ['診間', 4, 16], ['病房 1', 16, 16], ['病房 2', 19, 16], ['病房 3', 22, 16],
+    ['病房前走道', 19, 22], ['手術室', 3, 23], ['候診', 8, 23], ['櫃台前', 18, 31]] as const)
+    assert.ok(findPath(md, fromB, centre(x, y)).length, `${name} reachable`);
+  assert.equal(walkable(md, { x: 18 * T, y: 16.5 * T }), false, 'a partition wall stands between ward 1 and ward 2');
+  assert.ok(walkable(md, centre(3, 19)), 'the clinic opens straight into the operating room (no wall at column 3)');
+  assert.equal(walkable(md, centre(5, 19)), false, 'the rest of that wall is solid');
+  assert.ok(md.decor!.every(d => d.sprite.startsWith('wall_')), 'interior walls are depth-sorted wall sprites');
+  console.log('medical ok');
+}
 

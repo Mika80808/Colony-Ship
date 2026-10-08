@@ -22,7 +22,7 @@ export default function GrowthModal({ isOpen, onClose, rows, gameDate, gameTime 
         <div className="flex items-center gap-2">
           <Sprout className="w-4 h-4 text-emerald-400" />
           <h2 className="text-sm font-bold text-slate-100 font-sans">農業監控終端</h2>
-          <span className="text-xs text-slate-400 font-sans">星曆 {gameDate} {gameTime}</span>
+          <span className="text-xs text-slate-400 font-sans">{gameDate} {gameTime}</span>
         </div>
         <button type="button" onClick={close} title="關閉" aria-label="關閉"
           className="p-1.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-slate-400 hover:text-white border border-white/[0.1] transition-colors cursor-pointer">

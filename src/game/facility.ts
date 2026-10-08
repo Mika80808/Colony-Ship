@@ -41,6 +41,7 @@ export interface FacilityInteraction { id: string; kind: string; label: string; 
 export const FACILITIES: Record<string, { folder: string; name: string }> = {
   greenhouse: { folder: 'greenhouse', name: '溫室' },
   engineering: { folder: 'engineering', name: '工程部' },
+  medical: { folder: 'medical', name: '醫療室' },
 };
 
 /** Foot-circle radius; comfortably inside a 96px aisle. */
