@@ -1,22 +1,22 @@
 ---
 name: starport-scene-props
-description: 星際港場景物件（機台、家具、擺設）的繪製流程：先規劃分區與物件清單，在地面底圖上生成「擺設參考圖」取得正確的 RPG 斜俯視，再依參考圖生成最終物件、切圖、擺進地圖（碰撞、互動、遮擋）。當要幫設施或房間畫家具、機台、擺設，或物件「看起來是正面圖、不像 RPG」、「全部長得像櫃子」、「角度跟地板不合」時使用。單件小物的生圖規範仍看 starport-asset-gen。
+description: 星際港場景物件（機台、家具、擺設）的繪製流程：先規劃分區與物件清單，在地面底圖上生成「擺設參考圖」取得正確的 RPG 斜俯視，再依參考圖生成最終物件、切圖、擺進地圖（碰撞、互動、遮擋）。當要幫設施或房間畫家具、機台、擺設，或物件「看起來是正面圖、不像 RPG」、「全部長得像櫃子」、「角度跟地板不合」時使用。畫風、尺寸、材質配色看 starport-asset-gen。
 ---
 
 # 星際港場景物件繪製流程
 
 一句話：**物件的視角要從「畫在這張地圖上」得來，不要用程式定視角。** 先讓生圖模型在我們的地面底圖上把物件畫進去（擺設參考圖），模型自然會用跟地板一致的 RPG 視角；最後的物件再拿底圖＋參考圖當依據另外生成。
 
-流程依據 `.claude/skills/generate2dmap/`（scene_mode、layered raster、y-sorted props）。工程區（2026-10-04）是第一個照這個流程做的場景，程式都可以照抄：`tools/art/engineering_objects.py`、`engineering_props.py`、`engineering_build.py`。
+整張場景（底圖、牆、門、碰撞）的流程見 `.claude/skills/generate2dmap/`，這份接在它的第 6 步。工程區（2026-10-04）是第一個照這個流程做的場景，程式都可以照抄：`tools/art/engineering_objects.py`、`engineering_props.py`、`engineering_build.py`。
 
 ## 視角規範（RPG 斜俯視）
 
 - 跟 RPG Maker、星露谷一樣：地板格是正方形；**矮的東西（桌子、控制台、推車）主要看到頂面**，高的東西（櫃子、貨架、機台）看到正面加頂面。
 - 不要等角（isometric）斜轉，不要透視收縮。
-- 光源左上。風格：clean hand-painted HD 2D game art、soft cel shading、crisp dark outlines、low texture noise，不是像素畫。
+- 光源左上。畫風是 HD 像素風（一格 48 × 48 px），風格段照 `starport-asset-gen` 第一節。
 - **年代感：2090 年的高科技太空站（世界觀見 `docs/world.md`），物件是 sci-fi concept 設計**。光寫「乾淨、沒鏽」不夠：模型會畫出乾淨但造型老派的東西（外露螺栓、粗保險桿腳、波紋軟管、方盒舊螢幕、物件身上的黃黑條紋），工程區 batch20 就因此整批作廢。prompt 要寫出設計語言並列出禁止項（見下方範本的 Design language 一段）；區域特色（例：工程區的警示黃）只當小點綴。
 - 設計語言可以附使用者給的風格參考圖（工程區：`場景/工程區/style_ref_*.png`），prompt 寫明只參考設計語言，不照它的鏡頭、寫實渲染、商標文字。
-- 舊規範「頂面每格 16 px／96 格 24 px」**不適用於場景物件**：照那個畫白模，模型會畫成正面圖。
+- 不要用程式白模定家具、機台的視角：白模只有薄薄一條頂面，模型照描就變成正面圖。
 
 ## 流程
 
@@ -41,7 +41,7 @@ Use Image1 as the exact base map reference: it is <哪一區> of a <場景> in a
 Create a dressed-reference version of the same map by adding props only.
 Preserve exactly: camera, framing, image size and aspect ratio (<寬 x 高>), <地板、牆的特徵>. Do not crop, zoom, rotate, repaint or redesign the room.
 
-Design language for every prop: clean modular sci-fi equipment of a high-tech space station in the year 2090, smooth matte graphite and white composite panels, rounded and chamfered corners, flush hidden fasteners, slim integrated cyan #4DD0E1 light strips, flush flat screens, cables hidden inside the bodies. Not retro, not vintage, not old industrial: no exposed bolts or rivets, no chunky bumper feet, no ribbed hoses, no exposed wiring, no boxy old monitors, no yellow-black stripes on the props.
+Design language for every prop: clean modular sci-fi equipment of a high-tech space station in the year 2090, smooth matte graphite and white composite panels, rounded and chamfered corners, flush hidden fasteners, slim integrated light strips, flush flat screens, cables hidden inside the bodies. Not retro, not vintage, not old industrial: no exposed bolts or rivets, no chunky bumper feet, no ribbed hoses, no exposed wiring, no boxy old monitors, no yellow-black stripes on the props.
 
 Draw every prop in the same camera as the room, like objects in a top-down RPG such as RPG Maker or Stardew Valley: low objects (desks, consoles, worktables) clearly show their top surfaces as seen from above, tall objects (cabinets, racks, machines) show their front face plus their top. All props stand on the floor; their front bottom edge sits at the stated bottom position. No isometric diagonal rotation, no perspective convergence.
 
@@ -49,7 +49,7 @@ Add these props naturally on top of the existing map (positions are percent of i
 1. <物件>: x <左-右>%, bottom edge at y <%>, <高矮>. <造型描述>
 ...
 
-Style: clean hand-painted HD 2D game art matching the floor, soft cel shading, crisp dark outlines, low texture noise, not pixel art. <區域材質，見 starport-asset-gen 第四節>. Light from the upper left.
+<共同風格段，見 starport-asset-gen 第一節> Match the pixel scale of the floor. <區域材質，見 starport-asset-gen 第四節>.
 No characters, no UI, no text, no labels, no numbers, no watermark, no glow halos.
 ```
 

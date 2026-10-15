@@ -6,7 +6,7 @@
 ## 分工
 
 - Claude Code：寫程式、接場景、去背切圖、拼接素材、維護文件。
-- Codex：生圖。開工先看 `docs/tasks/` 有沒有指派給你的任務單（狀態「待執行」），照任務單交件；Claude Code 負責驗收。生圖前先讀 `.claude/skills/starport-asset-gen/SKILL.md`（素材規範）與對應場景的提示詞檔。做整張地圖或場景（底圖、道具包、碰撞與區域）時，再讀 `.claude/skills/generate2dmap/SKILL.md`。畫場景裡的機台、家具、擺設時，照 `.claude/skills/starport-scene-props/SKILL.md` 的流程（先在底圖上生擺設參考圖，再生最終物件）。
+- Codex：生圖。開工先看 `docs/tasks/` 有沒有指派給你的任務單（狀態「待執行」），照任務單交件；Claude Code 負責驗收。生圖前先讀 `.claude/skills/starport-asset-gen/SKILL.md`（素材規範）與對應場景的提示詞檔。做整張場景地圖（規劃、地板與牆的素材套件、底圖、碰撞）時，再讀 `.claude/skills/generate2dmap/SKILL.md`。畫場景裡的機台、家具、擺設時，照 `.claude/skills/starport-scene-props/SKILL.md` 的流程（先在底圖上生擺設參考圖，再生最終物件）。
 - 一律用繁體中文溝通與寫文件。
 
 ## 每次開工與收工
@@ -25,7 +25,7 @@
 | `問題修正紀錄.md` | 修正過的問題與累積的設計原則。動手設計前先看原則；修完問題要更新 |
 | `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名 |
 | `.claude/skills/starport-scene-props/SKILL.md` | 場景物件繪製流程：分區規劃 → 擺設參考圖（取得 RPG 斜俯視）→ 最終物件 → 切圖擺放 |
-| `.claude/skills/generate2dmap/` | 2D 地圖生成流程（取自 agent-sprite-forge，MIT）：分層底圖、道具包切圖、碰撞與區域、預覽；腳本需要 Pillow、numpy |
+| `.claude/skills/generate2dmap/` | 場景地圖流程（改編自 agent-sprite-forge，MIT）：格局規劃 → 素材套件 → 拼接底圖 → 牆／門／前景分層 → 碰撞與 map.json → 驗證 |
 | `tools/asset-prompts.md` | 角色與房間家具的生圖提示詞 |
 | `tools/art/greenhouse_crop_prompts.md` | 溫室 19 種作物三階段提示詞與排位配置 |
 | `docs/scenes/` | 各場景說明：A-1 房間、居住區 A 走廊、艦橋、工程區、中央廣場（規劃中）、醫療室（規劃中） |
