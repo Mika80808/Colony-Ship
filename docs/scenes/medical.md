@@ -112,7 +112,7 @@
 
 ## 之後的步驟（照 generate2dmap、starport-scene-props）
 
-1. 依 v9 生素材套件（地板、牆），`medical_build.py` 改讀 `medical_plan_v9.json` 重建底圖、牆、門、碰撞與 `map.json`。
+1. ~~依 v9 拼底圖、牆、門~~（2026-10-16 完成，`medical_base_v9.py`、`medical_door.py`）；接著做碰撞、牆的前後遮擋與前景。
 2. 物件清單，用白色方塊擺上底圖給使用者看。
 3. 分區生擺設參考圖。
 4. 依參考圖生最終物件 → 切圖 → 擺進地圖（碰撞、互動、座位、病床躺姿、拉簾、櫃台）。

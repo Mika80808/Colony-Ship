@@ -58,7 +58,7 @@ description: 星際港設施場景的整張地圖製作流程：格局規劃、�
 
 ### 4. 拼接底圖與結構（build 腳本）
 
-`tools/art/<場景>_build.py` 讀規劃 json，把素材套件切割、縮放、無縫化、組牆，輸出 `ground.webp`、牆的 decor、門、前景、`map.json`，另存 `tools/art/<場景>/base_full.png`（全部疊起來的底圖，給擺設參考圖用）。範例：`tools/art/medical_build.py`、`tools/art/engineering_build.py`；下方走廊沿用 `public/assets/corridor-a` 素材。
+`tools/art/<場景>_build.py` 讀規劃 json，把素材套件切割、縮放、無縫化、組牆，輸出 `ground.webp`、牆的 decor、門、前景、`map.json`，另存 `tools/art/<場景>/base_full.png`（全部疊起來的底圖，給擺設參考圖用）。範例：`tools/art/medical_base_v9.py`（從使用者給的素材圖切拼，一格 48）、`tools/art/engineering_build.py`；下方走廊沿用 `public/assets/corridor-a` 素材。
 
 分層規則：
 
