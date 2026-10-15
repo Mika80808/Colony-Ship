@@ -3,7 +3,7 @@
 外環南段的醫療中心：看病、拿藥、倒下後醒來的地方，醫護也在這裡做研究。程式裡的區域 id 是 `medical`（`initialGameData.ts` 已有星圖節點）。NPC 兩位：**醫師**、**藥劑師**。
 
 > 狀態（2026-10-16）：格局以 **v9** 為準。底圖與大門已放進遊戲看尺寸（暫時版：碰撞全部可走、牆還不會擋在角色前面）。
-> 格局圖 `tools/art/medical/medical_plan_v9.png`、資料 `medical_plan_v9.json`、白模 `medical_whitebox_v9.png`，由 `tools/art/medical_plan_v9.py` 產生；底圖由 `tools/art/medical_base_v9.py` 拼並放進 `public/assets/medical/`，大門由 `tools/art/medical_door.py` 切。
+> 格局圖 `tools/art/medical/medical_plan_v9.png`、資料 `medical_plan_v9.json`、白模 `medical_whitebox_v9.png`，由 `tools/art/medical_plan_v9.py` 產生；底圖由 `tools/art/medical_base_v9.py` 拼並放進 `public/assets/medical/`，大門用 `python tools/art/cut.py door medical` 切（規格在 `tools/art/medical_objects.py`）。
 
 ## v9 格局（2026-10-15，使用者定）
 
@@ -19,7 +19,7 @@
 | 居家休息區 | 右側中下方，開放區，沿用公共區淺灰地磚；跟候診區隔著主通道相通 |
 | 醫療研究室 | 最下方左側，東側直牆開兩格寬門通主通道 |
 | 藥物研究室 | 最下方右側，西側直牆開兩格寬門通主通道 |
-| 主通道與入口 | 中央主通道淨寬七格；南側大門是玻璃自動門（原圖 `tools/art/medical/raw/medical_entrance_door_v2.png`，`tools/art/medical_door.py` 切成門框與兩片門扇）：門框 6 格寬（288 × 288，底部貼走廊牆腳），門洞 184 × 236，置中對主通道。醫療室不運大型貨物，門不跟工程區一樣大（2026-10-16 使用者定）。左右走廊通居住區 B／C |
+| 主通道與入口 | 中央主通道淨寬七格；南側大門是玻璃自動門（原圖 `tools/art/medical/raw/medical_entrance_door_v2.png`，`tools/art/cut.py` 切成門框與兩片門扇，玻璃半透明）：門框 6 格寬（288，底部貼走廊牆腳），門洞 181 × 232，置中對主通道。醫療室不運大型貨物，門不跟工程區一樣大（2026-10-16 使用者定）。左右走廊通居住區 B／C |
 
 - 門洞：直牆上的門（手術室第 9–10 列、研究室第 42–43 列）上方先垂完三格牆面，門開在垂完以下；橫牆門洞保留牆頂當門楣，門楣不算地面碰撞。
 - 規劃資料含分區、牆面範圍、門洞、三張病床佔位、櫃台（阻擋佔地）、拉簾（軌道與預設狀態）和連通檢查；不含家具、NPC 站位、精細碰撞與最終美術。
@@ -112,7 +112,7 @@
 
 ## 之後的步驟（照 generate2dmap、starport-scene-props）
 
-1. ~~依 v9 拼底圖、牆、門~~（2026-10-16 完成，`medical_base_v9.py`、`medical_door.py`）；接著做碰撞、牆的前後遮擋與前景。
+1. ~~依 v9 拼底圖、牆、門~~（2026-10-16 完成，`medical_base_v9.py`、`cut.py`）；接著做碰撞、牆的前後遮擋與前景。
 2. 物件清單，用白色方塊擺上底圖給使用者看。
 3. 分區生擺設參考圖。
 4. 依參考圖生最終物件 → 切圖 → 擺進地圖（碰撞、互動、座位、病床躺姿、拉簾、櫃台）。

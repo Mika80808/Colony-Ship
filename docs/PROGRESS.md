@@ -5,6 +5,7 @@
 ## 溫室
 
 已完成
+- 2026-10-16 溫室完成：產生溫室素材的腳本（地面、草地、種植架、作物、花樹、圖層匯入、碰撞重建等 `tools/art/greenhouse_*.py`、`facility_ground.py`、`lawn_*.py`、autotile）都已刪除，遊戲素材留在 `public/assets/greenhouse/`。下面提到的腳本名稱是當時的紀錄。
 - 地面圖 `public/assets/greenhouse/ground.webp`、地圖與碰撞 `map.json`（40 × 28 格，每格 96 px）。
 - 自動植栽區：
   - 兩種空架 `rack_shelf.png`（三層層架）、`rack_trellis.png`（挑高藤架），細節手修過；層高、支柱位置記在 `racks.json`。產生腳本 `tools/art/greenhouse_racks.py`。
@@ -52,6 +53,9 @@
 - 新增 `generate2dmap` skill（`.claude/skills/generate2dmap/`，來源 0x0funky/agent-sprite-forge 2026-07-13 版），之後做新場景地圖時使用。2026-10-15 整理成本專案版：只留分層底圖流程，刪掉橫向捲軸、tilemap 引擎、戰棋格等用不到的模式與附帶腳本。
 - 2026-10-15 全遊戲畫風定為 HD 像素風（美術圖塊一格 48 × 48 px，使用者定）。`starport-asset-gen` 改寫：加共同風格段；格子改 48 px；刪掉統一發光青藍 #4DD0E1、64 px 校準板、白模／Blender、3 × 3 一次生的舊流程、「不要寫 pixel art」禁令、外部模型說明，分層改照 generate2dmap 的實際做法（底圖／decor／門／前景），不再用 Layer 1–6。`starport-scene-props`、`generate2dmap` 的畫風改為引用它。
 
+- 2026-10-16 清理 `tools/art`：刪掉用不到的 `candidates_build.py`（原圖已刪）、`engineering_plan.py`（舊機台配置 v3）。工程區小物件之後要照 2090 科幻風重做（舊的偏髒工業風），舊圖留著。
+- 2026-10-16 切圖工具統一成 `tools/art/cut.py`（物件表、門），場景只寫 `tools/art/<場景>_objects.py` 的資料；取代 `engineering_props.py`、`engineering_door.py`、`medical_door.py`，重切結果逐位元相同。
+
 ## 其他場景
 
 - A-1 房間：可遊玩，說明見 `docs/scenes/room-a1.md`。
@@ -78,7 +82,7 @@
 - 格局以 v9 為準（2026-10-15 使用者定），說明見 `docs/scenes/medical.md`。規劃腳本 `tools/art/medical_plan_v9.py` 產生格局圖、`medical_plan_v9.json`、白模；八分區七門洞連通檢查通過。藥局西／南側是半牆取藥櫃台、西側留工作出入口；病區南側對主通道開口，掛七格寬拉簾。
 - 規格（使用者定）：一格 48 × 48 px，地圖 `tileSize` 也是 48（角色約 3 格高，房間相對變小）；內牆跟北牆一樣高，都是 4 列（牆頂 1＋牆面 3，牆面往下長、整體尺寸不變）；手術室、研究室是直牆側門。
 - 底圖 `tools/art/medical_base_v9.py`：從使用者給的地磚表、牆參考圖、走廊柱間（`tools/art/medical/raw/`）切拼；走廊照原尺寸接在下方（跟居住區走廊一樣大），整張 35 × 69 格。同一支腳本把 `ground.webp`、走廊欄杆 `foreground.webp`、`map.json` 放進 `public/assets/medical/`。
-- 南側大門：玻璃自動門（`raw/medical_entrance_door_v2.png`），`tools/art/medical_door.py` 切成門框與兩片門扇；門框 6 格寬 288 × 288、門洞 184 × 236。醫療室不運大型貨物，門不跟工程區一樣大。
+- 南側大門：玻璃自動門（`raw/medical_entrance_door_v2.png`），`python tools/art/cut.py door medical` 切成門框與兩片門扇（規格在 `medical_objects.py`）；門框 6 格寬、門洞 181 × 232，玻璃半透明。醫療室不運大型貨物，門不跟工程區一樣大。
 - 2026-10-16 放進遊戲看尺寸（暫時版）：碰撞全部可走、牆還不會擋在角色前面；門跟工程區一樣按 E／點門才開，靠近自動開還沒做。舊的 v6 底圖、牆 decor、`tools/art/medical_build.py`（v6 流程）都已刪除；用不到的 `calibration_board.py`（64 px 校準板）、`whitebox.py`（家具白模）也刪了。
 - 下一步：碰撞（牆、門洞、櫃台、病床）、牆的前後遮擋與前景 → 物件清單與擺設參考圖。
 - 延後的事：兩位 NPC 外型與名字（地圖建完再說）、看診費與藥價（跟其他物價一起定）、北牆接中央廣場（廣場建完再改）。

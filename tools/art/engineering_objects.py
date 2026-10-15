@@ -87,3 +87,21 @@ def sheets():
     for sheet, items in SPARES.items():
         for order, name, width, _ in items: out.setdefault(sheet, []).append((order, name, width, HEIGHT_FIT.get(name)))
     return {k: sorted(v) for k, v in out.items()}
+
+# 格子排得比較擠的表：併塊距離調小，免得把上下相鄰的兩件併成一件（tools/art/cut.py 用）
+JOIN = {'batch18_logistics': 10, 'batch19_crew_corner': 10}
+
+
+def door():
+    """厚重隔音門的切圖規格（tools/art/cut.py door engineering）。幾何以 engineering_build.py 為準。
+    原圖是照白模生的，比例固定：主體拉伸對齊門框外緣，門洞照遊戲裡的門洞位置切。"""
+    from engineering_build import DOOR_ZONE, OPEN_X, OPEN_W, OPEN_TOP, WALL_BASE, O, write_cap
+    fw, fh = DOOR_ZONE[1] - DOOR_ZONE[0], WALL_BASE - O + 6
+    return {
+        'source': 'batch1_door.png',
+        'frame': (fw, fh),
+        'outer': (8, OPEN_TOP - O - 46, fw - 8, fh),                 # 門框外緣（不含頂上的警示燈座）
+        'open': (OPEN_X - DOOR_ZONE[0], OPEN_TOP - O, OPEN_X - DOOR_ZONE[0] + OPEN_W, WALL_BASE - O),
+        'keep': (10, 6, 10, 16),     # 門洞內緣的深色框、上緣燈條、底部門檻留在門框上，不跟著門扇滑走
+        'after': write_cap,          # 牆簷前景含門框頂端，門框換了要一起更新
+    }

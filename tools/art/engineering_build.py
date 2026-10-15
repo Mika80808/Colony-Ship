@@ -310,7 +310,7 @@ def doorway_floor():
 
 def write_cap():
     """牆頂前景：走廊牆頂 CAP_H 高的一條（牆簷＋門楣），連同門框頂端一起切下來，畫在角色上面（室內角色走到牆後時下半身被擋住）。
-    門框換圖後（engineering_door.py cut）要重跑一次。"""
+    門框換圖後（cut.py door engineering 會自動跑）要重跑一次。"""
     ground = Image.open(os.path.join(OUT, 'ground.webp')).convert('RGBA')
     cap = ground.crop((0, O, W * T, O + CAP_H))
     frame = Image.open(os.path.join(OUT, 'door_frame.webp')).convert('RGBA')

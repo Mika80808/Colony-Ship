@@ -108,7 +108,7 @@ export default function FacilityScene(props: Props) {
         },
       }));
     }
-    /** 水面遮罩（facility_ground.py 產生的 water.webp，1 px = 8 px 世界座標）；沒有就不放魚。 */
+    /** 水面遮罩（water.webp，1 px = 8 px 世界座標）；沒有就不放魚。 */
     async function loadWater(folder: string, map: FacilityMap): Promise<WaterMask | null> {
       if (!map.fish) return null;
       const im = await load(`/assets/${folder}/water.webp`).catch(() => null);
@@ -129,7 +129,7 @@ export default function FacilityScene(props: Props) {
       const { folder } = controls.current.facility;
       const response = await fetch(`/assets/${folder}/map.json`); if (!response.ok) throw new Error('map');
       const map: FacilityMap = await response.json();
-      // L0 地面由 tools/art/facility_ground.py 依 map.json 的 terrain 拼成；種植架與擺設依腳點排序。
+      // L0 地面是整張 ground.webp；種植架與擺設依腳點排序。
       const [background, sprite, racks, decor, water, door, overlays] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.webp'), loadRacks(folder, map), loadDecor(folder, map), loadWater(folder, map), loadDoor(folder, map),
         Promise.all((map.foreground ?? []).map(async o => ({ image: await load(`/assets/${folder}/${o.src}`), x: o.x, y: o.y })))]);
       if (disposed) return;

@@ -8,9 +8,9 @@
 - 2026-10-04 使用者手修原圖：去掉鏽斑油污，改成乾淨的星艦科技風（之後定為 2090 年 sci-fi workshop concept，見 PROGRESS）；刪掉四張電腦桌（研發桌、設計終端、製造機操作台、檢修工作台），配桌的椅凳也先不擺（圖保留在 props/chair、stool）。原圖改成透明背景。
 - 機台清單 `tools/art/engineering_objects.py`：位置與大小是量自參考圖的遊戲 px（底部中心、圖寬、碰撞深度），加上在哪張生圖第幾件。椅子、凳子在 `SEATS`，不擋路。
 - **要修改時**：
-  - 改圖：修 `tools/art/engineering/raw/<批次>.png`，再跑 `uv run --with pillow --with numpy --with scipy python tools/art/engineering_props.py <批次>`（或 `all`）。直接改 `public/assets/engineering/props/<名稱>.webp` 也可以，但重切會被蓋掉。
+  - 改圖：修 `tools/art/engineering/raw/<批次>.png`，再跑 `python tools/art/cut.py props engineering <批次>`（或 `all`）。直接改 `public/assets/engineering/props/<名稱>.webp` 也可以，但重切會被蓋掉。
   - 改位置、大小、碰撞、互動文字：改 `engineering_objects.py`。
-  - 改完都要重跑 `engineering_build.py`，再跑 `engineering_door.py cut tools/art/engineering/raw/batch1_door.png`。
+  - 改完都要重跑 `engineering_build.py`，再跑 `python tools/art/cut.py door engineering`。
 - 切圖：自動找出每件（相距 40 px 內的併成一件，散落零件併給 80 px 內的大塊），依閱讀順序對到清單，縮到參考圖量出的寬度；比例差太多的（機械手臂）改照高度（`HEIGHT_FIT`）。
 - 碰撞是每件從底邊往上 depth 格的精細矩形（collisionRects）；互動站位由 `engineering_build.py` 自動挑：從入口走得到、在互動範圍內（離圖 ≤ 48 px）、最靠近正前方、不站在椅子上。
 - GM 會拿到工程區的物件清單與玩家附近的物件（facilityContext.ts）。
@@ -20,12 +20,11 @@
 - 厚重隔音門在走廊中間，門洞 4 格寬（第 6–9 欄），大型物件推得進去。走到門前按 E（或點門）才會開，1.4 秒開完；開著時再按 E 關上，角色離門洞超過 150 px 也會自己關。門關著時尋路不穿過門洞（點門後面會顯示無法通行）；門開不到九成時角色停在門前等。門扇只畫在門洞框裡往兩側滑開，角色走在門洞裡時門框蓋在角色上面。門在動的時候門楣的警示燈閃。
 - 走廊欄杆（foreground.webp）與走廊牆頂（wall_cap.webp：牆簷＋門楣，牆頂往下 66 px）蓋在角色上面。室內角色可以走到牆後，腳點最深到牆頂下 58 px（同 A-1 房間南牆），下半身被牆擋住、只露出胸口以上（collisionRects 決定深度；門關著時 closedFrom 讓門前也能站一樣深）。
 - 室內的牆與地板是程式畫的（左上 45 度光源；油污深灰、外露螺栓、警示黃）：防滑鋼板、管線溝蓋板、警示條紋、油污。使用者決定牆與地板維持這樣。
-- 大門是生圖素材（2026-10-04，Codex batch1）：白模 `場景/工程區/door_whitebox.png` 當 image1 定形狀、居住區走廊的門當 image2 定畫風；風格參考使用者給的 sci-fi 貨運門（上灰下黑的厚框、橘燈條、黑色箭頭），只用文字描述、沒有把參考圖交給模型。原圖 `tools/art/engineering/raw/batch1_door.png`，用 `engineering_door.py cut` 切成門框與兩片門扇；門洞四周的邊框與門檻留在門框上（KEEP），只有門扇滑開。
+- 大門是生圖素材（2026-10-04，Codex batch1）：白模 `場景/工程區/door_whitebox.png` 當 image1 定形狀、居住區走廊的門當 image2 定畫風；風格參考使用者給的 sci-fi 貨運門（上灰下黑的厚框、橘燈條、黑色箭頭），只用文字描述、沒有把參考圖交給模型。原圖 `tools/art/engineering/raw/batch1_door.png`，用 `cut.py door engineering` 切成門框與兩片門扇（當時是 `engineering_door.py`）；門洞四周的邊框與門檻留在門框上（KEEP），只有門扇滑開。
 
 檔案
-- 產生腳本：`tools/art/engineering_build.py`（地面、前景、map.json；也會畫一份程式版的門，重跑後要再跑一次 `engineering_door.py cut` 換回生圖的門）。
-- 大門：`tools/art/engineering_door.py`（`whitebox` 產生白模、`cut` 切原圖），幾何從 engineering_build.py 讀。
-- 規劃圖腳本：`tools/art/engineering_plan.py`（機台配置 v3，北牆立面還是一列；擺機台時往下移一列對齊）。
+- 產生腳本：`tools/art/engineering_build.py`（地面、前景、map.json；也會畫一份程式版的門，重跑後要再跑一次 `cut.py door engineering` 換回生圖的門）。
+- 大門：`python tools/art/cut.py door engineering` 切原圖，規格在 `engineering_objects.py` 的 `door()`（幾何從 engineering_build.py 讀）。產生白模的程式已刪（2026-10-16 切圖工具統一）。
 - 素材：`public/assets/engineering/`。門的資料格式與判斷：`src/game/facility.ts` 的 `DoorSpec`、`doorBlocks`、`stepDoor`。
 
 檢查：npm run lint；node --import tsx src/game/facility.test.ts；npm run build。

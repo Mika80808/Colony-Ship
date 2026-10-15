@@ -17,7 +17,9 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-import medical_door
+import cut
+
+DOOR = cut.door_geometry('medical')    # 大門的門框、門洞、燈條位置（從門的原圖量，見 medical_objects.door()）
 
 HERE = Path(__file__).resolve().parent
 RAW = HERE / 'medical' / 'raw'
@@ -27,7 +29,7 @@ W, H = PLAN['width'], PLAN['height']
 INTERIOR_ROWS = 48            # 南牆（第 48 列）以下是走廊
 CORRIDOR_X, CORRIDOR_H = 1274, 996       # 柱間在 corridor-a 的位置；走廊素材總高
 CORRIDOR_WALL = 345                      # 走廊素材：牆面到 y 345 為止
-ENTRANCE_W, ENTRANCE_LINTEL = medical_door.FW, 66   # 牆上切口＝門框外寬（6 格），門框的門楣、門柱蓋住切口邊緣
+ENTRANCE_W, ENTRANCE_LINTEL = DOOR['frame'][0], 66   # 牆上切口＝門框外寬（6 格），門框的門楣、門柱蓋住切口邊緣
 ROWS = -(-(INTERIOR_ROWS * T + CORRIDOR_H) // T)                 # 整張地圖的列數
 
 # ── 地磚：每色取中間四塊，縮成一格一塊 ──────────────────────────────
@@ -233,8 +235,8 @@ def install(ground):
     }
     if (out / 'door_frame.webp').exists():
         cx = round((dx + dw / 2) * T)
-        fx = cx - medical_door.FW // 2
-        ox0, oy0, ox1, oy1 = medical_door.OPEN
+        fx = cx - DOOR['frame'][0] // 2
+        ox0, oy0, ox1, oy1 = DOOR['open']
         data['door'] = {
             'id': 'medical-door', 'label': '醫療室大門',
             'passage': {'x': (fx + ox0) / T, 'y': INTERIOR_ROWS, 'w': (ox1 - ox0) / T, 'h': corridor_top - INTERIOR_ROWS},
@@ -242,7 +244,7 @@ def install(ground):
             'opening': [fx + ox0, top + oy0, ox1 - ox0, oy1 - oy0],
             'frame': {'src': 'door_frame.webp', 'x': fx, 'y': top},
             'panels': {'left': 'door_left.webp', 'right': 'door_right.webp'},
-            'lamp': [fx + medical_door.LIGHT[0], top + medical_door.LIGHT[1]],
+            'lamp': [fx + DOOR['light'][0], top + DOOR['light'][1]],
             'trigger': 150, 'openSeconds': 1.0,
         }
     (out / 'map.json').write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')

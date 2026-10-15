@@ -94,7 +94,7 @@ Style: high-resolution pixel art for a top-down 2D RPG, designed at the detail d
 | 同批物件角度不一 | 分次呼叫 | 同類物件同一張圖一起生（分類規則見 `generate2dmap` 第 6 步） |
 | 尺寸忽大忽小 | 想靠 prompt 控制像素 | 尺寸只在後製處理，prompt 只講佔幾格 |
 | 底部畫出地板或陰影融進地面 | 沒禁止場景 | 加 no floor, no shadow, isolated object |
-| 洋紅滲進物件配色 | 模型把背景色當調色盤 | 背景改中性灰 #808080；去背照 `tools/art/engineering_props.py` 的 cut |
+| 洋紅滲進物件配色 | 模型把背景色當調色盤 | 背景改中性灰 #808080；去背用共用切圖工具 `tools/art/cut.py` |
 | 畫成平滑插畫，像素感不見 | 沒帶風格段，或帶了舊的 hand-painted 風格段 | 換成第一節的風格段；拿舊的手繪素材當參考圖時，寫明只照它的造型與視角，畫風改成像素風 |
 | 像素粗細不一、像套濾鏡 | 沒限定像素尺度 | 風格段的 one consistent pixel scale、not a pixel filter 不能省 |
 
@@ -114,6 +114,7 @@ Style: high-resolution pixel art for a top-down 2D RPG, designed at the detail d
 溫室作物、食物、道具圖示用另一套 cute pixel RPG 提示詞，不套第一節的風格段。
 
 - 作物：提示詞、三階段規則、排位配置都在 `tools/art/greenhouse_crop_prompts.md`，照檔案流程生成。
-- 栽種架是左端／中段／右端三段（各 48 × 144 px），中段每 48 px 重複一次。作物排進架子由 `tools/art/` 的腳本處理，不靠生圖對位。
+- 溫室已完成（2026-10-16），排架、切圖的腳本已刪；遊戲素材在 `public/assets/greenhouse/`。
+- 栽種架是左端／中段／右端三段（各 48 × 144 px），中段每 48 px 重複一次。
 - 層架每層開口約 22 px 高，作物以 24 × 24 px 可讀為準；挑高藤架開口約 104 × 75 px，藤蔓作物以 24 × 72 px 為準。
 - 原始圖放 `tools/art/crops/raw/`，檔名用作物英文名（例：`lettuce.png`）。

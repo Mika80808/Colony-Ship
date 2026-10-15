@@ -7,7 +7,7 @@ description: 星際港場景物件（機台、家具、擺設）的繪製流程�
 
 一句話：**物件的視角要從「畫在這張地圖上」得來，不要用程式定視角。** 先讓生圖模型在我們的地面底圖上把物件畫進去（擺設參考圖），模型自然會用跟地板一致的 RPG 視角；最後的物件再拿底圖＋參考圖當依據另外生成。
 
-整張場景（底圖、牆、門、碰撞）的流程見 `.claude/skills/generate2dmap/`，這份接在它的第 6 步。工程區（2026-10-04）是第一個照這個流程做的場景，程式都可以照抄：`tools/art/engineering_objects.py`、`engineering_props.py`、`engineering_build.py`。
+整張場景（底圖、牆、門、碰撞）的流程見 `.claude/skills/generate2dmap/`，這份接在它的第 6 步。工程區（2026-10-04）是第一個照這個流程做的場景，程式都可以照抄：`tools/art/engineering_objects.py`（清單）、`engineering_build.py`（地圖）。切圖一律用共用工具 `tools/art/cut.py`，新場景只要寫 `tools/art/<場景>_objects.py` 的資料（`sheets()`、`JOIN`、`door()`）。
 
 ## 視角規範（RPG 斜俯視）
 
@@ -69,8 +69,9 @@ No characters, no UI, no text, no labels, no numbers, no watermark, no glow halo
 - **尺寸與位置**：在參考圖上疊座標格線（每 32 px 一條）用眼睛讀每件的左右、上緣、底邊，換算成遊戲 px（參考圖 1 px = 底圖原寬 ÷ 1024；下半部參考圖要加上裁切的 y 起點）。不要用「參考圖減底圖」自動找，模型會重畫地板，差異會黏成一片。切圖時縮放到量出的寬度；生出來的比例跟參考圖差很多的（例：手臂往旁邊伸）改照高度縮放。
 
 ### 5. 切圖與擺放
-- 去背：透明或洋紅都去掉；偏紫紅的像素一律去掉、貼著背景的淡紫邊再削一圈（見 `engineering_props.py` 的 cut），切完檢查洋紅殘留要是 0。
-- 找物件：相距 40 px 內的塊先併成一件（並排的油桶），剩下的碎塊（散落零件）併給 80 px 內最近的大塊，再依閱讀順序對到清單；數量對不上就報錯（見 `engineering_props.py`）。
+- 切圖：`python tools/art/cut.py props <場景> <批次|all>`；門用 `python tools/art/cut.py door <場景>`。
+- 去背：透明或洋紅都去掉、貼著背景的淡紫邊再削一圈（物件本身偏紫的地方不動），切完檢查洋紅殘留要是 0。
+- 找物件：相距 40 px 內的塊先併成一件（並排的油桶），剩下的碎塊（散落零件）併給 80 px 內最近的大塊，再依閱讀順序對到清單；數量對不上就報錯（見 `cut.py`）。
 - 擺進地圖（見 `engineering_build.py`）：decor 以**底部中心**對齊；碰撞用精細矩形（collisionRects，從底邊往上 depth 格），不用整格；有互動文字的加 interaction（點擊範圍＝整張圖）。
 - **互動站位用程式挑，不要手填**：從入口在細格上走一遍，挑走得到、離圖 ≤ 48 px（互動範圍 56 px 以內）、最靠近正前方、不在椅子上的點。手填常常太遠按 E 沒反應，或卡在走不到的縫裡。
 - GM 物件清單：在 `src/game/facilityContext.ts` 補中文名稱。
