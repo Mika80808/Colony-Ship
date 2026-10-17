@@ -15,7 +15,7 @@ description: 星際港場景物件（機台、家具、擺設）的繪製流程�
 - 不要等角（isometric）斜轉，不要透視收縮。
 - 光源左上。畫風是 HD 像素風（一格 48 × 48 px），風格段照 `starport-asset-gen` 第一節。
 - **年代感：2090 年的高科技太空站（世界觀見 `docs/world.md`），物件是 sci-fi concept 設計**。光寫「乾淨、沒鏽」不夠：模型會畫出乾淨但造型老派的東西（外露螺栓、粗保險桿腳、波紋軟管、方盒舊螢幕、物件身上的黃黑條紋），工程區 batch20 就因此整批作廢。prompt 要寫出設計語言並列出禁止項（見下方範本的 Design language 一段）；區域特色（例：工程區的警示黃）只當小點綴。
-- 設計語言可以附使用者給的風格參考圖（工程區：`場景/工程區/style_ref_*.png`），prompt 寫明只參考設計語言，不照它的鏡頭、寫實渲染、商標文字。
+- 設計語言可以附使用者給的風格參考圖（放 `tools/art/<場景>/style_ref/`），prompt 寫明只參考設計語言，不照它的鏡頭、寫實渲染、商標文字。
 - 不要用程式白模定家具、機台的視角：白模只有薄薄一條頂面，模型照描就變成正面圖。
 
 ## 流程
@@ -78,17 +78,20 @@ No characters, no UI, no text, no labels, no numbers, no watermark, no glow halo
 - 測試：跑場景測試（每格走得到、站位、碰撞）、lint、build；瀏覽器實際走一圈，看前後遮擋與點擊互動。
 
 ### 6. 收尾
-- 原圖放 `tools/art/<場景>/raw/`，prompt 存在生圖資料夾（`場景/<場景>/`）跟原圖同名的 `.prompt.txt`。
+- 原圖放 `tools/art/<場景>/raw/`，prompt 寫進 `tools/art/<場景>/prompts.md`；試錯檔放暫存區（規則見 `starport-asset-gen` 第六節）。
 - 更新 `docs/scenes/<場景>.md`、`docs/PROGRESS.md`；有修正問題就更新 `問題修正紀錄.md`；commit 並 push。
 
 ## Codex 生圖
 
 - 生圖前**先把 prompt 給使用者看**，使用者說可以才送（每次 2–5 分鐘，使用者在意成本）。
-- 指令（在生圖資料夾執行，參考圖先複製進該資料夾）：
+- 指令（在專案根目錄執行，prompt 從 stdin 送；開頭先寫給 Codex 的指示：照附圖生成、存到 `tools/art/<場景>/raw/<檔名>.png`、生完用看圖工具自我檢查、不合格重生最多 3 次）：
 
 ```
-"/c/Users/Mika/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe" exec --skip-git-repo-check -s workspace-write -C "<生圖資料夾>" -i <image1> -i <image2> -o <批次>_last.txt - < <批次>.prompt.txt > <批次>_log.txt 2>&1
+codex exec -s workspace-write -i <image1> -i <image2> - < <暫存區的 prompt 檔>
 ```
+
+- 命令列版 `codex` 跟 Codex 桌面版是分開安裝的；桌面版更新了、命令列版沒更新時，新模型會被拒（「not supported when using Codex with a ChatGPT account」），先跑 `codex update`，或用 `-m` 指定舊版認得的模型。
+- Codex 偶爾生完存不進專案（檔案工具故障），原圖會留在 `~/.codex/generated_images/<session>/`，從那裡複製。
 
 - 回傳的圖不一定是 1024（常給 1254）；切圖座標一律依圖寬等比例換算。
 

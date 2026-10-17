@@ -10,4 +10,9 @@ assert.equal(drawBeforePlayer(table, { x: 290, y: 190 }), true, 'actor right of 
 assert.equal(drawBeforePlayer(table, { x: 180, y: 190 }), false, 'table can cover an actor behind it');
 assert.equal(drawBeforePlayer(table, { x: 180, y: 250 }), true, 'actor below table is drawn in front');
 assert.equal(drawBeforePlayer({ sprite: 'sofa', bottom: 200 }, { x: 180, y: 180 }, true), true, 'seated actor stays above sofa cushion');
+const wall = { beside: true, left: 48, right: 528, bottom: 816 };
+assert.equal(drawBeforePlayer(wall, { x: 300, y: 680 }), false, 'the wall top covers an actor standing behind it');
+assert.equal(drawBeforePlayer(wall, { x: 300, y: 840 }), true, 'an actor south of the wall stands in front of it');
+assert.equal(drawBeforePlayer(wall, { x: 560, y: 680 }), true, 'an actor beside the end of the wall is not covered');
+assert.equal(drawBeforePlayer({ left: 48, right: 528, bottom: 816 }, { x: 560, y: 680 }), false, 'decor without beside keeps plain depth order');
 console.log('scene depth ok');

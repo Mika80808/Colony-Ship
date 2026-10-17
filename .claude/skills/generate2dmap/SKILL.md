@@ -21,6 +21,7 @@ description: 星際港設施場景的整張地圖製作流程：格局規劃、�
 | `props/*.webp` | decor：室內牆、家具、機台，以底部中心對齊，依底邊 y 跟角色排前後 |
 | `door_frame.webp`、`door_left.webp`、`door_right.webp` | 自動門的門框與兩片門扇，程式控制開關 |
 | `wall_cap.webp`、`foreground.webp` | 前景：牆簷、欄杆，永遠蓋在角色上面 |
+| map.json 的 `walls` | 室內橫牆牆頂那一條（從 ground.webp 切 rects），依 bottom 跟角色排前後，角色在牆端左右之外不被蓋。範例：醫療室 `medical_base_v9.py` 的 `collision()` |
 | `map.json` | `collision`、`collisionRects`、`entrances`、`door`、`foreground`、`decor`、`interactions` |
 
 - 畫的順序：底圖 → decor 與角色依底邊 y 排序 → 門 → 前景 → UI。
@@ -53,7 +54,8 @@ description: 星際港設施場景的整張地圖製作流程：格局規劃、�
 - 開派工單 `docs/tasks/T<n>-<場景>-<內容>.md`：每張的檔名、尺寸、完整 prompt、共同風格段、交件位置。
 - 畫風、配色、光源照 `starport-asset-gen`：HD 像素風，派工單的共同風格段用它第一節的風格段，再接區域材質。年代是 2090 年（`docs/world.md`），不要紙本、文字、標誌。場景特例看 `docs/scenes/<場景>.md` 與 `問題修正紀錄.md`。
 - 地板和牆的素材另外寫明：表面低對比、少雜訊，之後擺上去的家具才看得清楚；像素尺度跟物件一致。
-- 原圖放 `tools/art/<場景>/raw/kit/`，每張旁邊存同名 `.prompt.txt`，內容是實際送出的完整 prompt。
+- 原圖放 `tools/art/<場景>/raw/`，prompt 寫進 `tools/art/<場景>/prompts.md`（檔案規則見 `starport-asset-gen` 第六節）。
+- 整張畫不下時可以讓 GPT 分塊「照描＋加質感」重畫拼好的底圖（醫療室作法見 `tools/art/medical/prompts.md`）：只准加質感、不准動牆線，生完比對牆面上下緣；放手讓它畫，牆面會縮短，碰撞就對不上。
 - 生圖前先把 prompt 給使用者看，說可以才送（使用者在意成本）。
 
 ### 4. 拼接底圖與結構（build 腳本）

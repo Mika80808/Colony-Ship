@@ -102,7 +102,7 @@ Style: high-resolution pixel art for a top-down 2D RPG, designed at the detail d
 
 ## 六、檔名與分層
 
-- 原始生成圖：`tools/art/<場景>/raw/`，PNG，旁邊存同名 `.prompt.txt`（實際送出的完整 prompt）。
+- 原始生成圖：`tools/art/<場景>/raw/`，只留有採用的版本。prompt 寫在同場景的 `tools/art/<場景>/prompts.md`（一張圖一節，實際送出的完整 prompt）；風格參考圖放 `tools/art/<場景>/style_ref/`。試錯過程的檔案（試畫、切給模型的輸入圖、比對圖、一次性腳本）放暫存區，不進專案（2026-10-17 使用者定）。
 - 遊戲素材：`public/assets/<場景>/`，轉無損 WebP（`tools/to_webp.py`）。物件放 `props/`，檔名用英文小寫加連字號，例：`parts-shelves.webp`、`mini-fridge.webp`。
 - 分層照 `generate2dmap`：底圖（地板、外牆立面）、decor（室內牆、家具、機台，依底邊跟角色排前後）、門、前景（牆簷、欄杆）。生成前先確認物件屬於哪一層。
 - 發光元件不要把光暈畫進圖：光暈畫死在圖上，之後場景燈光改變時會對不上。

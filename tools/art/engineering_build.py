@@ -8,8 +8,10 @@
   foreground.webp  走廊外側欄杆，蓋在角色上面
   map.json         碰撞、出入口、門
 
-室內是程式畫的斜俯視材質（左上 45 度光源，配色照生成家具.md：油污深灰、外露螺栓、警示黃），
-之後要換成生圖素材時，只換 ground.webp 與門的三張圖，map.json 的座標不變。
+室內是程式畫的斜俯視材質（左上 45 度光源，配色照生成家具.md：油污深灰、外露螺栓、警示黃）。
+使用者重畫的底圖 tools/art/engineering/ground.webp 在的話，整張蓋在程式版上面（2026-10-17 起是遊戲底圖）：
+它跟程式版錯開 ART_OFFSET（牆線、門洞都對得上，只是四周少一點邊），缺的邊用它自己往外鏡像補。
+大門：raw/batch1_door.png 在的話，最後用 cut.door('engineering') 換成生圖的門（不用另外再跑 cut.py）。
 下方走廊沿用居住區 A 走廊的素材：柱子、素面牆板、地板、欄杆、星空原樣切出來拼，不重畫。
 """
 import json, math, os
@@ -27,6 +29,8 @@ CORRIDOR_H = 996            # 居住區走廊素材的高度
 H = math.ceil((O + CORRIDOR_H) / T)
 CROP_X = 252                # 從走廊素材切哪一段：讓地板上的燈光落在門正下方（門 2 的中心 1020 → 768）
 RNG = np.random.default_rng(7)
+ART = os.path.join(ROOT, 'tools/art/engineering/ground.webp')
+ART_OFFSET = (12, 19)       # 使用者底圖在地圖上的位置（px）：量十幾條牆線都差這麼多，邊緣相關 0.90
 
 # 室內地面，第 3–18 列、第 1–14 欄。. 防滑鋼板｜g 管線溝蓋板｜h 警示條紋｜x 油污
 # 位置對應 engineering_objects.py 的 v5 機台分區；機台腳下鋪鋼板。
@@ -360,6 +364,11 @@ def main():
     # 門旁的工程部招牌（居住區走廊的同款招牌）
     sign = Image.open(os.path.join(ROOT, 'public/assets/corridor-signs/sign-engineering.webp')).convert('RGBA')
     ground.alpha_composite(sign, (DOOR_ZONE[1] + 60, O + 150))
+    if os.path.exists(ART):    # 四周缺的邊用使用者底圖往外鏡像補（用程式版補，星空會有接縫）
+        art = np.asarray(Image.open(ART).convert('RGBA'))
+        (ox, oy), (gw, gh) = ART_OFFSET, ground.size
+        pad = ((oy, gh - oy - art.shape[0]), (ox, gw - ox - art.shape[1]), (0, 0))
+        ground = Image.fromarray(np.pad(art, pad, mode='symmetric'), 'RGBA')
     ground.convert('RGB').save(os.path.join(OUT, 'ground.webp'), lossless=True)
     fg.save(os.path.join(OUT, 'foreground.webp'), lossless=True)
     frame, left, right = door_art()
@@ -462,6 +471,9 @@ def main():
     with open(os.path.join(OUT, 'map.json'), 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False)
     write_cap()
+    if os.path.exists(os.path.join(ROOT, 'tools/art/engineering/raw/batch1_door.png')):
+        import cut
+        cut.door('engineering')        # 換成生圖的門，也會重產牆頂前景
     print('ground', ground.size, 'map', W, 'x', H, 'corridor rows', corridor_top, '-', corridor_bottom - 1, 'passage', passage)
 
 if __name__ == '__main__':
