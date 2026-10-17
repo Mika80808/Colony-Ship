@@ -11,7 +11,7 @@ import { Fish, WaterMask, drawFish, rng, spawnFish, stepFish } from '../game/fis
 import { drawBeforePlayer } from '../game/sceneDepth';
 
 /** 畫在地面之上、要和玩家排前後的東西：依底部 y 由上到下畫，玩家插在自己腳的位置。 */
-interface Standing { bottom: number; sprite?: string; left?: number; right?: number; draw: (ctx: CanvasRenderingContext2D) => void }
+interface Standing { bottom: number; sprite?: string; left?: number; right?: number; beside?: boolean; draw: (ctx: CanvasRenderingContext2D) => void }
 
 interface Props {
   facility: { folder: string; name: string };
@@ -108,7 +108,7 @@ export default function FacilityScene(props: Props) {
         },
       }));
     }
-    /** 水面遮罩（facility_ground.py 產生的 water.webp，1 px = 8 px 世界座標）；沒有就不放魚。 */
+    /** 水面遮罩（water.webp，1 px = 8 px 世界座標）；沒有就不放魚。 */
     async function loadWater(folder: string, map: FacilityMap): Promise<WaterMask | null> {
       if (!map.fish) return null;
       const im = await load(`/assets/${folder}/water.webp`).catch(() => null);
@@ -129,7 +129,7 @@ export default function FacilityScene(props: Props) {
       const { folder } = controls.current.facility;
       const response = await fetch(`/assets/${folder}/map.json`); if (!response.ok) throw new Error('map');
       const map: FacilityMap = await response.json();
-      // L0 地面由 tools/art/facility_ground.py 依 map.json 的 terrain 拼成；種植架與擺設依腳點排序。
+      // L0 地面是整張 ground.webp；種植架與擺設依腳點排序。
       const [background, sprite, racks, decor, water, door, overlays] = await Promise.all([load(`/assets/${folder}/ground.webp`), load('/assets/player/walk.webp'), loadRacks(folder, map), loadDecor(folder, map), loadWater(folder, map), loadDoor(folder, map),
         Promise.all((map.foreground ?? []).map(async o => ({ image: await load(`/assets/${folder}/${o.src}`), x: o.x, y: o.y })))]);
       if (disposed) return;
@@ -138,6 +138,11 @@ export default function FacilityScene(props: Props) {
       s.standing = [
         ...racks.racks.map(r => ({ bottom: r.bottom, draw: (c: CanvasRenderingContext2D) => { c.imageSmoothingEnabled = false; c.drawImage(r.image, r.x, r.y, r.width, r.height); } })),
         ...decor,
+        // 橫牆牆頂：從底圖切同一塊蓋回去，角色走到牆後面時就被蓋住下半身
+        ...(map.walls ?? []).map(w => ({ bottom: w.bottom, left: w.left, right: w.right, beside: w.left !== undefined, draw: (c: CanvasRenderingContext2D) => {
+          const k = background.width / world.width;
+          for (const [x, y, rw, rh] of w.rects) c.drawImage(background, x * k, y * k, rw * k, rh * k, x, y, rw, rh);
+        } })),
       ].sort((a, b) => a.bottom - b.bottom);
       s.paintRacks = racks.paint;
       s.water = water; s.fish = water ? spawnFish(water, map.fish ?? 0, 7) : [];
@@ -159,11 +164,11 @@ export default function FacilityScene(props: Props) {
         }
         ctx.drawImage(art.frame, spec.frame.x, spec.frame.y);
       };
-      /** 角色走在門洞裡（已經穿過牆面）時，門框要蓋在角色上面。 */
+      /** 角色走在門洞裡、或站在門框正後方（已經走進牆頂後面）時，門框要蓋在角色上面。 */
       const inDoorway = () => {
-        const spec = map.door; if (!spec) return false;
-        const [x, y, w, h] = spec.opening;
-        return s.p.x > x && s.p.x < x + w && s.p.y > spec.frame.y && s.p.y < y + h;
+        const spec = map.door; if (!spec || !s.door) return false;
+        const [, y, , h] = spec.opening;
+        return s.p.x > spec.frame.x && s.p.x < spec.frame.x + s.door.frame.width && s.p.y > spec.frame.y && s.p.y < y + h;
       };
       const drawPlayer = (moving: boolean) => {
         const sw = sprite.width / 4, sh = sprite.height / 3, h = ACTOR_HEIGHT, w = h * sw / sh;
@@ -203,7 +208,8 @@ export default function FacilityScene(props: Props) {
           }
           if (!s.path.length && s.pending) { const pending = s.pending; s.pending = null; if (nearby(s.p, [pending])) actRef.current(pending); }
           if (map.door) {
-            if (s.doorWanted && doorDistance(map, map.door, s.p) > map.door.trigger) s.doorWanted = false;   // 走遠了自己關
+            if (map.door.auto) s.doorWanted = doorDistance(map, map.door, s.p) < map.door.trigger;
+            else if (s.doorWanted && doorDistance(map, map.door, s.p) > map.door.trigger) s.doorWanted = false;   // 走遠了自己關
             s.doorOpen = stepDoor(map.door, s.doorOpen, s.doorWanted, dt);
           }
         }
@@ -278,8 +284,8 @@ export default function FacilityScene(props: Props) {
         const r = e.currentTarget.getBoundingClientRect(), p = { x: (e.clientX - r.left) / r.width * s.view.width + s.camera.x, y: (e.clientY - r.top) / r.height * s.view.height + s.camera.y };
         const item = clicked(p, s.items);
         if (item && nearby(s.p, s.items)?.id === item.id) { act(item); return; }
-        // 門關著時不穿門找路；點門本身就走到門前（角色那一側），到了再開
-        const nav = s.doorWanted || s.doorOpen > 0 || !s.closedMap ? s.map : s.closedMap;
+        // 門關著時不穿門找路（自動門照走，走近就開）；點門本身就走到門前（角色那一側），到了再開
+        const nav = s.map.door?.auto || s.doorWanted || s.doorOpen > 0 || !s.closedMap ? s.map : s.closedMap;
         const path = findPath(nav, s.p, item?.kind === 'door' && s.map.door ? doorStand(s.map, s.map.door, s.p) : item?.point ?? p);
         s.path = path; s.pending = path.length ? item ?? null : null;
         if (!path.length) controls.current.onNotice('那裡無法通行。');

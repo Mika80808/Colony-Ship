@@ -5,6 +5,7 @@
 ## 溫室
 
 已完成
+- 2026-10-16 溫室完成：產生溫室素材的腳本（地面、草地、種植架、作物、花樹、圖層匯入、碰撞重建等 `tools/art/greenhouse_*.py`、`facility_ground.py`、`lawn_*.py`、autotile）都已刪除，遊戲素材留在 `public/assets/greenhouse/`。下面提到的腳本名稱是當時的紀錄。
 - 地面圖 `public/assets/greenhouse/ground.webp`、地圖與碰撞 `map.json`（40 × 28 格，每格 96 px）。
 - 自動植栽區：
   - 兩種空架 `rack_shelf.png`（三層層架）、`rack_trellis.png`（挑高藤架），細節手修過；層高、支柱位置記在 `racks.json`。產生腳本 `tools/art/greenhouse_racks.py`。
@@ -52,20 +53,17 @@
 - 新增 `generate2dmap` skill（`.claude/skills/generate2dmap/`，來源 0x0funky/agent-sprite-forge 2026-07-13 版），之後做新場景地圖時使用。2026-10-15 整理成本專案版：只留分層底圖流程，刪掉橫向捲軸、tilemap 引擎、戰棋格等用不到的模式與附帶腳本。
 - 2026-10-15 全遊戲畫風定為 HD 像素風（美術圖塊一格 48 × 48 px，使用者定）。`starport-asset-gen` 改寫：加共同風格段；格子改 48 px；刪掉統一發光青藍 #4DD0E1、64 px 校準板、白模／Blender、3 × 3 一次生的舊流程、「不要寫 pixel art」禁令、外部模型說明，分層改照 generate2dmap 的實際做法（底圖／decor／門／前景），不再用 Layer 1–6。`starport-scene-props`、`generate2dmap` 的畫風改為引用它。
 
+- 2026-10-16 清理 `tools/art`：刪掉用不到的 `candidates_build.py`（原圖已刪）、`engineering_plan.py`（舊機台配置 v3）。工程區小物件之後要照 2090 科幻風重做（舊的偏髒工業風），舊圖留著。
+- 2026-10-16 切圖工具統一成 `tools/art/cut.py`（物件表、門），場景只寫 `tools/art/<場景>_objects.py` 的資料；取代 `engineering_props.py`、`engineering_door.py`、`medical_door.py`，重切結果逐位元相同。
+
 ## 其他場景
 
 - A-1 房間：可遊玩，說明見 `docs/scenes/room-a1.md`。
 - 居住區 A 走廊：可遊玩，說明見 `docs/scenes/corridor-a.md`。走廊 B–D 只有擺放設定，素材沿用 A 走廊。
 - A 走廊右端步行接溫室；溫室招牌不再觸發傳送，從 A 走廊進溫室時角色面向右方。
 - 艦橋：可遊玩，說明見 `docs/scenes/bridge.md`。
-- 工程區：可遊玩，14 件機台已擺（RPG 斜俯視、乾淨的舊版風格，使用者手修過；電腦桌已刪；依工作流程分區：收件區、中央通道、維修區、製造區、研發角），說明見 `docs/scenes/engineering.md`。下方走廊沿用居住區走廊素材，左通 C、右通 D；厚重門要按 E（或點門）才開、走遠自己關，門沒開完會擋人。居住區走廊左右兩端都能直接走進有場景的設施（B 左端進溫室、C 右端與 D 左端進工程區）。定位是外環的維修與研發工坊，沒有引擎與重力裝置。
-  - **設計語言改定（2026-10-04）：世界觀是 2090 年高科技星艦，物件要 sci-fi workshop concept**（霧面石墨＋白色複合外殼、圓角、隱藏螺絲、嵌入燈條；不要外露螺栓、粗保險桿腳、波紋軟管、舊螢幕）。規範寫進兩個 skill；風格參考圖 `場景/工程區/style_ref_*.png`。舊風格的生圖紀錄搬到 `場景/_舊風格封存/工程區_2026-10-04/`（使用者確認後可刪）。地圖上已擺的 14 件還是舊風格，流程定了再換。
-  - 新風格備用物件（還沒擺進地圖）：
-    - 精密工作站 9 件：參考圖 batch20b → 最終 batch21（工作台、掃描門、3D 列印機、抽屜櫃）、batch22（診斷推車、焊接站、協作手臂、工具箱推車、高腳椅），取代舊的 batch17 正面圖（同檔名）。
-    - 大型機台 4 件：參考圖 batch27（不限尺寸）→ 最終 batch28（大型製造機 `mega-fabricator`、自動診修艙 `diag-repair`：斷層掃描＋內建手臂，診斷／測試／維修合一）、batch29（全息設計桌 `holo-desk`、材料回收機 `recycler`）。
-    - 倉儲物流有新風格參考圖 batch23，使用者決定不做最終物件；休息與安全角不重做。
-    - 目錄圖：`場景/工程區/catalog_workbench.png`、`catalog_machines.png`。
-  - 舊風格備用物件（batch16、18、19，跳過擺設參考圖，多數是正面圖）：輸送帶橫、直各一（batch16）、倉儲物流（batch18：自動倉儲塔、搬運機器人、移動吊臂、工具箱台車、氣瓶架、回收分類桶、電池充電櫃、板材管材推車、備品棧板）、休息與安全角（batch19：咖啡吧台、移動白板、沙發、小邊桌、洗眼沖淋站、滅火器、小冰箱、登高梯、防護裝備架）。清單在 `tools/art/engineering_objects.py` 的 `SPARES`，圖在 `public/assets/engineering/props/`。
+- 工程區：可走（底圖、牆、厚重門、碰撞），說明見 `docs/scenes/engineering.md`。下方走廊沿用居住區走廊素材，左通 C、右通 D；厚重門要按 E（或點門）才開、走遠自己關，門沒開完會擋人。居住區走廊左右兩端都能直接走進有場景的設施（B 左端進溫室、C 右端與 D 左端進工程區）。定位是外環的維修與研發工坊，沒有引擎與重力裝置。
+  - **物件全部重做（2026-10-17 使用者定）**：舊機台、備用物件（`public/assets/engineering/props/`）、原圖批次與 prompt 都刪了，`tools/art/engineering_objects.py` 清單清空，大門原圖 `raw/batch1_door.png` 保留。底圖改用使用者重畫的 `tools/art/engineering/ground.webp`（2026-10-17）：它跟程式版錯開 (12, 19) px，`engineering_build.py` 把它放回原位、四周缺的邊鏡像補上，牆頂前景也從它切；build 最後自動用 `cut.door` 換上生圖的門，不用再另外跑 `cut.py`。`raw/1017.webp` 是新物件的生圖。設計語言照 2090 sci-fi workshop concept（霧面石墨＋白色複合外殼、圓角、隱藏螺絲、嵌入燈條；不要外露螺栓、粗保險桿腳、波紋軟管、舊螢幕），規範在兩個 skill。
 
 ## 中央廣場（規劃中）
 
@@ -78,9 +76,12 @@
 - 格局以 v9 為準（2026-10-15 使用者定），說明見 `docs/scenes/medical.md`。規劃腳本 `tools/art/medical_plan_v9.py` 產生格局圖、`medical_plan_v9.json`、白模；八分區七門洞連通檢查通過。藥局西／南側是半牆取藥櫃台、西側留工作出入口；病區南側對主通道開口，掛七格寬拉簾。
 - 規格（使用者定）：一格 48 × 48 px，地圖 `tileSize` 也是 48（角色約 3 格高，房間相對變小）；內牆跟北牆一樣高，都是 4 列（牆頂 1＋牆面 3，牆面往下長、整體尺寸不變）；手術室、研究室是直牆側門。
 - 底圖 `tools/art/medical_base_v9.py`：從使用者給的地磚表、牆參考圖、走廊柱間（`tools/art/medical/raw/`）切拼；走廊照原尺寸接在下方（跟居住區走廊一樣大），整張 35 × 69 格。同一支腳本把 `ground.webp`、走廊欄杆 `foreground.webp`、`map.json` 放進 `public/assets/medical/`。
-- 南側大門：玻璃自動門（`raw/medical_entrance_door_v2.png`），`tools/art/medical_door.py` 切成門框與兩片門扇；門框 6 格寬 288 × 288、門洞 184 × 236。醫療室不運大型貨物，門不跟工程區一樣大。
-- 2026-10-16 放進遊戲看尺寸（暫時版）：碰撞全部可走、牆還不會擋在角色前面；門跟工程區一樣按 E／點門才開，靠近自動開還沒做。舊的 v6 底圖、牆 decor 已刪；`tools/art/medical_build.py`（v6 流程）不再使用。
-- 下一步：碰撞（牆、門洞、櫃台、病床）、牆的前後遮擋與前景 → 物件清單與擺設參考圖。
+- 南側大門：玻璃自動門（`raw/medical_entrance_door_v2.png`），`python tools/art/cut.py door medical` 切成門框與兩片門扇（規格在 `medical_objects.py`）；門框 6 格寬、門洞 181 × 232，玻璃半透明。醫療室不運大型貨物，門不跟工程區一樣大。
+- 2026-10-16 放進遊戲看尺寸（暫時版，10-17 已補上碰撞、遮擋、自動門）。舊的 v6 底圖、牆 decor、`tools/art/medical_build.py`（v6 流程）都已刪除；用不到的 `calibration_board.py`（64 px 校準板）、`whitebox.py`（家具白模）也刪了。
+- 2026-10-17 碰撞與遮擋：`medical_base_v9.py` 照 v9 規劃寫 `map.json` 的碰撞（牆、病床與櫃台佔位、門洞）與 `walls`（橫牆牆頂那一條，從底圖切，依底邊跟角色排前後；站到牆後只露出胸口以上，站在牆端旁邊不被蓋）。大門改成靠近自動開（`DoorSpec.auto`）。`facility.test.ts` 檢查全部格子走得到、八個房間、門洞、牆後深度。說明見 `docs/scenes/medical.md`「碰撞與遮擋」。
+- 2026-10-17 地板與底圖質感：地板改成四色霧面樹脂大方板（`raw/medical_floor_resin.png`，一片 2 × 2 格，取代太像浴室的小方格磁磚）；拼好的底圖切四塊交給 GPT（astra）「照描＋加質感」重畫（牆頂倒角、牆面嵌板與薄荷綠飾線、邊緣陰影），`medical_base_v9.py` 看到 `raw/repaint_*.png` 就接起來當遊戲底圖。作法與 prompt 在 `tools/art/medical/prompts.md`。
+- `tools/art/medical/raw/` 另有使用者的物件草稿（`draft_*.png`：側門、雙開門、L 型沙發、候診椅、病床）與整張擺設參考圖 `props_ref_v9.png`。
+- 下一步：物件清單，用白色方塊擺上底圖給使用者看 → 擺設參考圖。
 - 延後的事：兩位 NPC 外型與名字（地圖建完再說）、看診費與藥價（跟其他物價一起定）、北牆接中央廣場（廣場建完再改）。
 
 ## 角色素材

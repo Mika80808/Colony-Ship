@@ -171,15 +171,69 @@ console.log('greenhouse ok');
   assert.equal(stepDoor(door, 0, false, 10), 0, 'never opens by itself');
   console.log('engineering ok');
 }
-// Medical bay (v9, temporary map 2026-10-16): 48 px tiles, room above the residential corridor (B ↔ C), glass door into the main aisle. Collision is not built yet.
+// Medical bay (v9): 48 px tiles, room above the residential corridor (B ↔ C), automatic glass door into the main aisle.
 {
-  const md = load('medical'), T = md.tileSize;
+  const md = load('medical'), T = md.tileSize, door = md.door!;
+  const centre = (x: number, y: number) => ({ x: (x + .5) * T, y: (y + .5) * T });
   assert.equal(T, 48, 'medical art and map use 48 px tiles');
   assert.equal(arrivalDirection(md, 'residential_b'), 'right'); assert.equal(arrivalDirection(md, 'residential_c'), 'left');
   const fromB = spawn(md, 'residential_b');
   assert.ok(findPath(md, fromB, spawn(md, 'residential_c')).length, 'the corridor strip runs from B to C');
-  assert.ok(md.door && md.door.frame.src === 'door_frame.webp', 'the main entrance is the glass door');
-  assert.ok(findPath(md, fromB, { x: 17.5 * T, y: 30 * T }).length, 'the main aisle is reachable through the door');
+  // Every walkable tile centre is reachable from the corridor (flood fill over neighbouring centres).
+  const seen = new Set<number>(), todo = [[Math.floor(fromB.x / T), Math.floor(fromB.y / T)]];
+  seen.add(todo[0][1] * md.width + todo[0][0]);
+  while (todo.length) {
+    const [x, y] = todo.pop()!;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx, ny = y + dy, id = ny * md.width + nx;
+      if (nx < 0 || ny < 0 || nx >= md.width || ny >= md.height || seen.has(id) || !walkable(md, centre(nx, ny)) || !segmentClear(md, centre(x, y), centre(nx, ny))) continue;
+      seen.add(id); todo.push([nx, ny]);
+    }
+  }
+  for (let y = 0; y < md.height; y++) for (let x = 0; x < md.width; x++)
+    if (walkable(md, centre(x, y))) assert.ok(seen.has(y * md.width + x), `medical tile ${x},${y} reachable`);
+  // One spot in every room: surgery, ward, clinic, pharmacy (behind the counter), waiting, lounge, both research rooms.
+  for (const [x, y, room] of [[5, 8, 'surgery'], [31, 11, 'ward'], [6, 20, 'clinic'], [27, 20, 'pharmacy'], [6, 31, 'waiting'], [27, 31, 'lounge'], [6, 45, 'medical research'], [27, 45, 'drug research']] as const)
+    assert.ok(seen.has(y * md.width + x), `${room} is reachable`);
+  // Beds and counters block by their planned footprint; the pharmacy work gap stays open.
+  for (const [x, y] of [[16, 6], [22, 6], [28, 6], [21, 18], [21, 23], [27, 24]]) assert.ok(blocked(md, x, y), `furniture at ${x},${y}`);
+  assert.equal(blocked(md, 21, 21), false, 'pharmacy work opening');
+  // Behind every horizontal inner wall you can step 58 px past the wall top line, and the 66 px strip drawn over you hides it.
+  const walls = md.walls!.filter(w => w.left !== undefined);
+  assert.equal(walls.length, 6, 'six stretches of inner wall top');
+  for (const w of walls) for (const [x, y, rw, h] of w.rects) {
+    if (h === T) continue;   // 門楣：門洞上方只有牆頂，從門洞走得過去
+    assert.ok(walkable(md, { x: x + rw / 2, y: y + 58 }), `feet go behind the wall at ${x},${y}`);
+    assert.equal(walkable(md, { x: x + rw / 2, y: y + 62 }), false, `but no deeper at ${x},${y}`);
+    assert.ok(58 + 5 <= h, 'the hidden feet are under the strip');
+  }
+  for (const w of walls) {
+    // Feet are either behind the strip (≤ top + 58) or south of the whole wall (≥ bottom + radius): the depth split never flips mid-wall.
+    const top = w.rects[0][1], doorways = w.rects.filter(r => r[3] === T);
+    for (let x = w.left! + 4; x < w.right!; x += 8) if (!doorways.some(([dx, , dw]) => x > dx - RADIUS && x < dx + dw + RADIUS)) for (let y = top + 59; y < w.bottom + RADIUS; y += 4)
+      assert.equal(walkable(md, { x, y }), false, `inside the wall at ${x},${y}`);
+  }
+  // Doorways: the surgery side door, the clinic doors and the research doors all connect.
+  assert.ok(findPath(md, centre(5, 8), centre(13, 10)).length, 'surgery → ward through the side door');
+  assert.ok(findPath(md, centre(5, 11), centre(5, 20)).length, 'surgery → clinic');
+  assert.ok(findPath(md, centre(5, 20), centre(5, 31)).length, 'clinic → waiting');
+  assert.ok(segmentClear(md, centre(12, 42), centre(14, 42)) && segmentClear(md, centre(20, 42), centre(22, 42)), 'research room doors');
+  // The glass door opens by itself as you walk up; it is not something you press E on.
+  assert.ok(door.auto && door.frame.src === 'door_frame.webp', 'the main entrance is the automatic glass door');
+  assert.equal(interactions(md).some(i => i.kind === 'door'), false, 'no E prompt on an automatic door');
+  const aisle = centre(17, 30);
+  assert.ok(findPath(md, fromB, aisle).length, 'the main aisle is reachable through the door');
+  assert.deepEqual(findPath(withDoorClosed(md), fromB, aisle), [], 'the door is the only way in');
+  const outside = { x: (door.passage.x + door.passage.w / 2) * T, y: (door.passage.y + door.passage.h) * T + RADIUS + 4 };
+  assert.ok(walkable(md, outside) && doorDistance(md, door, outside) < door.trigger, 'standing at the door outside opens it');
+  assert.ok(doorDistance(md, door, fromB) > door.trigger, 'walking past along the corridor does not');
+  assert.ok(doorBlocks(md, door, { x: outside.x, y: outside.y - 10 }, 0), 'a shut door blocks the passage');
+  assert.equal(doorBlocks(md, door, { x: outside.x, y: outside.y - 10 }, DOOR_PASSABLE), false, 'an open one does not');
+  // Inside along the south wall you can stand behind its top as deep as anywhere else, door shut or not.
+  const south = md.walls!.find(w => w.left === undefined)!;
+  assert.equal(south.rects[0][1], door.passage.y * T, 'the south wall strip sits on the corridor wall top');
+  assert.ok(walkable(md, { x: 5 * T, y: door.passage.y * T + 58 }) && !walkable(md, { x: 5 * T, y: door.passage.y * T + 62 }));
+  assert.equal(doorBlocks(md, door, { x: outside.x, y: door.passage.y * T + 58 }, 0), false);
+  assert.ok(doorBlocks(md, door, { x: outside.x, y: door.passage.y * T + 62 }, 0));
   console.log('medical ok');
 }
-

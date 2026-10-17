@@ -30,10 +30,17 @@ export interface DoorSpec {
   /** 腳點離門洞超過這個距離（px），開著的門就自己關上。 */
   trigger: number;
   openSeconds: number;
+  /** 自動門（醫療室玻璃門）：腳點離門洞不到 trigger 就自己開，不用按 E，也不是互動物件。 */
+  auto?: boolean;
 }
 /** 蓋在角色上面的圖（例：走廊欄杆）。 */
 export interface OverlaySpec { src: string; x: number; y: number }
-export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; collisionRects?: TileRect[]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[]; racks?: RackSpec[]; decor?: DecorSpec[]; fish?: number; door?: DoorSpec; foreground?: OverlaySpec[] }
+/**
+ * 橫牆牆頂那一條（從 ground.webp 切 rects，px）：角色腳點在 bottom 以上（走到牆後面）時畫在角色上面。
+ * 有 left／right 的話，角色站在這段牆的左右兩側之外就不被蓋住（從牆端旁邊走過）。
+ */
+export interface WallSpec { rects: [number, number, number, number][]; bottom: number; left?: number; right?: number }
+export interface FacilityMap { tileSize: number; width: number; height: number; collision: number[][]; collisionRects?: TileRect[]; entrances: Entrance[]; interactions?: InteractionSpec[]; plots?: TileRect[]; racks?: RackSpec[]; decor?: DecorSpec[]; fish?: number; door?: DoorSpec; foreground?: OverlaySpec[]; walls?: WallSpec[] }
 /** `kind` is 'exit' for doorways (with `to`), 'plot' for farm plots, otherwise whatever map.json names it. */
 export interface FacilityInteraction { id: string; kind: string; label: string; text: string; point: Point; area: Rect; to?: string; seat?: Point; exit?: Point }
 
@@ -173,7 +180,7 @@ export function interactions(m: FacilityMap): FacilityInteraction[] {
   return [
     ...m.entrances.map(e => ({ ...at(`exit-${e.to}`, 'exit', e.label, '', e, { x: e.x + e.w / 2, y: e.y + e.h / 2 }), to: e.to })),
     ...(m.interactions ?? []).map(i => ({ ...at(i.id, i.kind, i.label, i.text, { x: i.area[0], y: i.area[1], w: i.area[2], h: i.area[3] }, { x: i.stand[0], y: i.stand[1] }), ...(i.seat ? { seat: seatPoint(i.seat) } : {}), ...(i.exit ? { exit: { x: i.exit[0] * m.tileSize, y: i.exit[1] * m.tileSize } } : {}) })),
-    ...(m.door ? [((stand: Point) => at(m.door!.id, 'door', m.door!.label, '', m.door!.passage, { x: stand.x / m.tileSize, y: stand.y / m.tileSize }))(doorStand(m, m.door, { x: 0, y: Infinity }))] : []),
+    ...(m.door && !m.door.auto ? [((stand: Point) => at(m.door!.id, 'door', m.door!.label, '', m.door!.passage, { x: stand.x / m.tileSize, y: stand.y / m.tileSize }))(doorStand(m, m.door, { x: 0, y: Infinity }))] : []),
     ...(m.plots ?? []).map((p, i, all) => at(`plot-${i + 1}`, 'plot', all.length > 1 ? `種植區 ${i + 1}` : '種植區', '這塊土地還空著。（種植系統尚未開放）', p, { x: p.x + p.w / 2, y: p.y + p.h / 2 })),
   ];
 }

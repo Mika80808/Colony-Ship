@@ -2,13 +2,17 @@
 
 用法：python tools/art/medical_base_v9.py（先跑 medical_plan_v9.py 產生 json）
 來源（tools/art/medical/raw/）：
-  medical_floor_tiles.png  四色地磚表，每色 4 × 4 塊：左上綠、右上淺藍、左下藍灰、右下米白
+  medical_floor_resin.png  四色霧面樹脂地板（2026-10-17，取代小方格磁磚），每色 4 × 4 片大方板：左上綠、右上淺藍、左下藍灰、右下米白
   medical_walls_ref.jpg    牆的參考圖：海軍藍牆頂（深色描邊＋亮邊＋底部斜面）、白色牆面＋踢腳板
   medical_corridor_ref.jpg 居住區走廊一個柱間（corridor-a x=1274 起，門與燈已清掉），寬 517 可左右重複；
                            只到地板底（754 px），下面的欄杆與窗外星空從 public/assets/corridor-a 同一段補上
-輸出 tools/art/medical/base_v9.png：室內 48 列＋走廊原尺寸 996 px，補到整格（69 列，1680 × 3312）。
+  repaint_{nw,ne,sw,se}.png GPT 照 base_v9.png 分四塊重畫的質感版（作法與 prompt 見 tools/art/medical/prompts.md）
+輸出 tools/art/medical/base_v9.png：室內 48 列＋走廊原尺寸 996 px，補到整格（69 列，1680 × 3312）。這張是腳本拼的版本，
+也是重畫的輸入圖；四張重畫圖都在時，遊戲底圖改用重畫版（室內換掉，走廊不變）。
 走廊不縮放：角色在每個場景都是 148 世界單位高，走廊要跟居住區走廊一樣大；室內一格 48 所以房間相對角色比較小。
-程式只做切割、縮放、拼接：地磚切中間四塊（縫中線到縫中線，可無縫重複），牆頂與牆面取參考圖的剖面像素照牆線鋪。
+程式只做切割、縮放、拼接：地板切中間四片（縫中線到縫中線，可無縫重複），一片 2 × 2 格；牆頂與牆面取參考圖的剖面像素照牆線鋪。
+另外寫 public/assets/medical/map.json：碰撞（牆、病床與櫃台佔位、門洞）、牆的遮擋片（walls：從底圖切牆頂那一條，
+角色走到橫牆後面時畫在角色上面）、自動玻璃門。大門圖要先用 python tools/art/cut.py door medical 切好。
 """
 import json
 import random
@@ -17,7 +21,9 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-import medical_door
+import cut
+
+DOOR = cut.door_geometry('medical')    # 大門的門框、門洞、燈條位置（從門的原圖量，見 medical_objects.door()）
 
 HERE = Path(__file__).resolve().parent
 RAW = HERE / 'medical' / 'raw'
@@ -27,41 +33,65 @@ W, H = PLAN['width'], PLAN['height']
 INTERIOR_ROWS = 48            # 南牆（第 48 列）以下是走廊
 CORRIDOR_X, CORRIDOR_H = 1274, 996       # 柱間在 corridor-a 的位置；走廊素材總高
 CORRIDOR_WALL = 345                      # 走廊素材：牆面到 y 345 為止
-ENTRANCE_W, ENTRANCE_LINTEL = medical_door.FW, 66   # 牆上切口＝門框外寬（6 格），門框的門楣、門柱蓋住切口邊緣
+ENTRANCE_W, ENTRANCE_LINTEL = DOOR['frame'][0], 66   # 牆上切口＝門框外寬（6 格），門框的門楣、門柱蓋住切口邊緣
 ROWS = -(-(INTERIOR_ROWS * T + CORRIDOR_H) // T)                 # 整張地圖的列數
+CORRIDOR_TOP = (INTERIOR_ROWS * T + 397) // T                    # 走廊可走帶：素材 y 397–775，取落在裡面的整列
+CORRIDOR_BOTTOM = (INTERIOR_ROWS * T + 775) // T
 
-# ── 地磚：每色取中間四塊，縮成一格一塊 ──────────────────────────────
-SHEET = Image.open(RAW / 'medical_floor_tiles.png').convert('RGB')
-SWATCH = {'green': (41, 41), 'ward': (335, 41), 'research': (41, 335), 'cream': (335, 335)}
-GROUT = (63.5, 125.5, 187.5)  # 色塊內三條縫的中線（相對色塊左上角）
+# ── 地板：霧面樹脂大方板，每色取中間四片（縫中線到縫中線），一片 2 × 2 格 ─────────
+SHEET = Image.open(RAW / 'medical_floor_resin.png').convert('RGB')
+PANEL = 2 * T
+QUAD = {'green': (0, 0), 'ward': (630, 0), 'research': (0, 629), 'cream': (630, 629)}   # 象限左上角（洋紅間隔之後）
+SEAMS = (156.5, 313.25, 469.5)   # 象限內三條接縫的中線（相對象限左上角，從原圖量）
+# 色調對回原本四色地磚的平均色（素材表顏色偏飽和），只留材質的明暗變化
+TARGET = {'green': (235.7, 242.9, 238.8), 'ward': (236.0, 241.3, 244.9),
+          'research': (226.3, 231.8, 236.3), 'cream': (240.0, 239.3, 237.2)}
 
 
-def tiles(name):
-    ox, oy = SWATCH[name]
+def panels(name):
+    ox, oy = QUAD[name]
     out = []
     for gy in range(2):
         for gx in range(2):
-            box = (round(ox + GROUT[gx]), round(oy + GROUT[gy]),
-                   round(ox + GROUT[gx + 1]), round(oy + GROUT[gy + 1]))
-            out.append(np.array(SHEET.crop(box).resize((T, T), Image.LANCZOS)))
-    return out
+            box = (round(ox + SEAMS[gx]), round(oy + SEAMS[gy]), round(ox + SEAMS[gx + 1]), round(oy + SEAMS[gy + 1]))
+            out.append(np.array(SHEET.crop(box).resize((PANEL, PANEL), Image.LANCZOS)).astype(float))
+    mean = np.mean([p.reshape(-1, 3).mean(0) for p in out], 0)
+    return [np.clip(p - mean + TARGET[name], 0, 255).astype(np.uint8) for p in out]
 
 
-FLOORS = {name: tiles(name) for name in SWATCH}
+FLOORS = {name: panels(name) for name in QUAD}
 REGION_FLOOR = {'surgery': 'green', 'clinic': 'green', 'ward': 'ward',
                 'med-research': 'research', 'drug-research': 'research'}
+CREAM_ORIGIN = (840 - PANEL // 2, 0)   # 公共區一整片連通：大方板以主通道中線（大門中心 x 840）對稱排
 
 
 def floor_of(x, y):
+    """這格的地板材質與方板排列的原點（px）：有隔牆的房間從房間左上角排，公共區整片一起排。"""
     for region in PLAN['regions']:
         rx, ry, rw, rh = region['rect']
         if rx <= x < rx + rw and ry <= y < ry + rh:
-            return REGION_FLOOR.get(region['id'], 'cream')
+            name = REGION_FLOOR.get(region['id'], 'cream')
+            return name, (rx * T, ry * T) if name != 'cream' else CREAM_ORIGIN
     if x == 11 and 9 <= y < 11:          # 手術室側門開口接病區
-        return 'ward'
+        return 'ward', (12 * T, 4 * T)
     if 5 <= x < 7 and 14 <= y < 17:      # 診間北門（手術室與診間之間）
-        return 'green'
-    return 'cream'
+        return 'green', (1 * T, 17 * T)
+    return 'cream', CREAM_ORIGIN
+
+
+def floor_texture(name, origin, height, width, seed=9):
+    """整張地圖大小的地板：每片隨機挑四片之一。不旋轉：切片時接縫只會落在固定的兩邊，轉了就會有的邊有縫、有的沒有。"""
+    ox, oy = origin
+    out = np.zeros((height, width, 3), np.uint8)
+    for py in range(-1, height // PANEL + 2):
+        for px_ in range(-1, width // PANEL + 2):
+            rng = random.Random(f'{seed}:{name}:{px_}:{py}')
+            tile = rng.choice(FLOORS[name])
+            x0, y0 = ox % PANEL + (px_ - 1) * PANEL, oy % PANEL + (py - 1) * PANEL
+            xa, ya, xb, yb = max(x0, 0), max(y0, 0), min(x0 + PANEL, width), min(y0 + PANEL, height)
+            if xa < xb and ya < yb:
+                out[ya:yb, xa:xb] = tile[ya - y0:yb - y0, xa - x0:xb - x0]
+    return out
 
 
 # ── 牆：從參考圖取剖面 ─────────────────────────────────────────────
@@ -105,10 +135,13 @@ def px(rect):
 
 def build():
     image = np.zeros((ROWS * T, W * T, 4), np.uint8)
-    rng = random.Random(9)
+    textures = {}
     for y in range(INTERIOR_ROWS):
         for x in range(W):
-            image[y * T:(y + 1) * T, x * T:(x + 1) * T, :3] = rng.choice(FLOORS[floor_of(x, y)])
+            key = floor_of(x, y)
+            if key not in textures:
+                textures[key] = floor_texture(*key, INTERIOR_ROWS * T, W * T)
+            image[y * T:(y + 1) * T, x * T:(x + 1) * T, :3] = textures[key][y * T:(y + 1) * T, x * T:(x + 1) * T]
             image[y * T:(y + 1) * T, x * T:(x + 1) * T, 3] = 255
 
     top = np.zeros((ROWS * T, W * T), bool)
@@ -197,16 +230,134 @@ def corridor(image):
     y0, y1 = top + ENTRANCE_LINTEL, top + CORRIDOR_WALL
     centre = round((dx + dw / 2) * T)
     x0, x1 = centre - ENTRANCE_W // 2, centre + ENTRANCE_W // 2
-    tile = FLOORS['cream'][0]
-    yy, xx = np.mgrid[y0:y1, x0:x1]
-    image[y0:y1, x0:x1, :3] = tile[yy % T, xx % T]
+    image[y0:y1, x0:x1, :3] = floor_texture('cream', CREAM_ORIGIN, y1, x1)[y0:y1, x0:x1]
     for i, color in enumerate(FACE_SIDE):                  # 牆切開的兩側補深色邊
         image[y0:y1, x0 + i, :3] = color
         image[y0:y1, x1 - 1 - i, :3] = color
 
 
+# ── 碰撞與牆的遮擋（數值照 問題修正紀錄.md「牆與遮擋」）─────────────────
+FEET_UNDER_CAP = 58     # 從北邊走到橫牆後面，腳點最多走進牆頂線以下 58 px
+COVER = 66              # 牆頂往下這麼高的一條畫在角色上面（58 + 角色圖多畫的 5 px，取跟工程區一樣的 66）
+RADIUS = 22             # 腳圈半徑（src/game/facility.ts 的 RADIUS）
+STOP = FEET_UNDER_CAP + RADIUS      # 碰撞從牆頂線以下 80 px 開始
+
+
+def cell(x, y):
+    return PLAN['layout'][y][x]
+
+
+def edge_runs():
+    """橫牆的北緣：牆格（含門楣）正上方是地板，左右連成至少兩格（直牆側門下方那一格牆端不算，角色不會走到它後面）。
+    回傳 (列, 起欄, 止欄)。"""
+    def edge(x, y):
+        return y > 0 and cell(x, y) in 'WD' and cell(x, y - 1) not in 'WD' and \
+            (cell(x, y) == 'W' or any(d['lintel'] and d['rect'][0] <= x < d['rect'][0] + d['rect'][2] and d['rect'][1] == y
+                                      for d in PLAN['doors']))
+    runs = []
+    for y in range(1, INTERIOR_ROWS):
+        x = 0
+        while x < W:
+            if not edge(x, y):
+                x += 1
+                continue
+            x0 = x
+            while x < W and edge(x, y):
+                x += 1
+            if x - x0 >= 2:
+                runs.append((y, x0, x))
+    return runs
+
+
+def spans(cols):
+    """連續的欄分成 [起, 止) 段。"""
+    out = []
+    for c in cols:
+        if out and out[-1][1] == c:
+            out[-1][1] = c + 1
+        else:
+            out.append([c, c + 1])
+    return out
+
+
+def collision(corridor_top, passage, frame_x, frame_top):
+    """整格碰撞表＋精細矩形（格為單位）＋牆的遮擋片（px）。
+    室內：牆、櫃台、病床佔的格擋住；門洞可走。橫牆北緣讓腳點走進牆頂線以下 58 px，牆頂往下 66 px 那條畫在角色上面。
+    南牆（走廊牆）跟工程區一樣：牆頂後面可以走 58 px，其他擋住，只留門洞。"""
+    r4 = lambda v: round(v, 4)
+    grid = [[0] * W for _ in range(ROWS)]
+    for y in range(INTERIOR_ROWS):
+        for x in range(W):
+            grid[y][x] = 1 if cell(x, y) in 'WBC' else 0
+    rects, walls = [], []
+    for y, x0, x1 in edge_runs():
+        doors = [x for x in range(x0, x1) if cell(x, y) == 'D']
+        solid = [x for x in range(x0, x1) if cell(x, y) == 'W']
+        for x in solid:
+            grid[y][x] = grid[y + 1][x] = 0
+        for a, b in spans(solid):
+            rects.append({'x': a, 'y': r4(y + STOP / T), 'w': b - a, 'h': r4(2 - STOP / T)})
+        bottom = []
+        for x in solid:                       # 這段牆往下連到哪一列（角色從南邊最多走到這裡）
+            yy = y
+            while cell(x, yy) == 'W':
+                yy += 1
+            bottom.append(yy)
+        walls.append({
+            'rects': [[a * T, y * T, (b - a) * T, COVER] for a, b in spans(solid)] +
+                     [[a * T, y * T, (b - a) * T, T] for a, b in spans(doors)],   # 門洞上方只有門楣（牆頂）
+            'bottom': min(bottom) * T, 'left': x0 * T, 'right': x1 * T,
+        })
+    # 南牆：牆頂一列、往下 STOP 為止可走；門洞以外擋住到走廊
+    top = INTERIOR_ROWS * T
+    px0, px1 = passage['x'], passage['x'] + passage['w']
+    for y in range(INTERIOR_ROWS, ROWS):
+        for x in range(W):
+            if y < INTERIOR_ROWS + 2:
+                grid[y][x] = 1 if x in (0, W - 1) else 0
+            elif y < corridor_top:
+                grid[y][x] = 0 if int(px0) <= x < -(-px1 // 1) else 1
+            else:
+                grid[y][x] = 0 if y < CORRIDOR_BOTTOM else 1
+    stop = r4(-(-(top + STOP) * 10000 // T) / 10000)       # 無條件進位，不會差零點幾 px 就擋住
+    rects += [{'x': 0, 'y': stop, 'w': r4(px0), 'h': r4(corridor_top - stop)},
+              {'x': r4(px1), 'y': stop, 'w': r4(W - px1), 'h': r4(corridor_top - stop)}]
+    walls.append({   # 門框那一段只蓋門框上方的牆；門框本身在角色走進門洞時另外畫在上面
+        'rects': [[0, top, frame_x, COVER], [frame_x, top, DOOR['frame'][0], frame_top],
+                  [frame_x + DOOR['frame'][0], top, W * T - frame_x - DOOR['frame'][0], COVER]],
+        'bottom': corridor_top * T,
+    })
+    return grid, rects, walls
+
+
+# ── 重畫版：四塊縮回原尺寸，沿切線接起來 ───────────────────────────────
+REPAINT = {'nw': (0, 0, 864, 1296), 'ne': (816, 0, 1680, 1296), 'sw': (0, 1008, 864, 2304), 'se': (816, 1008, 1680, 2304)}
+CUT_X, CUT_Y = 840, 1152      # 主通道中線（大門中心）、診間南牆那條地板接縫；兩塊重疊的地方只在切線兩側小範圍漸變
+BLEND_X, BLEND_Y = 24, 16
+
+
+def repainted(ground):
+    paths = {k: RAW / f'repaint_{k}.png' for k in REPAINT}
+    if not all(p.exists() for p in paths.values()):
+        return ground
+    acc = np.zeros((INTERIOR_ROWS * T, W * T, 3))
+    weight = np.zeros((INTERIOR_ROWS * T, W * T, 1))
+    for k, (x0, y0, x1, y1) in REPAINT.items():
+        im = np.array(Image.open(paths[k]).convert('RGB').resize((x1 - x0, y1 - y0), Image.LANCZOS)).astype(float)
+        xs, ys = np.arange(x0, x1), np.arange(y0, y1)
+        wx = np.clip((xs - CUT_X + BLEND_X) / (2 * BLEND_X), 0, 1) if x0 else np.clip((CUT_X + BLEND_X - xs) / (2 * BLEND_X), 0, 1)
+        wy = np.clip((ys - CUT_Y + BLEND_Y) / (2 * BLEND_Y), 0, 1) if y0 else np.clip((CUT_Y + BLEND_Y - ys) / (2 * BLEND_Y), 0, 1)
+        m = (wy[:, None] * wx[None, :])[:, :, None] + 1e-6
+        acc[y0:y1, x0:x1] += im * m
+        weight[y0:y1, x0:x1] += m
+    out = np.array(ground)
+    out[:INTERIOR_ROWS * T, :, :3] = (acc / weight).round().astype(np.uint8)
+    print('底圖用重畫版（raw/repaint_*.png）')
+    return Image.fromarray(out, 'RGBA')
+
+
 def install(ground):
-    """放進遊戲看尺寸：ground.webp、走廊欄杆前景、最小的 map.json（碰撞先全部可走）。"""
+    """放進遊戲：ground.webp、走廊欄杆前景、map.json（碰撞、牆的遮擋、大門）。"""
     out = HERE.parent.parent / 'public' / 'assets' / 'medical'
     out.mkdir(parents=True, exist_ok=True)
     ground.convert('RGB').save(out / 'ground.webp', lossless=True)
@@ -219,32 +370,41 @@ def install(ground):
                   .convert('RGBA').crop((CORRIDOR_X, 0, CORRIDOR_X + sw, 103)))
     Image.fromarray(fg[:, (np.arange(W * T) + offset) % sw]).save(out / 'foreground.webp', lossless=True)
     top = INTERIOR_ROWS * T
-    corridor_top, corridor_bottom = (top + 397) // T, (top + 775) // T   # 走廊可走帶：素材 y 397–775
-    mid = (corridor_top + corridor_bottom) / 2
+    mid = (CORRIDOR_TOP + CORRIDOR_BOTTOM) / 2
+    cx = round((dx + dw / 2) * T)
+    fx = cx - DOOR['frame'][0] // 2
+    ox0, oy0, ox1, oy1 = DOOR['open']
+    frame = out / 'door_frame.webp'
+    if not frame.exists():
+        raise SystemExit('先跑 python tools/art/cut.py door medical 切出大門')
+    alpha = np.array(Image.open(frame).convert('RGBA'))[:, :, 3]
+    frame_top = int(np.nonzero(alpha.max(1))[0][0])          # 門框圖上方透明的那幾列
+    passage = {'x': round((fx + ox0) / T, 4), 'y': INTERIOR_ROWS, 'w': round((ox1 - ox0) / T, 4), 'h': CORRIDOR_TOP - INTERIOR_ROWS}
+    grid, rects, walls = collision(CORRIDOR_TOP, passage, fx, frame_top)
     data = {
         'tileSize': T, 'width': W, 'height': ROWS,
-        'note': '暫時版（2026-10-15）：只為了在遊戲裡看尺寸，碰撞全部可走。由 tools/art/medical_base_v9.py 產生，不要手改。',
-        'collision': [[0] * W for _ in range(ROWS)],
+        'legend': {'0': '可行走', '1': '碰撞'},
+        'note': '由 tools/art/medical_base_v9.py 產生，不要手改。室內第 0–47 列（v9 格局），第 48 列起是居住區走廊（左通 B、右通 C）。'
+                '病床、櫃台照規劃佔位擋住（物件還沒畫）。walls 是牆頂那一條，依 bottom 跟角色排前後；大門是靠近自動開的玻璃門。',
+        'collision': grid,
+        'collisionRects': rects,
+        'walls': walls,
         'entrances': [
-            {'x': 0, 'y': corridor_top, 'w': 1, 'h': corridor_bottom - corridor_top, 'to': 'residential_b', 'label': '往居住區 B', 'spawn': [4, mid]},
-            {'x': W - 1, 'y': corridor_top, 'w': 1, 'h': corridor_bottom - corridor_top, 'to': 'residential_c', 'label': '往居住區 C', 'spawn': [W - 4, mid]},
+            {'x': 0, 'y': CORRIDOR_TOP, 'w': 1, 'h': CORRIDOR_BOTTOM - CORRIDOR_TOP, 'to': 'residential_b', 'label': '往居住區 B', 'spawn': [4, mid]},
+            {'x': W - 1, 'y': CORRIDOR_TOP, 'w': 1, 'h': CORRIDOR_BOTTOM - CORRIDOR_TOP, 'to': 'residential_c', 'label': '往居住區 C', 'spawn': [W - 4, mid]},
         ],
-        'foreground': [{'src': 'foreground.webp', 'x': 0, 'y': top + 746}],
-    }
-    if (out / 'door_frame.webp').exists():
-        cx = round((dx + dw / 2) * T)
-        fx = cx - medical_door.FW // 2
-        ox0, oy0, ox1, oy1 = medical_door.OPEN
-        data['door'] = {
-            'id': 'medical-door', 'label': '醫療室大門',
-            'passage': {'x': (fx + ox0) / T, 'y': INTERIOR_ROWS, 'w': (ox1 - ox0) / T, 'h': corridor_top - INTERIOR_ROWS},
-            'closedFrom': top + 58 + 22,
+        'door': {
+            'id': 'medical-door', 'label': '醫療室大門', 'auto': True,
+            'passage': passage,
+            'closedFrom': top + STOP,
             'opening': [fx + ox0, top + oy0, ox1 - ox0, oy1 - oy0],
             'frame': {'src': 'door_frame.webp', 'x': fx, 'y': top},
             'panels': {'left': 'door_left.webp', 'right': 'door_right.webp'},
-            'lamp': [fx + medical_door.LIGHT[0], top + medical_door.LIGHT[1]],
-            'trigger': 150, 'openSeconds': 1.0,
-        }
+            'lamp': [fx + DOOR['light'][0], top + DOOR['light'][1]],
+            'trigger': 120, 'openSeconds': .6,
+        },
+        'foreground': [{'src': 'foreground.webp', 'x': 0, 'y': top + 746}],
+    }
     (out / 'map.json').write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
     print('已放進 public/assets/medical：ground.webp、foreground.webp、map.json', W, 'x', ROWS)
 
@@ -252,5 +412,5 @@ if __name__ == '__main__':
     out = HERE / 'medical' / 'base_v9.png'
     ground = build()
     ground.save(out)
-    install(ground)
+    install(repainted(ground))
     print('已產生', out.relative_to(HERE.parent.parent))

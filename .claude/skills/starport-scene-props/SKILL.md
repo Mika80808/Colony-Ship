@@ -7,7 +7,7 @@ description: 星際港場景物件（機台、家具、擺設）的繪製流程�
 
 一句話：**物件的視角要從「畫在這張地圖上」得來，不要用程式定視角。** 先讓生圖模型在我們的地面底圖上把物件畫進去（擺設參考圖），模型自然會用跟地板一致的 RPG 視角；最後的物件再拿底圖＋參考圖當依據另外生成。
 
-整張場景（底圖、牆、門、碰撞）的流程見 `.claude/skills/generate2dmap/`，這份接在它的第 6 步。工程區（2026-10-04）是第一個照這個流程做的場景，程式都可以照抄：`tools/art/engineering_objects.py`、`engineering_props.py`、`engineering_build.py`。
+整張場景（底圖、牆、門、碰撞）的流程見 `.claude/skills/generate2dmap/`，這份接在它的第 6 步。工程區（2026-10-04）是第一個照這個流程做的場景，程式都可以照抄：`tools/art/engineering_objects.py`（清單）、`engineering_build.py`（地圖）。切圖一律用共用工具 `tools/art/cut.py`，新場景只要寫 `tools/art/<場景>_objects.py` 的資料（`sheets()`、`JOIN`、`door()`）。
 
 ## 視角規範（RPG 斜俯視）
 
@@ -15,7 +15,7 @@ description: 星際港場景物件（機台、家具、擺設）的繪製流程�
 - 不要等角（isometric）斜轉，不要透視收縮。
 - 光源左上。畫風是 HD 像素風（一格 48 × 48 px），風格段照 `starport-asset-gen` 第一節。
 - **年代感：2090 年的高科技太空站（世界觀見 `docs/world.md`），物件是 sci-fi concept 設計**。光寫「乾淨、沒鏽」不夠：模型會畫出乾淨但造型老派的東西（外露螺栓、粗保險桿腳、波紋軟管、方盒舊螢幕、物件身上的黃黑條紋），工程區 batch20 就因此整批作廢。prompt 要寫出設計語言並列出禁止項（見下方範本的 Design language 一段）；區域特色（例：工程區的警示黃）只當小點綴。
-- 設計語言可以附使用者給的風格參考圖（工程區：`場景/工程區/style_ref_*.png`），prompt 寫明只參考設計語言，不照它的鏡頭、寫實渲染、商標文字。
+- 設計語言可以附使用者給的風格參考圖（放 `tools/art/<場景>/style_ref/`），prompt 寫明只參考設計語言，不照它的鏡頭、寫實渲染、商標文字。
 - 不要用程式白模定家具、機台的視角：白模只有薄薄一條頂面，模型照描就變成正面圖。
 
 ## 流程
@@ -69,25 +69,29 @@ No characters, no UI, no text, no labels, no numbers, no watermark, no glow halo
 - **尺寸與位置**：在參考圖上疊座標格線（每 32 px 一條）用眼睛讀每件的左右、上緣、底邊，換算成遊戲 px（參考圖 1 px = 底圖原寬 ÷ 1024；下半部參考圖要加上裁切的 y 起點）。不要用「參考圖減底圖」自動找，模型會重畫地板，差異會黏成一片。切圖時縮放到量出的寬度；生出來的比例跟參考圖差很多的（例：手臂往旁邊伸）改照高度縮放。
 
 ### 5. 切圖與擺放
-- 去背：透明或洋紅都去掉；偏紫紅的像素一律去掉、貼著背景的淡紫邊再削一圈（見 `engineering_props.py` 的 cut），切完檢查洋紅殘留要是 0。
-- 找物件：相距 40 px 內的塊先併成一件（並排的油桶），剩下的碎塊（散落零件）併給 80 px 內最近的大塊，再依閱讀順序對到清單；數量對不上就報錯（見 `engineering_props.py`）。
+- 切圖：`python tools/art/cut.py props <場景> <批次|all>`；門用 `python tools/art/cut.py door <場景>`。
+- 去背：透明或洋紅都去掉、貼著背景的淡紫邊再削一圈（物件本身偏紫的地方不動），切完檢查洋紅殘留要是 0。
+- 找物件：相距 40 px 內的塊先併成一件（並排的油桶），剩下的碎塊（散落零件）併給 80 px 內最近的大塊，再依閱讀順序對到清單；數量對不上就報錯（見 `cut.py`）。
 - 擺進地圖（見 `engineering_build.py`）：decor 以**底部中心**對齊；碰撞用精細矩形（collisionRects，從底邊往上 depth 格），不用整格；有互動文字的加 interaction（點擊範圍＝整張圖）。
 - **互動站位用程式挑，不要手填**：從入口在細格上走一遍，挑走得到、離圖 ≤ 48 px（互動範圍 56 px 以內）、最靠近正前方、不在椅子上的點。手填常常太遠按 E 沒反應，或卡在走不到的縫裡。
 - GM 物件清單：在 `src/game/facilityContext.ts` 補中文名稱。
 - 測試：跑場景測試（每格走得到、站位、碰撞）、lint、build；瀏覽器實際走一圈，看前後遮擋與點擊互動。
 
 ### 6. 收尾
-- 原圖放 `tools/art/<場景>/raw/`，prompt 存在生圖資料夾（`場景/<場景>/`）跟原圖同名的 `.prompt.txt`。
+- 原圖放 `tools/art/<場景>/raw/`，prompt 寫進 `tools/art/<場景>/prompts.md`；試錯檔放暫存區（規則見 `starport-asset-gen` 第六節）。
 - 更新 `docs/scenes/<場景>.md`、`docs/PROGRESS.md`；有修正問題就更新 `問題修正紀錄.md`；commit 並 push。
 
 ## Codex 生圖
 
 - 生圖前**先把 prompt 給使用者看**，使用者說可以才送（每次 2–5 分鐘，使用者在意成本）。
-- 指令（在生圖資料夾執行，參考圖先複製進該資料夾）：
+- 指令（在專案根目錄執行，prompt 從 stdin 送；開頭先寫給 Codex 的指示：照附圖生成、存到 `tools/art/<場景>/raw/<檔名>.png`、生完用看圖工具自我檢查、不合格重生最多 3 次）：
 
 ```
-"/c/Users/Mika/AppData/Local/Programs/OpenAI/Codex/bin/codex.exe" exec --skip-git-repo-check -s workspace-write -C "<生圖資料夾>" -i <image1> -i <image2> -o <批次>_last.txt - < <批次>.prompt.txt > <批次>_log.txt 2>&1
+codex exec -s workspace-write -i <image1> -i <image2> - < <暫存區的 prompt 檔>
 ```
+
+- 命令列版 `codex` 跟 Codex 桌面版是分開安裝的；桌面版更新了、命令列版沒更新時，新模型會被拒（「not supported when using Codex with a ChatGPT account」），先跑 `codex update`，或用 `-m` 指定舊版認得的模型。
+- Codex 偶爾生完存不進專案（檔案工具故障），原圖會留在 `~/.codex/generated_images/<session>/`，從那裡複製。
 
 - 回傳的圖不一定是 1024（常給 1254）；切圖座標一律依圖寬等比例換算。
 
