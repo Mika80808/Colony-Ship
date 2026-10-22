@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import { buildTranscript, normalizeDiaryDraft, normalizeQuickReplies } from './assistant';
+import { buildTranscript, normalizeDiaryDraft, normalizeDistill, normalizeQuickReplies } from './assistant';
+
+// --- NPC 日誌提煉 ---
+assert.deepEqual(
+  normalizeDistill({ entry: ' [09:00｜溫室] 一起搬貨。 ', keywords: ['#搬貨', '搬 貨', '', 3, '早餐', 'a', 'b'] }),
+  { entry: '[09:00｜溫室] 一起搬貨。', keywords: ['搬貨', '早餐', 'a', 'b'] },
+  '去空白、去 #、正規化去重、最多 4 個',
+);
+assert.equal(normalizeDistill({ entry: '  ', keywords: [] }), null, '沒內容視為無效');
+assert.equal(normalizeDistill(null), null);
 
 // --- 快速回覆 ---
 assert.deepEqual(

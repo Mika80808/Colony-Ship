@@ -7,6 +7,7 @@ import {
   NpcEntry,
   DiaryEntry,
   ChapterEntry,
+  LoreEntry,
   SectorEntry,
   RoomDef,
   StoryLayer,
@@ -200,6 +201,55 @@ export const INITIAL_DIALOGUE_HISTORY = [{
 /** 內建的故事書事件，目前在故事書內建立。 */
 export const INITIAL_CHAPTERS: ChapterEntry[] = [];
 
+/**
+ * 內建的設定條目（docs/world.md 第八節「設定集條目（關鍵字觸發）」）。
+ * 玩家這一句提到關鍵字時才帶給 GM，平常不佔 prompt。
+ */
+export const INITIAL_LORE: LoreEntry[] = [
+  {
+    id: 'lore-moon',
+    source: 'builtin',
+    title: '月球城市',
+    content: '多數常駐人員在月球出生長大，把月球城市當理所當然的故鄉。月球城市已發展成熟，是火星殖民地物資的主要供應地。站外地點只在回憶、訊息、傳聞中提及，玩家目前不能前往。',
+    keywords: ['月球', '故鄉'],
+  },
+  {
+    id: 'lore-mars',
+    source: 'builtin',
+    title: '火星殖民地',
+    content: '航線的終點，仍在擴建的開拓地。所需物資多由月球供應，途經星際港的貨物大多是送往火星的過境貨。',
+    keywords: ['火星', '殖民地'],
+  },
+  {
+    id: 'lore-earth',
+    source: 'builtin',
+    title: '地球',
+    content: '站上只有艦長與副艦長出身地球，受訓後派駐。其他人多半沒去過地球，對它的印象來自教材與長輩的故事。',
+    keywords: ['地球'],
+  },
+  {
+    id: 'lore-generations',
+    source: 'builtin',
+    title: '出身差異',
+    content: '年輕一輩（平均約 25 歲、生於 2065 年前後）把月球當故鄉；艦長、副艦長出身地球，把月球當開拓地。兩代人對「家」與「開拓」的看法因此有些落差，偶爾在閒聊裡冒出來。',
+    keywords: ['世代', '代溝', '老一輩', '年輕人'],
+  },
+  {
+    id: 'lore-experiment',
+    source: 'builtin',
+    title: '生活實驗',
+    content: '星際港同時是一場生活實驗：少數人、自給自足、身兼數職，在遠離城市的地方共同生活。研究主任負責記錄大家的生活狀況，作為之後設站的參考。',
+    keywords: ['實驗', '記錄', '研究主任', '自給自足'],
+  },
+  {
+    id: 'lore-supply-ship',
+    source: 'builtin',
+    title: '補給船',
+    content: '補給船每 7 日到港一次，停靠、補給、換班後繼續航程。貨物多是月球送往火星的過境貨；站上只截留無法自產的東西，如精密零件、藥品、私人包裹。船期延誤是常見的小麻煩，不是生存危機。',
+    keywords: ['補給船', '船期', '貨船', '包裹', '到港', '過境貨'],
+  },
+];
+
 /** 日記由玩家撰寫或 GM 生成。 */
 export const INITIAL_DIARY_ENTRIES: DiaryEntry[] = [];
 
@@ -213,7 +263,7 @@ export const INITIAL_SECTORS: SectorEntry[] = [
     code: 'SEC-01',
     name: '研究室',
     source: 'builtin',
-    description: '物理、光譜與深空樣本分析實驗室，配備尖端量子顯微與分析儀器。',
+    description: '研究與檢驗室，負責站上水、空氣與作物樣本的分析；研究主任也在這裡整理生活實驗的紀錄。',
     connectedTo: ['bridge', 'park'],
   },
   {
@@ -221,7 +271,7 @@ export const INITIAL_SECTORS: SectorEntry[] = [
     code: 'SEC-02',
     name: '艦橋',
     source: 'builtin',
-    description: '全艦中樞神經，指揮官與高級領航員執勤核心，掌控躍遷星門與航向。',
+    description: '星際港的指揮中樞，在中央塔上方。值勤人員在這裡管理貨船進出港、對外通訊與全站運作。',
     backgroundUrl: '/assets/bridge-v3/bridge-background-clean.webp',
     connectedTo: ['lab', 'park', 'engineering', 'greenhouse'],
   },
@@ -230,7 +280,7 @@ export const INITIAL_SECTORS: SectorEntry[] = [
     code: 'SEC-03',
     name: '中央公園',
     source: 'builtin',
-    description: '全艦核心生態休閒綠洲與生活聚落，人造陽光與步道環繞。',
+    description: '站體中央的公共廣場，有餐廳與步道，是大家吃飯、休息、碰面的地方。',
     connectedTo: ['bridge', 'medical', 'engineering', 'greenhouse'],
   },
   {
@@ -238,7 +288,7 @@ export const INITIAL_SECTORS: SectorEntry[] = [
     code: 'SEC-04',
     name: '溫室',
     source: 'builtin',
-    description: '水耕生化植物區，提供艦艇新鮮氧氣循環與有機蔬果補給。',
+    description: '外環的農業區，自動種植架供應站上主要的蔬果，也是空氣循環的一環；北側有觀景窗與休憩區。',
     connectedTo: ['park', 'bridge'],
   },
   {
@@ -311,17 +361,15 @@ export const INITIAL_BUILTIN_STORY: StoryLayer = {
   npcs: INITIAL_NPCS,
   items: INITIAL_ITEM_DEFINITIONS,
   chapters: INITIAL_CHAPTERS,
+  lore: INITIAL_LORE,
   sectors: INITIAL_SECTORS,
 };
 
 /** 空的本局條目。新遊戲與重置進度的起點。 */
-export const EMPTY_RUN_STORY: StoryLayer = { npcs: [], items: [], chapters: [], sectors: [] };
+export const EMPTY_RUN_STORY: StoryLayer = { npcs: [], items: [], chapters: [], sectors: [], lore: [] };
 
 /** 空的覆寫。新遊戲與重置進度的起點。 */
-export const EMPTY_OVERRIDES: StoryOverrides = { npcs: {}, items: {}, chapters: {}, sectors: {} };
-
-/** HeaderHUD 的區域記憶。由 GM 依所在區域生成（Phase 3）。 */
-export const INITIAL_AREA_MEMORIES: string[] = [];
+export const EMPTY_OVERRIDES: StoryOverrides = { npcs: {}, items: {}, chapters: {}, sectors: {}, lore: {} };
 
 /** LeftSidebar 的當前目標。由 GM 依任務進度生成（Phase 3）。 */
 export const INITIAL_OBJECTIVES: Objective[] = [];

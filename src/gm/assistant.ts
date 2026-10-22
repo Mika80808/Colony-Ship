@@ -1,8 +1,9 @@
-import { DialogueTurn, NPCData, PlayerProfile } from '../types';
+import { DialogueTurn, NPCData, NpcThought, PlayerProfile } from '../types';
+import { MEMORY_PARAMS, SceneCandidate, SceneSelection, mergeKeywords, normalizeSceneSelection, selectWithoutLlm } from '../game/memory';
 import { requestJson } from './client';
 
 /**
- * 助理 AI 的工作：快速回覆建議、日記草稿。
+ * 助理 AI 的工作：快速回覆建議、日記草稿、進場語意篩選、NPC 日誌提煉。
  *
  * 助理不是 GM：它不推進劇情、不改遊戲狀態，只替玩家「代筆」。
  * 所以對話紀錄以整段逐字稿交給它閱讀，而不是當成它自己說過的話。
@@ -117,10 +118,12 @@ const DIARY_SYSTEM = `你是科幻角色扮演遊戲《星際港》的玩家助�
 - **只能記錄對話紀錄中實際發生過的事**，不可編造沒發生的事件、人物或對話。
   可以寫下角色對這些事的感受與想法。
 - content 約 150 到 300 字；title 10 字以內；summary 20 字以內；tags 2 到 4 個，每個 6 字以內。
+- tags 是之後被提起時勾出這篇日記的關鍵字：填事件標記（例如「登艦」「停電」「借工具」），
+  不要填人名或地名 —— 人名一出現就會把所有提到那人的日記都撈出來。
 - 若玩家已有同名或內容重複的日記，換個角度或聚焦不同的事。
 
 只輸出 json，格式如下，不要有其他文字：
-{"title":"登艦第一天","summary":"在 A-1 認識了路西恩","content":"今天……","tags":["登艦","路西恩"]}`;
+{"title":"登艦第一天","summary":"在 A-1 認識了路西恩","content":"今天……","tags":["登艦","迎新"]}`;
 
 const DIARY_SCHEMA = {
   type: 'object',
@@ -172,4 +175,148 @@ export async function generateDiaryDraft(context: DiaryDraftContext): Promise<Di
   const draft = normalizeDiaryDraft(raw);
   if (!draft) throw new Error('助理 AI 沒有產出可用的日記內容，請再試一次。');
   return draft;
+}
+
+// ---------------------------------------------------------------- 進場語意篩選
+
+export interface SceneSelectionContext {
+  locationName: string;
+  presentNpcs: NPCData[];
+  summary: string;
+  gameDate: string;
+  gameTime: string;
+  diaries: SceneCandidate[];
+  /** 在場 NPC 的日誌候選（npcId 標明是誰的）。 */
+  npcLogs: SceneCandidate[];
+}
+
+const SCENE_SELECTION_SYSTEM = `你是科幻角色扮演遊戲《星際港》的助理，負責在玩家進入一個場景時，
+從日記清單裡挑出「這個場景可能用得上的往事」，交給主持人參考。清單有兩種：
+- 玩家日記：玩家角色自己寫的。最多 ${MEMORY_PARAMS.diarySceneLimit} 則。
+- NPC 日誌：在場角色各自記得的事。每人最多 ${MEMORY_PARAMS.npcLogPerNpc} 則，合計最多 ${MEMORY_PARAMS.npcLogTotal} 則。
+
+判讀依據：目前地點、在場角色、當前摘要。標題是主要依據，摘要與關鍵字輔助。
+- 跟在場角色有關、跟這個地點有關、跟當前處境有關的優先；同樣相關時挑比較新的。
+- 想不到用途的不要挑。寧缺勿濫，一則都不挑也可以。
+
+只輸出 json，格式如下，不要有其他文字：
+{"diaryIds":["d_123"],"npcLogIds":["log-lucian-2090-10-24"]}`;
+
+const SCENE_SELECTION_SCHEMA = {
+  type: 'object',
+  properties: {
+    diaryIds: { type: 'array', items: { type: 'string' } },
+    npcLogIds: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['diaryIds', 'npcLogIds'],
+};
+
+/**
+ * 進場語意篩選（骨架第五節「語意軌」）：換場時呼叫一次，結果凍結到離場。
+ * 是唯一掛在換場節拍上的 LLM 呼叫，玩家在場景裡對話時不等它。
+ * 玩家日記與 NPC 日誌一起挑，一次呼叫；候選都沒超過上限時不呼叫，直接全帶。
+ */
+export async function selectSceneMemories(context: SceneSelectionContext): Promise<SceneSelection> {
+  const direct = selectWithoutLlm(context.diaries, context.npcLogs);
+  if (direct) return direct;
+  const list = (items: SceneCandidate[]) => items
+    .map((item) => `- id: ${item.id}｜${item.date}｜${item.title}${item.summary ? `：${item.summary}` : ''}${item.keywords.length ? `（${item.keywords.join('、')}）` : ''}`)
+    .join('\n') || '（無）';
+  const npcSections = context.presentNpcs
+    .map((npc) => ({ npc, logs: context.npcLogs.filter((log) => log.npcId === npc.id) }))
+    .filter(({ logs }) => logs.length)
+    .map(({ npc, logs }) => `## ${npc.name}\n${list(logs)}`)
+    .join('\n');
+  const raw = await requestJson('assistant', {
+    system: SCENE_SELECTION_SYSTEM,
+    messages: [{
+      role: 'user',
+      content: [
+        `# 時間與地點\n${context.gameDate} ${context.gameTime}，${context.locationName}`,
+        `# 在場角色\n${context.presentNpcs.map((npc) => npc.name).join('、') || '（無）'}`,
+        `# 當前摘要\n${context.summary || '（無）'}`,
+        `# 玩家日記\n${list(context.diaries)}`,
+        `# NPC 日誌\n${npcSections || '（無）'}`,
+      ].join('\n\n'),
+    }],
+    schema: SCENE_SELECTION_SCHEMA,
+    schemaName: 'scene_selection',
+  });
+  return normalizeSceneSelection(raw, context.diaries, context.npcLogs);
+}
+
+// ---------------------------------------------------------------- NPC 日誌提煉
+
+export interface DistillContext {
+  npc: Pick<NPCData, 'name' | 'position' | 'personality'>;
+  playerName: string;
+  /** 這一批要提煉的 thought，舊的在前。 */
+  thoughts: Pick<NpcThought, 'at' | 'place' | 'text'>[];
+  /** 當天日誌已經寫了什麼（沒有就是空字串）：避免重複記同一件事。 */
+  todayLog: string;
+}
+
+export interface DistillResult {
+  entry: string;
+  keywords: string[];
+}
+
+const DISTILL_SYSTEM = `你是科幻角色扮演遊戲《星際港》的助理，負責整理 NPC 的記憶。
+下面是某位 NPC 最近的內心想法（遊戲主持人替他寫的），請提煉成他日誌裡的一段。
+
+要求：
+- 去掉感官描寫與重複的情緒，只留下之後還用得上的事實：發生了什麼、答應了什麼、
+  對玩家的看法有什麼變化、他在意什麼。
+- 以這位 NPC 的第一人稱書寫，繁體中文。每件事一行，開頭標「[HH:MM｜地點]」。
+- 這一段 80 到 200 字。當天日誌已經寫過的事不要再寫。
+- keywords 2 到 4 個，每個 6 字以內，是之後被提起時用來勾出這段的事件標記
+  （例如「借工具」「停電」），不要填人名或地名。
+
+只輸出 json，格式如下，不要有其他文字：
+{"entry":"[09:10｜溫室] 新來的人主動幫我搬了貨……","keywords":["搬貨"]}`;
+
+const DISTILL_SCHEMA = {
+  type: 'object',
+  properties: {
+    entry: { type: 'string' },
+    keywords: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['entry', 'keywords'],
+};
+
+/** 收斂提煉輸出：內文去空白、截長；關鍵字去空、去 #、去重、最多 4 個。 */
+export function normalizeDistill(raw: unknown): DistillResult | null {
+  const output = raw as { entry?: unknown; keywords?: unknown } | null;
+  const entry = typeof output?.entry === 'string' ? output.entry.trim().slice(0, 600) : '';
+  if (!entry) return null;
+  const keywords = Array.isArray(output?.keywords)
+    ? mergeKeywords([], output.keywords
+      .filter((keyword): keyword is string => typeof keyword === 'string')
+      .map((keyword) => keyword.trim().replace(/^#/, '').slice(0, 12))).slice(0, 4)
+    : [];
+  return { entry, keywords };
+}
+
+/**
+ * 把一批 thought 提煉成 NPC 日誌的一段（骨架第三節階段 6）。
+ * 在背景跑：玩家已經看到 GM 的回應了，不等它。失敗就下次再提煉，thought 還留著。
+ */
+export async function distillNpcThoughts(context: DistillContext): Promise<DistillResult> {
+  const raw = await requestJson('assistant', {
+    system: DISTILL_SYSTEM,
+    messages: [{
+      role: 'user',
+      content: [
+        `# NPC\n${context.npc.name}${context.npc.position ? `（${context.npc.position}）` : ''}${context.npc.personality ? `\n性格：${context.npc.personality}` : ''}`,
+        `# 玩家角色\n${context.playerName || '（未填姓名）'}`,
+        `# 當天日誌已寫的內容\n${context.todayLog || '（還沒有）'}`,
+        `# 最近的內心想法\n${context.thoughts.map((thought) => `[${thought.at.slice(11)}｜${thought.place}] ${thought.text}`).join('\n')}`,
+      ].join('\n\n'),
+    }],
+    schema: DISTILL_SCHEMA,
+    schemaName: 'npc_log_distill',
+  });
+  const result = normalizeDistill(raw);
+  if (!result) throw new Error('助理 AI 沒有產出可用的日誌內容。');
+  return result;
 }

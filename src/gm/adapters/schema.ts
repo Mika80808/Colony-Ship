@@ -38,8 +38,13 @@ export const GM_RESPONSE_SCHEMA = {
             enum: [
               'adjust_stats', 'consume_item', 'set_quest_status', 'adjust_affection',
               'set_summary', 'add_objective', 'complete_objective', 'advance_time',
+              'add_memory', 'npc_thought',
             ],
           },
+          layer: { type: 'string', enum: ['world', 'region', 'scene', 'npc'] },
+          weight: { type: 'string', enum: ['critical', 'normal', 'flavor'] },
+          keywords: { type: 'array', items: { type: 'string' } },
+          expireDays: { type: 'number' },
           stamina: { type: 'number' },
           hunger: { type: 'number' },
           credits: { type: 'number' },

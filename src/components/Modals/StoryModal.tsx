@@ -12,6 +12,7 @@ import {
   User,
   Package,
   Calendar,
+  BookOpen,
   AlertTriangle,
 } from 'lucide-react';
 import {
@@ -20,8 +21,10 @@ import {
   StoryItem,
   MapSector,
   MergedStory,
+  NpcMemories,
   NpcSchedule,
   RoomDef,
+  StoryLore,
   SectorEntry,
   StoryKind,
   ItemDefinition,
@@ -32,11 +35,12 @@ import { sound } from '../../utils/audio';
 import ModalShell from './ModalShell';
 import StoryForm, { FieldDef, FormValues } from './StoryForm';
 import ScheduleEditor from './ScheduleEditor';
+import NpcMemoryPanel from './NpcMemoryPanel';
 import { INITIAL_AFFECTION, INITIAL_RELATIONSHIP } from '../../data/initialGameData';
 import { departmentOptions, makeBuiltinId, scheduleLocationIds, scheduleLocationName } from '../../data/story';
 import { NpcFormErrors, validateRoom, validateSchedules } from '../../data/storyValidation';
 
-type StoryTabType = 'character' | 'item' | 'event' | 'location';
+type StoryTabType = 'character' | 'item' | 'event' | 'location' | 'lore';
 
 interface StoryModalProps {
   isOpen: boolean;
@@ -57,10 +61,15 @@ interface StoryModalProps {
   onChangeNpcs: (next: NPCData[]) => void;
   onChangeItems: (next: StoryItem[]) => void;
   onChangeSectors: (next: MapSector[]) => void;
+  onChangeLore: (next: StoryLore[]) => void;
   /** 切換條目的啟用狀態（存在存檔的覆寫裡）。 */
   onToggleEnabled: (kind: StoryKind, id: string) => void;
   initialTab?: StoryTabType;
   initialCharacterId?: string | null;
+  /** 通道 ② 的 NPC 記憶（thought 窗口與日誌），人物頁的記憶區塊讀這裡。 */
+  npcMemories?: NpcMemories;
+  /** 切換某位 NPC 某篇日誌的啟用狀態。 */
+  onToggleNpcLog?: (npcId: string, logId: string) => void;
 }
 
 const TAB_LIST: { id: StoryTabType; label: string }[] = [
@@ -68,6 +77,7 @@ const TAB_LIST: { id: StoryTabType; label: string }[] = [
   { id: 'item', label: '物品' },
   { id: 'event', label: '事件' },
   { id: 'location', label: '地點' },
+  { id: 'lore', label: '設定' },
 ];
 
 const TAB_LABEL: Record<StoryTabType, string> = {
@@ -75,6 +85,7 @@ const TAB_LABEL: Record<StoryTabType, string> = {
   item: '物品',
   event: '事件',
   location: '地點',
+  lore: '設定',
 };
 
 /** 分頁對應的資料種類。 */
@@ -83,6 +94,7 @@ const TAB_KIND: Record<StoryTabType, StoryKind> = {
   item: 'items',
   event: 'chapters',
   location: 'sectors',
+  lore: 'lore',
 };
 
 /**
@@ -121,7 +133,16 @@ const FORM_SCHEMA: Record<StoryTabType, FieldDef[]> = {
     { key: 'name', label: '地點名稱', kind: 'text', placeholder: '例如：艦橋指揮中心...', span: 'half' },
     { key: 'description', label: '區域機能與環境描述', kind: 'textarea', placeholder: '說明該區域...', span: 'full', rows: 3 },
   ],
+  // 設定：世界觀背景知識。玩家提到標題或關鍵字時才帶給 GM（通道 ④）。
+  lore: [
+    { key: 'title', label: '設定標題', kind: 'text', placeholder: '例如：補給船', span: 'full', autoFocus: true },
+    { key: 'keywords', label: '觸發關鍵字（以頓號或逗號分隔；標題本身也算）', kind: 'text', placeholder: '船期、包裹、到港', span: 'full' },
+    { key: 'content', label: '內容', kind: 'textarea', placeholder: 'GM 需要知道的背景...', span: 'full', rows: 5 },
+  ],
 };
+
+/** 關鍵字欄位的文字拆成清單。 */
+const splitKeywords = (text: string) => [...new Set(text.split(/[、,，;；\s]+/).map((k) => k.trim()).filter(Boolean))];
 
 /** 新增時的預設值。沒列到的欄位一律空字串。 */
 function blankForm(tab: StoryTabType, locationCount: number): FormValues {
@@ -163,11 +184,14 @@ export default function StoryModal({
   onChangeNpcs,
   onChangeItems,
   onChangeSectors,
+  onChangeLore,
   onToggleEnabled,
   initialTab = 'character',
   initialCharacterId = null,
+  npcMemories,
+  onToggleNpcLog,
 }: StoryModalProps) {
-  const { npcs, items: itemDefinitions, chapters, sectors } = story;
+  const { npcs, items: itemDefinitions, chapters, sectors, lore } = story;
 
   const [activeTab, setActiveTab] = useState<StoryTabType>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
@@ -274,14 +298,14 @@ export default function StoryModal({
 
   const handleStartEdit = (
     type: StoryTabType,
-    entity: NPCData | StoryItem | StoryChapter | MapSector
+    entity: NPCData | StoryItem | StoryChapter | MapSector | StoryLore
   ) => {
     sound.playClick();
     setActiveTab(type);
     const values: FormValues = {};
     for (const field of FORM_SCHEMA[type]) {
       const raw = (entity as unknown as Record<string, unknown>)[field.key];
-      values[field.key] = raw == null ? '' : String(raw);
+      values[field.key] = raw == null ? '' : Array.isArray(raw) ? raw.join('、') : String(raw);
     }
     const entitySchedules = type === 'character' ? (entity as NPCData).schedules ?? [] : [];
     openForm(values, entity.id, entitySchedules);
@@ -307,6 +331,8 @@ export default function StoryModal({
       onChangeChapters(chapters.filter((e) => e.id !== id));
     } else if (type === 'location') {
       onChangeSectors(sectors.filter((l) => l.id !== id));
+    } else if (type === 'lore') {
+      onChangeLore(lore.filter((entry) => entry.id !== id));
     }
     setDeleteConfirmTarget(null);
   };
@@ -426,6 +452,16 @@ export default function StoryModal({
       );
     }
 
+    if (activeTab === 'lore') {
+      if (!value('title')) return;
+      const patch = { title: value('title'), content: value('content'), keywords: splitKeywords(value('keywords')) };
+      onChangeLore(
+        editingId
+          ? lore.map((entry) => (entry.id === editingId ? { ...entry, ...patch } : entry))
+          : [{ id: makeBuiltinId('lore'), source: 'builtin', enabled: true, ...patch }, ...lore]
+      );
+    }
+
     sound.playSuccess();
     closeForm();
   };
@@ -480,6 +516,9 @@ export default function StoryModal({
   const filteredLocations = sectors.filter((loc) =>
     matches(searchQuery, loc.name, loc.code, loc.description)
   );
+  const filteredLore = lore.filter((entry) =>
+    matches(searchQuery, entry.title, entry.content, ...entry.keywords)
+  );
 
   /** 物品 / 事件 / 地點三個分頁共用的列樣式。停用的條目淡化顯示。 */
   const rowClass = (enabled: boolean) =>
@@ -505,7 +544,7 @@ export default function StoryModal({
 
   const renderRowActions = (
     type: StoryTabType,
-    entity: NPCData | StoryItem | StoryChapter | MapSector,
+    entity: NPCData | StoryItem | StoryChapter | MapSector | StoryLore,
     name: string
   ) => (
     <div className="flex items-center gap-[7px] pl-1">
@@ -890,6 +929,43 @@ export default function StoryModal({
                       })}
                 </div>
               )}
+
+              {/* ================= 5. 設定 Tab ================= */}
+              {activeTab === 'lore' && (
+                <div className="space-y-2.5">
+                  {filteredLore.length === 0
+                    ? emptyState(BookOpen, '設定')
+                    : filteredLore.map((entry) => (
+                        <div key={entry.id} className={rowClass(entry.enabled)}>
+                          <div className="pt-0.5 flex-shrink-0">
+                            {renderEnabledToggle('lore', entry.id, entry.enabled)}
+                          </div>
+
+                          <div className="flex-1 min-w-0 space-y-1.5">
+                            <div className="flex items-center justify-between text-xs font-semibold gap-2">
+                              {renderRowTitle(entry.title)}
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {renderRowActions('lore', entry, entry.title)}
+                              </div>
+                            </div>
+
+                            <div className="pl-3 space-y-1 text-xs text-slate-300 leading-relaxed font-sans">
+                              <div className="text-slate-200 whitespace-pre-line">{entry.content}</div>
+                              {entry.keywords.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-0.5">
+                                  {entry.keywords.map((keyword) => (
+                                    <span key={keyword} className="text-[12px] text-sky-300 bg-sky-950/40 border border-sky-500/30 rounded px-1.5">
+                                      {keyword}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -975,6 +1051,11 @@ export default function StoryModal({
 
                   <div className="flex-1 overflow-y-auto pr-2 space-y-3 text-xs text-slate-200 leading-relaxed font-sans pb-4">
                     {isEditing ? editForm : <>
+                    <NpcMemoryPanel
+                      npc={selectedCharacter}
+                      memory={npcMemories?.[selectedCharacter.id]}
+                      onToggleLog={onToggleNpcLog ? (logId) => onToggleNpcLog(selectedCharacter.id, logId) : undefined}
+                    />
                     <div className="grid grid-cols-2 gap-2 pb-2 border-b border-white/[0.05]">
                       <div>
                         <span className="text-slate-400">性別：</span>

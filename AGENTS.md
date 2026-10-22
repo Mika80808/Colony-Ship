@@ -28,6 +28,7 @@
 | `.claude/skills/generate2dmap/` | 場景地圖流程（改編自 agent-sprite-forge，MIT）：格局規劃 → 素材套件 → 拼接底圖 → 牆／門／前景分層 → 碰撞與 map.json → 驗證 |
 | `tools/asset-prompts.md` | 角色與房間家具的生圖提示詞 |
 | `tools/art/greenhouse_crop_prompts.md` | 溫室 19 種作物三階段提示詞與排位配置 |
+| `docs/memory.md` | 記憶系統（記憶六通道）的實作：各通道怎麼寫入、怎麼帶給 GM、可調參數、還沒做的部分 |
 | `docs/scenes/` | 各場景說明：A-1 房間、居住區 A 走廊、艦橋、工程區、中央廣場（規劃中）、醫療室（規劃中） |
 | `docs/characters.md` | 角色素材與行走圖處理流程 |
 | `docs/tasks/` | 指派給 Codex 的任務單：要生什麼、規格、交件與驗收方式 |

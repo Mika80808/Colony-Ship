@@ -41,7 +41,7 @@ interface HeaderHUDProps {
   currentLocation: string;
   onOpenDrawer: (type: DrawerType) => void;
   onOpenModal: (type: ModalType) => void;
-  /** 區域記憶。內容由外部供給，之後接 AI 或資料庫。 */
+  /** 區域記憶：玩家所在區域與場景的通道 ① 記憶（App 依地點挑好、排好）。 */
   memories: string[];
   /** 遊戲內日期與時間。不與現實時鐘綁定，也不每秒重繪整個 header。 */
   gameDate: string;
@@ -60,6 +60,8 @@ export default function HeaderHUD({
   const [currentMemoryIndex, setCurrentMemoryIndex] = useState<number>(0);
   const [isAccordionOpen, setIsAccordionOpen] = useState<boolean>(false);
   const memoryContainerRef = useRef<HTMLDivElement>(null);
+  // 換了地點清單會變短，索引要跟著收回來，否則輪播停在空白。
+  const shownIndex = memories.length ? currentMemoryIndex % memories.length : 0;
 
   // Auto-rotate regional memories every 4.5 seconds (pause when accordion is expanded)
   useEffect(() => {
@@ -176,7 +178,7 @@ export default function HeaderHUD({
           <div className="flex-1 overflow-hidden relative h-5 flex items-center min-w-0">
             <AnimatePresence mode="wait">
               <motion.div
-                key={currentMemoryIndex}
+                key={shownIndex}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
@@ -184,7 +186,7 @@ export default function HeaderHUD({
                 className="text-[12px] text-slate-100 font-medium truncate w-full flex items-center gap-1.5 font-sans"
               >
                 <span className="text-sky-400 font-bold text-[12px]">•</span>
-                <span className="truncate drop-shadow-sm">{memories[currentMemoryIndex]}</span>
+                <span className="truncate drop-shadow-sm">{memories[shownIndex] ?? '這一帶最近沒什麼特別的事。'}</span>
               </motion.div>
             </AnimatePresence>
           </div>
@@ -195,7 +197,7 @@ export default function HeaderHUD({
               <span
                 key={idx}
                 className={`h-1.5 rounded-full transition-all duration-300 ${
-                  idx === currentMemoryIndex
+                  idx === shownIndex
                     ? 'bg-sky-400 w-3 shadow-[0_0_6px_#38bdf8]'
                     : 'bg-white/30 w-1.5'
                 }`}
@@ -239,14 +241,14 @@ export default function HeaderHUD({
                       setCurrentMemoryIndex(idx);
                     }}
                     className={`p-2 rounded-lg text-[12px] transition cursor-pointer flex items-start gap-2 ${
-                      idx === currentMemoryIndex
+                      idx === shownIndex
                         ? 'bg-sky-500/25 border border-sky-400/50 text-white font-medium shadow-[inset_0_0_10px_rgba(56,189,248,0.2)]'
                         : 'bg-white/[0.04] border border-white/[0.08] text-slate-200 hover:bg-white/[0.08] hover:text-white'
                     }`}
                   >
                     <span
                       className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
-                        idx === currentMemoryIndex
+                        idx === shownIndex
                           ? 'bg-sky-400 shadow-[0_0_6px_#38bdf8]'
                           : 'bg-slate-500'
                       }`}

@@ -206,6 +206,76 @@ export interface DiaryEntry {
   tags?: string[];
 }
 
+// ------------------------------------------------------------------ 記憶（通道 ①）
+
+/** 分層記憶的四層。通道 ② 的 NPC 日記不在這裡，主 GM 也不能直接寫。 */
+export type MemoryLayer = 'world' | 'region' | 'scene' | 'npc';
+/** 配額截斷時的存留順序：critical 全留，normal／flavor 依新舊截斷。 */
+export type MemoryWeight = 'critical' | 'normal' | 'flavor';
+
+/**
+ * 通道 ① 分層記憶的一筆（骨架第一節、第三節階段 1）。
+ * 有關鍵字的是「話題型」，每回合掃玩家輸入、命中才帶；沒有的是「場景型」，進場時依地點載入。
+ */
+export interface LayeredMemory {
+  id: string;
+  layer: MemoryLayer;
+  content: string;
+  weight: MemoryWeight;
+  /** 事件標記，不填人名地名。有填就改走關鍵字追加。 */
+  keywords?: string[];
+  /** 地點標籤。region 層是區域 id，scene 層是場景 id（房號或區域 id）。world、npc 層不用。 */
+  location?: string;
+  /** npc 層的對象 NPC id。 */
+  npcId?: string;
+  /** 有效期限：遊戲日期 YYYY-MM-DD，當天仍有效。沒有表示不會過期。 */
+  expire?: string;
+  enabled: boolean;
+  /** 寫入者。玩家手寫的不會被儲存上限淘汰。 */
+  author: 'gm' | 'player';
+  /** 寫入當下的遊戲時間「YYYY-MM-DD HH:MM」，新舊排序用。 */
+  createdAt: string;
+  /** 最後一次被帶進 GM 局勢的遊戲時間；儲存上限淘汰「最久未觸發」用。 */
+  usedAt?: string;
+}
+
+// ------------------------------------------------------------------ 記憶（通道 ②）
+
+/** NPC 的一則內心想法（主 GM 的 npc_thought）。進 thought 滑動窗口，累積後由助理 GM 提煉進日誌。 */
+export interface NpcThought {
+  id: string;
+  /** 遊戲時間「YYYY-MM-DD HH:MM」。 */
+  at: string;
+  /** 當時所在地點（顯示名稱）。 */
+  place: string;
+  text: string;
+  /** 已提煉進日誌。歸檔後仍留在窗口裡給主 GM 拿捏語氣，直到被新的擠掉。 */
+  archived?: boolean;
+}
+
+/** NPC 日誌：一角色一天一篇，每次提煉追加在當天那篇的尾端（骨架第三節階段 6）。 */
+export interface NpcLog {
+  id: string;
+  /** 遊戲日期 YYYY-MM-DD。 */
+  date: string;
+  title: string;
+  content: string;
+  /** 每次提煉的關鍵字併入、去重，不覆蓋：早上的事到了晚上仍搜得到。 */
+  keywords: string[];
+  /** 逐則啟用開關。關掉的仍保留可查閱，只是不再帶進 GM 局勢。 */
+  enabled: boolean;
+  /** 最後一次追加的遊戲時間。 */
+  updatedAt: string;
+}
+
+export interface NpcMemory {
+  thoughts: NpcThought[];
+  logs: NpcLog[];
+}
+
+/** 以 NPC id 對應的通道 ② 資料。 */
+export type NpcMemories = Record<string, NpcMemory>;
+
 export type DialogueSegmentKind = 'dialogue' | 'description';
 /** thinking 沒有對應的表情圖，會退回 neutral —— 留著是因為它在敘事上有用。 */
 export type DialogueExpression = 'neutral' | 'happy' | 'sad' | 'angry' | 'surprised' | 'shy' | 'thinking';
@@ -220,6 +290,11 @@ export interface DialogueSegment {
 export interface DialogueTurn {
   playerInput: string;
   segments: DialogueSegment[];
+  /**
+   * 這一回合在場 NPC 的內心想法（npc_thought）。是短期上下文唯一保留的指令：
+   * 主 GM 要看得見自己稍早寫下的心境，其餘指令存檔前剝除，免得模型照著舊指令多發。
+   */
+  thoughts?: { npcId: string; text: string }[];
 }
 
 /** 只有 GM 能提出事件性遊戲狀態變更，App 集中套用。 */
@@ -232,7 +307,11 @@ export type GmCommand =
   | { type: 'add_objective'; text: string; location?: string }
   | { type: 'complete_objective'; objectiveId: string }
   /** 依故事內容推進遊戲時間（分鐘）。走路的耗時由前端另算，兩者相加。 */
-  | { type: 'advance_time'; minutes: number };
+  | { type: 'advance_time'; minutes: number }
+  /** 在場 NPC 的內心想法，寫入通道 ② 的 thought 窗口（骨架 NPC_THOUGHT）。 */
+  | { type: 'npc_thought'; npcId: string; text: string }
+  /** 寫入通道 ① 分層記憶（骨架 MEMORY_ADD）。地點由前端依玩家所在處補上。 */
+  | { type: 'add_memory'; layer: MemoryLayer; text: string; weight: MemoryWeight; keywords?: string[]; expireDays?: number; npcId?: string };
 
 /** 故事書事件條目（內容）。 */
 export interface ChapterEntry {
@@ -245,6 +324,21 @@ export interface ChapterEntry {
 }
 
 export type StoryChapter = ChapterEntry & EntryToggle;
+
+/**
+ * 故事書設定條目（內容）：世界觀的背景知識，例如「月球城市」「補給船」（world.md 第八節）。
+ * 通道 ④ 設定集的一類：玩家這一句命中關鍵字，才帶進 GM 局勢。
+ */
+export interface LoreEntry {
+  id: string;
+  source: EntrySource;
+  title: string;
+  content: string;
+  /** 觸發關鍵字。標題本身也算一個關鍵字。 */
+  keywords: string[];
+}
+
+export type StoryLore = LoreEntry & EntryToggle;
 
 /** 故事書地點條目（內容）。 */
 export interface SectorEntry {
@@ -277,12 +371,13 @@ export interface RoomDef {
   sectorId: string;
 }
 
-/** 故事書四個分頁各自的條目清單。內建內容與本局條目共用這個形狀。 */
+/** 故事書各分頁的條目清單。內建內容與本局條目共用這個形狀。 */
 export interface StoryLayer {
   npcs: NpcEntry[];
   items: ItemEntry[];
   chapters: ChapterEntry[];
   sectors: SectorEntry[];
+  lore: LoreEntry[];
 }
 
 export type StoryKind = keyof StoryLayer;
@@ -296,6 +391,7 @@ export interface StoryOverrides {
   items: Record<string, Partial<EntryToggle>>;
   chapters: Record<string, Partial<EntryToggle>>;
   sectors: Record<string, Partial<SectorProgress & EntryToggle>>;
+  lore: Record<string, Partial<EntryToggle>>;
 }
 
 /** 合併後的故事書，遊戲各處與故事書 UI 讀這一份。 */
@@ -304,6 +400,7 @@ export interface MergedStory {
   items: StoryItem[];
   chapters: StoryChapter[];
   sectors: MapSector[];
+  lore: StoryLore[];
 }
 
 /** LeftSidebar 的當前目標。屬於遊戲進度，會進存檔。 */

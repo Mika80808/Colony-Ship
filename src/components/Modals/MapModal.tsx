@@ -40,6 +40,8 @@ interface MapModalProps {
    * resolve 表示可以進場，reject 表示失敗（reject 的訊息會顯示給玩家）。
    */
   onEnterSector: (sector: MapSector, roomId?: string) => Promise<void>;
+  /** 某地點（含其房間）的近況：通道 ① 的區域層與場景層記憶，已依重要度與新舊排好。 */
+  memoriesFor?: (sectorId: string) => string[];
 }
 
 interface SectorConfig {
@@ -195,6 +197,7 @@ export default function MapModal({
   rooms,
   currentSectorId,
   onEnterSector,
+  memoriesFor,
 }: MapModalProps) {
   // browsing = 可操作地圖；loading = 過場中；stuck = 塞車畫面
   const [phase, setPhase] = useState<'browsing' | 'loading' | 'stuck'>('browsing');
@@ -219,6 +222,7 @@ export default function MapModal({
   const selectedSector = selectedSectorId
     ? sectors.find((s) => s.id === selectedSectorId) ?? null
     : null;
+  const selectedMemories = selectedSector && memoriesFor ? memoriesFor(selectedSector.id) : [];
 
   const handleSectorClick = (sec: MapSector) => {
     if (isLoading) return;
@@ -682,16 +686,22 @@ export default function MapModal({
                   </div>
 
                   <div className="flex-1 overflow-y-auto pr-0.5 space-y-3">
-                    {/*
-                      場景記憶：本輪先接 MapSector.description 這個現有欄位當假資料。
-                      真正的場景記憶對應骨架文件通道 ① 的場景層記憶，資料結構之後再定，
-                      本輪只把版面立起來。
-                    */}
+                    {/* 場景記憶：通道 ① 在這個地點（含房間）的區域層與場景層記憶。下面另附地點簡介。 */}
                     <div>
                       <div className="flex items-center gap-1.5 text-[12px] font-bold text-sky-400 mb-1">
                         <Brain className="w-3.5 h-3.5" />
                         <span>場景記憶</span>
                       </div>
+                      {selectedMemories.length > 0 ? (
+                        <ul className="space-y-1 text-[12px] text-[#9aeeff] leading-relaxed font-sans list-disc pl-4">
+                          {selectedMemories.map((line, idx) => <li key={idx}>{line}</li>)}
+                        </ul>
+                      ) : (
+                        <div className="text-[12px] text-slate-500 font-sans">這裡最近沒什麼特別的事。</div>
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-[12px] font-bold text-slate-300 mb-1">地點簡介</div>
                       <div className="text-[12px] text-[#9aeeff] leading-relaxed font-sans markdown-body !text-[12px] !text-[#9aeeff]">
                         <Markdown>{selectedSector.description}</Markdown>
                       </div>

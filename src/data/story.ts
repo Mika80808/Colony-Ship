@@ -1,5 +1,6 @@
 import {
   EntrySource,
+  LoreEntry,
   MergedStory,
   NPCData,
   NpcEntry,
@@ -13,6 +14,7 @@ import {
 import {
   INITIAL_AFFECTION,
   INITIAL_BUILTIN_STORY,
+  INITIAL_LORE,
   INITIAL_NPCS,
   INITIAL_RELATIONSHIP,
   INITIAL_SECTORS,
@@ -69,6 +71,8 @@ export function mergeStory(builtin: StoryLayer, run: StoryLayer, overrides: Stor
     items: mergeKind(builtin.items, run.items, overrides.items, () => ({ enabled: true })),
     chapters: mergeKind(builtin.chapters, run.chapters, overrides.chapters, () => ({ enabled: true })),
     sectors: mergeKind(builtin.sectors, run.sectors, overrides.sectors, sectorDefaults),
+    // 設定條目是後來加的：舊存檔的本局條目與覆寫沒有這一欄。
+    lore: mergeKind(builtin.lore ?? [], run.lore ?? [], overrides.lore ?? {}, () => ({ enabled: true })),
   };
 }
 
@@ -80,6 +84,7 @@ const PROGRESS_FIELDS: Record<StoryKind, readonly string[]> = {
   items: ['enabled'],
   chapters: ['enabled'],
   sectors: ['isCurrent', 'status', 'enabled'],
+  lore: ['enabled'],
 };
 
 export function stripProgress<K extends StoryKind>(kind: K, entry: MergedStory[K][number]): StoryLayer[K][number] {
@@ -144,7 +149,7 @@ function asBuiltin<E extends { id: string; source: EntrySource }>(list: unknown)
  * 種子版本。initialGameData 的既有條目內容有更新、要同步給已經啟動過的瀏覽器時 +1，
  * 並在 SEED_MIGRATIONS 補一段遷移。遷移只能「補空欄位」，不可覆蓋開發者在 UI 改過的內容。
  */
-const SEED_VERSION = 5;
+const SEED_VERSION = 6;
 
 /** 用程式碼裡的值補上存下來條目的空欄位。 */
 function fillEmptyFromCode(stored: NpcEntry[], fields: (keyof NpcEntry)[]): NpcEntry[] {
@@ -193,6 +198,7 @@ const SEED_MIGRATIONS: Record<number, (story: StoryLayer) => StoryLayer> = {
   // v3 → v4：故事書儲存時不再代填，把以前代填進去的佔位字清掉。
   // 只清「欄位值剛好等於當時代填的那個字串」的情況，手寫的內容不會剛好一樣。
   3: (story) => ({
+    ...story,
     npcs: clearPlaceholders(story.npcs, { age: '未知', position: '未知', appearance: '無', personality: '無', background: '無', routine: '無', other: '無' }),
     items: clearPlaceholders(story.items, { effectText: '+0', description: '尚無描述。' }),
     chapters: clearPlaceholders(story.chapters, { summary: '尚無摘要。', fullText: '尚無紀錄內容。' }),
@@ -207,6 +213,25 @@ const SEED_MIGRATIONS: Record<number, (story: StoryLayer) => StoryLayer> = {
         : sector
     ),
   }),
+  // v5 → v6：地點描述換成 2090 世界觀（docs/world.md：拿掉躍遷星門、深空樣本、「全艦」「艦艇」），
+  // 只換仍是舊種子文字的；並補上 world.md 第八節的設定條目（新增的「設定」分頁，舊資料沒有這一欄）。
+  5: (story) => ({
+    ...story,
+    sectors: story.sectors.map((sector) => {
+      const old = V5_SECTOR_DESCRIPTIONS[sector.id];
+      const code = INITIAL_SECTORS.find((s) => s.id === sector.id);
+      return old && code && sector.description === old ? { ...sector, description: code.description } : sector;
+    }),
+    lore: story.lore?.length ? story.lore : INITIAL_LORE,
+  }),
+};
+
+/** v5 之前的地點描述種子（v6 遷移比對用）。 */
+const V5_SECTOR_DESCRIPTIONS: Record<string, string> = {
+  lab: '物理、光譜與深空樣本分析實驗室，配備尖端量子顯微與分析儀器。',
+  bridge: '全艦中樞神經，指揮官與高級領航員執勤核心，掌控躍遷星門與航向。',
+  park: '全艦核心生態休閒綠洲與生活聚落，人造陽光與步道環繞。',
+  greenhouse: '水耕生化植物區，提供艦艇新鮮氧氣循環與有機蔬果補給。',
 };
 
 /** 欄位值等於佔位字時清成空白。 */
@@ -242,6 +267,7 @@ export function loadBuiltinStory(): StoryLayer {
         items: asBuiltin(parsed.items),
         chapters: asBuiltin(parsed.chapters),
         sectors: asBuiltin<SectorEntry>(parsed.sectors),
+        lore: asBuiltin<LoreEntry>(parsed.lore),
       };
       // 沒有 seedVersion 的是 v1（加入版本號之前寫下的）。
       for (let version = parsed.seedVersion ?? 1; version < SEED_VERSION; version++) {
@@ -285,6 +311,7 @@ export function fillMissingBuiltin(story: StoryLayer): { next: StoryLayer; added
     items: fill(story.items, INITIAL_BUILTIN_STORY.items),
     chapters: fill(story.chapters, INITIAL_BUILTIN_STORY.chapters),
     sectors: fill(story.sectors, INITIAL_BUILTIN_STORY.sectors),
+    lore: fill(story.lore ?? [], INITIAL_BUILTIN_STORY.lore),
   };
   return { next, added };
 }

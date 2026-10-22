@@ -6,6 +6,8 @@ import {
   InventoryItem,
   DiaryEntry,
   DialogueTurn,
+  LayeredMemory,
+  NpcMemories,
   Objective,
   StoryLayer,
   StoryOverrides,
@@ -51,7 +53,13 @@ export interface GameSave {
   diaryEntries: DiaryEntry[];
   currentSectorId: string;
   currentRoomId: string | null;
-  areaMemories: string[];
+  /**
+   * 通道 ① 分層記憶（game/memory.ts）。頂欄「區域記憶」與星圖「場景記憶」都從這裡依地點挑。
+   * 取代舊的 areaMemories（純文字清單，從來沒有寫入來源）；舊存檔沒有這欄，讀檔時從空的開始。
+   */
+  memories?: LayeredMemory[];
+  /** 通道 ② NPC 日記：各 NPC 的 thought 窗口與日誌（game/npcMemory.ts）。舊存檔沒有，從空的開始。 */
+  npcMemories?: NpcMemories;
   objectives: Objective[];
   summary: string;
   gameDate: string;

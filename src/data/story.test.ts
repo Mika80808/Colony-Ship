@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { NPCData, NpcSchedule, StoryLayer } from '../types';
+import { NPCData, NpcSchedule, StoryLayer, StoryOverrides } from '../types';
 import { EMPTY_OVERRIDES, EMPTY_RUN_STORY, INITIAL_NPCS, INITIAL_SECTORS, ROOMS } from './initialGameData';
 import { fillMissingBuiltin, findRoomOccupant, loadBuiltinStory, mergeStory, scheduleLocationIds, splitEntries, writeBuiltinStory } from './story';
 import { locateNpc, planRelocation } from './npcSchedule';
@@ -18,6 +18,7 @@ const builtin: StoryLayer = {
     { id: 'residential_a', source: 'builtin', name: '居住區 A', code: 'SEC-A', description: '', connectedTo: [] },
     { id: 'lab', source: 'builtin', name: '研究室', code: 'SEC-01', description: '', connectedTo: [] },
   ],
+  lore: [],
 };
 
 // ---- 合併：預設值
@@ -198,7 +199,7 @@ assert.match(
   assert.deepEqual(b.schedules, customSchedule, '遷移不覆蓋已經改過的日程');
 
   writeBuiltinStory(loaded);
-  assert.equal(JSON.parse(memory.get('starport_builtin_story')!).seedVersion, 5);
+  assert.equal(JSON.parse(memory.get('starport_builtin_story')!).seedVersion, 6);
   assert.equal(b.roomId, 'A-2', 'v3 遷移讓布雷茲住進 A-2');
   assert.deepEqual(loadBuiltinStory().npcs.find((n) => n.id === 'blaze')!.schedules, customSchedule, '已是最新版本時不再遷移');
 
@@ -295,6 +296,40 @@ assert.match(
   assert.doesNotMatch(engineering(), /引擎|重力/);
   store('我自己寫的工程部。');
   assert.equal(engineering(), '我自己寫的工程部。', '改過的描述不動');
+}
+
+// ---- 種子 v5 → v6：地點舊描述換成 2090 世界觀、補上設定條目；改過的不動
+{
+  const memory = new Map<string, string>();
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => void memory.set(key, value),
+    removeItem: (key: string) => void memory.delete(key),
+  };
+  const sectors = INITIAL_SECTORS.map((sector) => (
+    sector.id === 'bridge' ? { ...sector, description: '全艦中樞神經，指揮官與高級領航員執勤核心，掌控躍遷星門與航向。' }
+      : sector.id === 'lab' ? { ...sector, description: '我自己寫的研究室。' }
+      : sector
+  ));
+  memory.set('starport_builtin_story', JSON.stringify({ seedVersion: 5, npcs: [], items: [], chapters: [], sectors }));
+  const loaded = loadBuiltinStory();
+  const description = (id: string) => loaded.sectors.find((sector) => sector.id === id)!.description;
+  assert.doesNotMatch(description('bridge'), /躍遷|全艦/, '舊種子文字換掉');
+  assert.equal(description('lab'), '我自己寫的研究室。', '改過的描述不動');
+  assert.deepEqual(loaded.lore.map((entry) => entry.title), ['月球城市', '火星殖民地', '地球', '出身差異', '生活實驗', '補給船'], '補上 world.md 第八節的設定條目');
+
+  memory.set('starport_builtin_story', JSON.stringify({
+    seedVersion: 5, npcs: [], items: [], chapters: [], sectors: INITIAL_SECTORS,
+    lore: [{ id: 'lore-mine', source: 'builtin', title: '自訂', content: '我先寫好的', keywords: [] }],
+  }));
+  assert.deepEqual(loadBuiltinStory().lore.map((entry) => entry.id), ['lore-mine'], '已經有設定條目就不補');
+}
+{
+  // 舊存檔的本局條目與覆寫沒有 lore 欄位，合併時不能壞
+  const merged = mergeStory({ ...builtin, lore: [{ id: 'lore-x', source: 'builtin', title: 'X', content: '', keywords: [] }] },
+    { npcs: [], items: [], chapters: [], sectors: [] } as unknown as StoryLayer,
+    { npcs: {}, items: {}, chapters: {}, sectors: {} } as unknown as StoryOverrides);
+  assert.deepEqual(merged.lore.map((entry) => [entry.id, entry.enabled]), [['lore-x', true]]);
 }
 
 // ---- 房號校驗把玩家算進去

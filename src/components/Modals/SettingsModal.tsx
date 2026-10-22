@@ -547,7 +547,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
               <div className="text-[12px] text-slate-500">
-                角色 {builtinStory.npcs.length}・物品 {builtinStory.items.length}・事件 {builtinStory.chapters.length}・地點 {builtinStory.sectors.length}。所有存檔共用，新開遊戲不會清空。
+                角色 {builtinStory.npcs.length}・物品 {builtinStory.items.length}・事件 {builtinStory.chapters.length}・地點 {builtinStory.sectors.length}・設定 {builtinStory.lore?.length ?? 0}。所有存檔共用，新開遊戲不會清空。
               </div>
             </div>
           )}

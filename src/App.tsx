@@ -9,7 +9,13 @@ import BridgeScene from './components/BridgeScene';
 import FacilityScene from './components/FacilityScene';
 import { FACILITIES } from './game/facility';
 import { describeFacilityObjects } from './game/facilityContext';
-import { travelMinutes, walkMeter } from './game/clock';
+import { STEPS_PER_MINUTE, WALK_PX_PER_STEP, travelMinutes, walkMeter } from './game/clock';
+import {
+  MEMORY_PARAMS, MemoryBlocks, MemoryWriteScope, SceneRecall,
+  addMemory, buildEntryPack, canReuseScene, describeRecalled, diaryCandidates, memoriesAt, packBlocks,
+  presentKey, pushTurn, recallDiaries, recallMemories, touchMemories,
+} from './game/memory';
+import { placeLore, scanLore } from './game/lore';
 import { SuppliesState, deliver, gmSupplyLines, initialSupplies, pickUp, tick } from './game/supplies';
 import { dayNumber } from './game/growth';
 import { describeRow, growthReport } from './game/growthReport';
@@ -47,6 +53,8 @@ import {
   ToastMessage,
   DialogueTurn,
   GmCommand,
+  LayeredMemory,
+  NpcMemories,
   MergedStory,
   StoryKind,
   StoryLayer,
@@ -65,7 +73,6 @@ import {
   EMPTY_RUN_STORY,
   EMPTY_OVERRIDES,
   ROOMS,
-  INITIAL_AREA_MEMORIES,
   INITIAL_OBJECTIVES,
   INITIAL_SUMMARY,
   INITIAL_QUICK_REPLIES,
@@ -76,7 +83,11 @@ import { loadGameSave, writeGameSave, clearGameSave } from './data/persistence';
 import { loadBuiltinStory, writeBuiltinStory, mergeStory, splitEntries, fillMissingBuiltin, findRoomOccupant } from './data/story';
 import { sound } from './utils/audio';
 import { runGm, GmError } from './gm';
-import { suggestQuickReplies, generateDiaryDraft } from './gm/assistant';
+import { suggestQuickReplies, generateDiaryDraft, selectSceneMemories, distillNpcThoughts } from './gm/assistant';
+import {
+  addThoughts, appendLog, frozenThoughts, needsDistill, npcLogCandidates, npcMemoryOf, pendingThoughts,
+  recallNpcLogs, thoughtSnapshot, toggleNpcLog,
+} from './game/npcMemory';
 
 export default function App() {
   const facilityPositionRef = useRef<{ x: number; y: number } | null>(null);
@@ -136,8 +147,9 @@ export default function App() {
    * 故事書 UI 與遊戲其他部分都只讀合併後的 story。
    */
   const [builtinStory, setBuiltinStory] = useState<StoryLayer>(loadBuiltinStory);
-  const [runStory, setRunStory] = useState<StoryLayer>(saved?.runStory ?? EMPTY_RUN_STORY);
-  const [storyOverrides, setStoryOverrides] = useState<StoryOverrides>(saved?.storyOverrides ?? EMPTY_OVERRIDES);
+  // 舊存檔沒有後來加的條目種類（設定），用空的補齊。
+  const [runStory, setRunStory] = useState<StoryLayer>(() => ({ ...EMPTY_RUN_STORY, ...saved?.runStory }));
+  const [storyOverrides, setStoryOverrides] = useState<StoryOverrides>(() => ({ ...EMPTY_OVERRIDES, ...saved?.storyOverrides }));
   const story = useMemo(
     () => mergeStory(builtinStory, runStory, storyOverrides),
     [builtinStory, runStory, storyOverrides]
@@ -154,7 +166,7 @@ export default function App() {
   /** 切換條目的啟用狀態。存在覆寫裡，跟著存檔走。 */
   const toggleStoryEntry = (kind: StoryKind, id: string) =>
     setStoryOverrides((prev) => {
-      const current = prev[kind][id] ?? {};
+      const current = prev[kind]?.[id] ?? {};
       return { ...prev, [kind]: { ...prev[kind], [id]: { ...current, enabled: !(current.enabled ?? true) } } };
     });
 
@@ -183,10 +195,12 @@ export default function App() {
   // 走路進來的上一個區域（溫室左門 ↔ A 走廊、右門 ↔ B 走廊）。場景用它決定玩家出現在哪個門口；搭星圖則為 null。
   const [arrivedFrom, setArrivedFrom] = useState<string | null>(null);
 
-  // 以下四項原本寫死在各元件內部，現在改由這裡供給。
-  // 前三項屬於遊戲進度、會進存檔，但目前還沒有 setter：內容要等 Phase 3
-  // 由 GM 生成後才會變動。
-  const [areaMemories] = useState<string[]>(saved?.areaMemories ?? INITIAL_AREA_MEMORIES);
+  // 通道 ① 分層記憶：主 GM 用 add_memory 寫入，進場時依地點與在場者挑出來帶給 GM（game/memory.ts）。
+  const [memories, setMemories] = useState<LayeredMemory[]>(saved?.memories ?? []);
+  // 通道 ② NPC 日記：thought 窗口與一天一篇的日誌（game/npcMemory.ts）。
+  const [npcMemories, setNpcMemories] = useState<NpcMemories>(saved?.npcMemories ?? {});
+  const npcMemoriesRef = useRef(npcMemories);
+  useEffect(() => { npcMemoriesRef.current = npcMemories; }, [npcMemories]);
   const [objectives, setObjectives] = useState<Objective[]>(saved?.objectives ?? INITIAL_OBJECTIVES);
   const [summary, setSummary] = useState<string>(saved?.summary ?? INITIAL_SUMMARY);
   // 快速回覆由助理 AI 依對話產生，見下方 requestQuickReplies。
@@ -215,7 +229,7 @@ export default function App() {
       const ok = writeGameSave({
         profile, stats, quests, items, runStory, storyOverrides, dialogueHistory,
         diaryEntries, currentSectorId, currentRoomId,
-        areaMemories, objectives, summary, gameDate, gameTime, supplies,
+        memories, npcMemories, objectives, summary, gameDate, gameTime, supplies,
       });
       if (ok) {
         saveFailedRef.current = false;
@@ -228,7 +242,7 @@ export default function App() {
   }, [
     profile, stats, quests, items, runStory, storyOverrides, dialogueHistory,
     diaryEntries, currentSectorId, currentRoomId,
-    areaMemories, objectives, summary, gameDate, gameTime, supplies,
+    memories, npcMemories, objectives, summary, gameDate, gameTime, supplies,
   ]);
 
   // Handle Hotkeys
@@ -307,7 +321,7 @@ export default function App() {
     return () => window.removeEventListener('click', handleWindowClick);
   }, [activeDrawer]);
 
-  const applyCommands = (commands: GmCommand[]) => commands.forEach((command) => {
+  const applyCommands = (commands: GmCommand[]) => commands.forEach((command, index) => {
     if (command.type === 'adjust_stats') setStats((prev) => ({
       ...prev, stamina: Math.min(prev.maxStamina, Math.max(0, prev.stamina + (command.stamina ?? 0))),
       hunger: Math.min(prev.maxHunger, Math.max(0, prev.hunger + (command.hunger ?? 0))), credits: Math.max(0, prev.credits + (command.credits ?? 0)),
@@ -328,7 +342,21 @@ export default function App() {
     if (command.type === 'add_objective') setObjectives((prev) => [...prev, { id: `obj-${Date.now()}-${prev.length}`, text: command.text, location: command.location }]);
     if (command.type === 'advance_time') advanceGameTime(command.minutes);
     if (command.type === 'complete_objective') setObjectives((prev) => prev.map((objective) => objective.id === command.objectiveId ? { ...objective, done: true } : objective));
+    if (command.type === 'add_memory') setMemories((prev) => addMemory(prev, command, memoryWriteScope(index)));
   });
+
+  /** 寫入 ① 記憶的現場：地點標籤用玩家此刻所在的區域與場景，時間讀時鐘 ref（同一回合可能先推進過時間）。 */
+  const memoryNow = () => `${clockRef.current.date} ${clockRef.current.time}`;
+  const memoryWriteScope = (index: number): MemoryWriteScope => ({
+    region: currentSectorId,
+    scene: playerScene,
+    now: memoryNow(),
+    addDays: (days) => addMinutes(clockRef.current.date, '00:00', days * 24 * 60).date,
+    id: `mem-${Date.now()}-${index}`,
+  });
+  /** 地點 id → 顯示名稱。場景 id 可能是房號。 */
+  const placeName = (id: string) => sectors.find((sector) => sector.id === id)?.name ?? (ROOMS.some((room) => room.id === id) ? `${id} 房間` : id);
+  const npcName = (id: string) => npcs.find((npc) => npc.id === id)?.name ?? id;
 
   const currentSector = sectors.find((s) => s.id === currentSectorId) ?? null;
 
@@ -391,7 +419,62 @@ export default function App() {
   };
   /** 場景每幀回報走了幾 px；累積滿一分鐘才推進，站著不動不耗時。 */
   const walkRef = useRef(walkMeter());
-  const handleWalk = (px: number) => advanceGameTime(walkRef.current(px));
+  /** 累積步數（一步 96 px；傳送照耗時換算）。場景快取比對「步數差」用，不進存檔。 */
+  const stepsRef = useRef(0);
+  const handleWalk = (px: number) => {
+    if (px > 0) stepsRef.current += px / WALK_PX_PER_STEP;
+    advanceGameTime(walkRef.current(px));
+  };
+
+  /**
+   * 進場結果（骨架第三節階段 8「場景重新矯正」）：換場時算一次，凍結到離場。
+   * 包含 ① 進場包、② 在場者先前的 thought、玩家日記與 NPC 日誌的語意篩選；離場時連同當下步數存進快取，
+   * 回到同一場景、在場名單相同、步數差 30 步內就直接重用，不再呼叫助理 GM。
+   */
+  const [sceneRecall, setSceneRecall] = useState<SceneRecall | null>(null);
+  const sceneRecallRef = useRef<SceneRecall | null>(null);
+  const sceneCacheRef = useRef(new Map<string, SceneRecall>());
+  const currentPresentKey = presentKey(presentNpcs.map((npc) => npc.id));
+  useEffect(() => {
+    const leaving = sceneRecallRef.current;
+    if (leaving && leaving.scene !== playerScene) {
+      sceneCacheRef.current.set(leaving.scene, { ...leaving, steps: stepsRef.current });
+    }
+    const commit = (next: SceneRecall) => { sceneRecallRef.current = next; setSceneRecall(next); };
+    const cached = sceneCacheRef.current.get(playerScene);
+    if (canReuseScene(cached, playerScene, currentPresentKey, stepsRef.current)) { commit(cached!); return; }
+
+    // ① 進場包：前端算，不呼叫 LLM。
+    const packIds = buildEntryPack(memories, {
+      region: currentSectorId,
+      adjacentRegions: currentSector?.connectedTo ?? [],
+      scene: playerScene,
+      presentNpcIds: presentNpcs.map((npc) => npc.id),
+      closeNpcIds: npcs.filter((npc) => npc.location !== playerScene && npc.affection >= MEMORY_PARAMS.closeAffection).map((npc) => npc.id),
+      today: gameDate,
+    });
+    const presentIds = presentNpcs.map((npc) => npc.id);
+    const base: SceneRecall = {
+      scene: playerScene, present: currentPresentKey, steps: stepsRef.current,
+      diaryIds: [], npcLogIds: [], packIds,
+      // ② 在場者窗口裡現有的 thought 都來自先前場景，作為背景帶進來；本場景新生的已在對話紀錄裡。
+      thoughtIds: thoughtSnapshot(npcMemories, presentIds),
+    };
+    commit(base);
+    // 換場當下 NPC 會依日程重排一次，在場名單可能緊接著再變；等一下再問，避免連打兩次。
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      selectSceneMemories({
+        locationName: currentSectorName, presentNpcs, summary, gameDate, gameTime,
+        diaries: diaryCandidates(diaryEntries),
+        npcLogs: npcLogCandidates(npcMemories, presentIds),
+      })
+        .then((selection) => { if (!cancelled) commit({ ...base, ...selection }); })
+        // 篩選失敗（沒設助理、網路斷）不擋遊戲：這一場只剩關鍵字追加那一軌。
+        .catch(() => undefined);
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [playerScene, currentPresentKey, sceneEpoch]);
   /** 設施場景裡 map.json 沒寫死文字的互動。回傳 true 表示處理掉了。 */
   const [monitorWing, setMonitorWing] = useState<Wing>('left');
   const handleFacilityAction = (item: FacilityInteraction) => {
@@ -403,11 +486,45 @@ export default function App() {
     return state.carrying && Object.values(state.carrying).some((v) => v > 0) ? '推車已經滿了，先送一趟吧。' : '出貨籃是空的，作物還在長。';
   };
 
+  /**
+   * 通道 ② 回寫（骨架階段 6）：本回合的 thought 進窗口；未歸檔的滿 10 則，或本回合有進展
+   * （任務狀態變動、關係描述改寫），就在背景請助理 GM 提煉進該 NPC 當天的日誌。
+   * 玩家已經看到回應了，不等提煉；失敗的話 thought 仍未歸檔，下次再試。
+   */
+  const distillingRef = useRef(new Set<string>());
+  const recordThoughts = (thoughts: { npcId: string; text: string }[], commands: GmCommand[]) => {
+    const progress = commands.some((command) => command.type === 'set_quest_status'
+      || (command.type === 'adjust_affection' && !!command.relationship));
+    const now = memoryNow();
+    const store = addThoughts(npcMemoriesRef.current, thoughts, now, placeName(playerScene), `th-${Date.now()}`);
+    npcMemoriesRef.current = store;
+    setNpcMemories(store);
+    for (const npc of presentNpcs) {
+      if (distillingRef.current.has(npc.id) || !needsDistill(store, npc.id, progress)) continue;
+      const batch = pendingThoughts(store, npc.id);
+      const date = clockRef.current.date;
+      distillingRef.current.add(npc.id);
+      distillNpcThoughts({
+        npc,
+        playerName: profile.name,
+        thoughts: batch,
+        todayLog: npcMemoryOf(store, npc.id).logs.find((log) => log.date === date)?.content ?? '',
+      })
+        .then((result) => setNpcMemories((prev) => {
+          const next = appendLog(prev, npc.id, result, batch.map((thought) => thought.id), date, memoryNow());
+          npcMemoriesRef.current = next;
+          return next;
+        }))
+        .catch(() => undefined)
+        .finally(() => distillingRef.current.delete(npc.id));
+    }
+  };
+
   // GM 呼叫狀態。錯誤不寫進對話歷史 —— 那是遊戲紀錄，不是錯誤日誌。
   const [gmPending, setGmPending] = useState<boolean>(false);
   const [gmError, setGmError] = useState<string | null>(null);
 
-  /** 20 回合窗口；滿額後批次捨棄最早 10 回。 */
+  /** 對話窗口 20 回合；滿額後批次捨棄最早 10 回（game/memory.ts 的 pushTurn）。 */
   const sendToGm = async (text: string) => {
     const playerInput = text.trim();
     // 等待回應期間擋掉重複送出，否則玩家連按會疊出多筆平行請求，
@@ -416,6 +533,26 @@ export default function App() {
 
     setGmPending(true);
     setGmError(null);
+
+    // 記憶注入集合（骨架階段 1）：進場時凍結的部分照用，關鍵字追加每回合掃本次輸入。
+    const packIds = sceneRecall?.packIds ?? [];
+    const presentNpcIds = presentNpcs.map((npc) => npc.id);
+    const recalled = recallMemories(memories, playerInput, gameDate, packIds);
+    const diaries = recallDiaries(diaryEntries, sceneRecall?.diaryIds ?? [], playerInput);
+    const npcLogs = recallNpcLogs(npcMemories, presentNpcIds, sceneRecall?.npcLogIds ?? [], playerInput);
+    const memory: MemoryBlocks = {
+      ...packBlocks(memories, packIds, { presentNpcIds, today: gameDate }, placeName, npcName),
+      npcThoughts: frozenThoughts(npcMemories, presentNpcIds, sceneRecall?.thoughtIds ?? []),
+      diaries: diaries.scene,
+      npcLogs: npcLogs.scene,
+      recalledMemories: recalled.map((item) => describeRecalled(item, npcName, placeName)),
+      recalledDiaries: diaries.keyword,
+      recalledNpcLogs: npcLogs.keyword,
+      placeLore: placeLore(story, currentSectorId),
+      recalledLore: scanLore(story, playerInput, presentNpcIds, [currentSectorId, ...(currentSector?.connectedTo ?? [])]),
+    };
+    setMemories((prev) => touchMemories(prev, [...packIds, ...recalled.map((item) => item.id)], memoryNow()));
+
     try {
       const result = await runGm({
         playerInput,
@@ -434,12 +571,12 @@ export default function App() {
         summary,
         supplies: gmSupplyLines(supplies),
         terminals: currentSectorId === 'greenhouse' ? [{ name: '溫室窗前工作站（農業監控終端）', lines: growthReport(GREENHOUSE_RACKS, dayNumber(gameDate, gameTime), GREENHOUSE_WIDTH).map(describeRow) }] : undefined,
+        memory,
       });
       applyCommands(result.commands);
-      setDialogueHistory((prev) => {
-        const next = [...prev, { playerInput, segments: result.segments }];
-        return next.length > 20 ? next.slice(10) : next;
-      });
+      const thoughts = result.commands.flatMap((command) => command.type === 'npc_thought' ? [{ npcId: command.npcId, text: command.text }] : []);
+      recordThoughts(thoughts, result.commands);
+      setDialogueHistory((prev) => pushTurn(prev, { playerInput, segments: result.segments, ...(thoughts.length ? { thoughts } : {}) }));
     } catch (error) {
       setGmError(
         error instanceof GmError ? error.message : 'GM 呼叫失敗，請稍後再試。'
@@ -507,7 +644,9 @@ export default function App() {
   // 位置切換只在模擬完成後提交，彈窗才會關閉（規格 1.6）。
   const handleEnterSector = async (sec: MapSector, roomId?: string) => {
     await new Promise((resolve) => setTimeout(resolve, 600));
-    advanceGameTime(travelMinutes(currentSectorId, sec.id));   // 傳送依距離級距耗時；同區域內換房間不耗時
+    const minutes = travelMinutes(currentSectorId, sec.id);
+    stepsRef.current += minutes * STEPS_PER_MINUTE;           // 傳送的耗時也算步數（骨架：傳送同樣耗步）
+    advanceGameTime(minutes);   // 傳送依距離級距耗時；同區域內換房間不耗時
     commitSector(sec.id, roomId ?? null, null);
   };
 
@@ -524,10 +663,10 @@ export default function App() {
       const { state, kg } = deliver(supplies, 'restaurant');
       if (kg) { setSupplies(state); triggerToast(`把約 ${kg} 公斤蔬果送進了餐廳廚房。`); }
     }
-    if (sec.id === 'bridge') setDialogueHistory(history => [...history, {
+    if (sec.id === 'bridge') setDialogueHistory(history => pushTurn(history, {
       playerInput: '前往艦橋',
       segments: [{ kind: 'description' as const, text: '中央平台緩緩升起，三位值勤人員朝你望來。觀景窗外，行星的弧面泛著淡藍色光；艦橋的低鳴聲在腳下逐漸安定。' }],
-    }].slice(-20));
+    }));
     // 「目前所在」是本局進度，寫進覆寫。
     setStoryOverrides((prev) => ({
       ...prev,
@@ -547,6 +686,9 @@ export default function App() {
     setQuests([]);
     setItems([]);
     setDiaryEntries([]);
+    setMemories([]);
+    setNpcMemories({});
+    npcMemoriesRef.current = {};
     setDialogueHistory([]);
     setObjectives(INITIAL_OBJECTIVES);
     setSummary(INITIAL_SUMMARY);
@@ -556,6 +698,10 @@ export default function App() {
     setGameDate(GAME_START_DATE);
     setGameTime(GAME_START_TIME);
     setSupplies(initialSupplies(dayNumber(GAME_START_DATE, GAME_START_TIME)));
+    // 進場快取是上一局的記憶，跟著清掉。
+    sceneCacheRef.current.clear();
+    sceneRecallRef.current = null;
+    stepsRef.current = 0;
     setSceneEpoch((value) => value + 1);
 
     setCurrentSectorId(START_SECTOR_ID);
@@ -602,7 +748,7 @@ export default function App() {
       <HeaderHUD
         stats={stats}
         currentLocation={currentSectorName}
-        memories={areaMemories}
+        memories={memoriesAt(memories, [currentSectorId, playerScene], gameDate).map((memory) => memory.content)}
         gameDate={gameDate}
         gameTime={gameTime}
         onOpenDrawer={(type) => {
@@ -701,6 +847,8 @@ export default function App() {
         sectors={sectors}
         currentSectorId={currentSectorId}
         onEnterSector={handleEnterSector}
+        memoriesFor={(sectorId) => memoriesAt(memories, [sectorId, ...ROOMS.filter((room) => room.sectorId === sectorId).map((room) => room.id)], gameDate)
+          .map((memory) => memory.layer === 'scene' && memory.location !== sectorId ? `（${memory.location}）${memory.content}` : memory.content)}
       />
 
       {/* 2. 故事書 */}
@@ -718,9 +866,12 @@ export default function App() {
         onChangeNpcs={changeStory('npcs')}
         onChangeItems={changeStory('items')}
         onChangeSectors={changeStory('sectors')}
+        onChangeLore={changeStory('lore')}
         onToggleEnabled={toggleStoryEntry}
         initialTab="character"
         initialCharacterId={storybookTargetNpcId}
+        npcMemories={npcMemories}
+        onToggleNpcLog={(npcId, logId) => setNpcMemories((prev) => toggleNpcLog(prev, npcId, logId))}
       />
 
       {/* 3. 日記 */}

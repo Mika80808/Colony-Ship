@@ -1,7 +1,8 @@
-import { DialogueSegment, DialogueExpression, GmCommand, Quest } from '../types';
+import { DialogueSegment, DialogueExpression, GmCommand, MemoryLayer, MemoryWeight, Quest } from '../types';
+import { MEMORY_PARAMS, normalizeForMatch } from '../game/memory';
 import { GmContext, GmError, GmResult } from './types';
 import { requestJson } from './client';
-import { GM_SYSTEM_PROMPT, buildContextBlock, buildHistoryTurns } from './prompt';
+import { GM_SYSTEM_PROMPT, buildHistoryTurns, buildRecallBlock, buildSceneBlock, buildStateBlock } from './prompt';
 import { GM_RESPONSE_SCHEMA } from './adapters/schema';
 
 export { GmError } from './types';
@@ -11,6 +12,8 @@ const EXPRESSIONS: DialogueExpression[] = [
   'neutral', 'happy', 'sad', 'angry', 'surprised', 'shy', 'thinking',
 ];
 const QUEST_STATUSES: Quest['status'][] = ['進行中', '待回報', '已完成'];
+const MEMORY_LAYERS: MemoryLayer[] = ['world', 'region', 'scene', 'npc'];
+const MEMORY_WEIGHTS: MemoryWeight[] = ['critical', 'normal', 'flavor'];
 
 /** 把數值夾在合理範圍內。模型偶爾會給出 999999 這種值。 */
 function clamp(value: unknown, min: number, max: number): number | undefined {
@@ -66,6 +69,11 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
     const trimmed = typeof value === 'string' ? value.trim() : '';
     return trimmed ? trimmed.slice(0, max) : undefined;
   };
+
+  const properNouns = new Set(
+    [...context.presentNpcs.map((npc) => npc.name), context.locationName].map(normalizeForMatch).filter(Boolean)
+  );
+  let memoryAdds = 0;
 
   const commands: GmCommand[] = [];
   for (const item of raw) {
@@ -143,6 +151,42 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
         commands.push({ type: 'complete_objective', objectiveId });
         break;
       }
+      case 'npc_thought': {
+        // 必出欄位：撐著通道 ② 的記憶管線。只認在場 NPC，同一人一回合只留最後一則。
+        const npcId = typeof entry.npcId === 'string' ? entry.npcId : '';
+        const body = text(entry.text, MEMORY_PARAMS.thoughtCharLimit);
+        if (!npcIds.has(npcId) || !body) break;
+        const previous = commands.findIndex((command) => command.type === 'npc_thought' && command.npcId === npcId);
+        if (previous >= 0) commands.splice(previous, 1);
+        commands.push({ type: 'npc_thought', npcId, text: body });
+        break;
+      }
+      case 'add_memory': {
+        // 只能寫通道 ① 的四層；指向其他地方（例如 NPC 日記）的一律丟棄（骨架階段 4 驗證）。
+        if (memoryAdds >= MEMORY_PARAMS.memoryAddPerTurn) break;
+        const layer = entry.layer as MemoryLayer;
+        if (!MEMORY_LAYERS.includes(layer)) break;
+        const body = text(entry.text, 200);
+        if (!body) break;
+        const npcId = typeof entry.npcId === 'string' ? entry.npcId : '';
+        if (layer === 'npc' && !npcIds.has(npcId)) break;
+        const weight = MEMORY_WEIGHTS.includes(entry.weight as MemoryWeight) ? (entry.weight as MemoryWeight) : 'normal';
+        // 關鍵字填事件標記：人名、地名主 GM 本來就認得，寫進去只會讓隨口一提就撈出一堆，這裡直接剔掉。
+        const keywords = Array.isArray(entry.keywords)
+          ? entry.keywords
+            .map((keyword) => text(keyword, 12))
+            .filter((keyword): keyword is string => !!keyword && !properNouns.has(normalizeForMatch(keyword)))
+            .slice(0, 4)
+          : [];
+        const command: GmCommand = { type: 'add_memory', layer, text: body, weight };
+        if (keywords.length) command.keywords = keywords;
+        if (layer === 'npc') command.npcId = npcId;
+        const expireDays = clamp(entry.expireDays, 1, 365);
+        if (expireDays) command.expireDays = expireDays;
+        commands.push(command);
+        memoryAdds += 1;
+        break;
+      }
       default:
         break;
     }
@@ -158,8 +202,10 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
  */
 export async function runGm(context: GmContext): Promise<GmResult> {
   const history = buildHistoryTurns(context);
+  // 排位照骨架「分層組裝」：指令集說明 → 場景背景（換場才變）→ 對話紀錄（只增不減）
+  // → 目前狀態（每回合變）→ 關鍵字追加 → 玩家輸入。越穩定的越前面。
   const raw = (await requestJson('gm', {
-    system: GM_SYSTEM_PROMPT,
+    system: `${GM_SYSTEM_PROMPT}\n\n${buildSceneBlock(context)}`,
     messages: [
       ...history.flatMap((turn) => [
         { role: 'user' as const, content: turn.player },
@@ -167,10 +213,11 @@ export async function runGm(context: GmContext): Promise<GmResult> {
       ]),
       {
         role: 'user',
-        content: `${buildContextBlock(context)}
-
-# 玩家的行動
-${context.playerInput}`,
+        content: [
+          buildStateBlock(context),
+          buildRecallBlock(context),
+          `# 玩家的行動\n${context.playerInput}`,
+        ].filter(Boolean).join('\n\n'),
       },
     ],
     schema: GM_RESPONSE_SCHEMA,

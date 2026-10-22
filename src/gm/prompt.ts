@@ -1,4 +1,5 @@
 import { GmContext } from './types';
+import type { MemoryBlocks } from '../game/memory';
 
 /**
  * GM 的角色設定與輸出規範。
@@ -47,6 +48,12 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
 深夜找上門就該有被打擾的反應。玩家問起某人行蹤時，依作息回答他大概在哪，
 不要憑空給一個地點。
 
+# 記憶
+局勢裡標著「記憶」「日記」的段落是過去發生過的事，讓劇情前後連貫用。
+- 自然地影響角色的言行與態度，不要逐條複述，也不要說「根據日記」「我記得紀錄上寫」。
+- 玩家日記是玩家角色自己寫的，代表玩家角色記得；NPC 不會知道玩家日記的內容，
+  除非那件事 NPC 當時也在場。
+
 # 輸出格式
 你必須輸出 json 物件，含 segments 與 commands 兩個欄位，不要輸出任何 json 以外的文字。
 範例：
@@ -59,8 +66,12 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
   expression 從 neutral / happy / sad / angry / surprised / shy / thinking 擇一。
 - 一次回應以 1 到 4 則為宜。對白請加上引號。
 
-## commands：對遊戲狀態的變更，沒有要改就給空陣列
-只有這八種，且**只能引用下方局勢中真實存在的 id**，不可自行發明：
+## commands：對遊戲狀態的變更
+只有這十種，且**只能引用下方局勢中真實存在的 id**，不可自行發明：
+- npc_thought：在場 NPC 此刻的內心想法，npcId 為在場 NPC 的 id，text 40 字內，
+  用那個角色的口吻寫他心裡怎麼看玩家、怎麼看這件事（例如「他今天話很少，是不是
+  我昨天說錯話了」）。**場上有 NPC 時，每位在場 NPC 每次回應都要下一則**，這是他
+  記得這段相處的唯一依據，漏了就補不回來。玩家看不到這些內容。
 - adjust_stats：調整數值。stamina／hunger／credits 為增減量（可為負），
   addCondition／removeCondition 為狀態字串。
 - consume_item：消耗玩家背包中的物品。itemId 必須是背包裡既有的 id，count 預設 1。
@@ -75,16 +86,33 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
 - advance_time：這段故事經過了多久，minutes 為分鐘數。**每次回應都要下一次**，依
   故事時距估：幾句寒暄 1–3、一段深談 10–20、吃一頓飯 30–60、睡一覺 360–480。
   玩家走路的時間系統會另外算，這裡只算故事裡發生的事。
+- add_memory：記下一件之後該記得的事。只記會影響往後劇情的變化（設備壞了、某人答應了
+  什麼、某個地方最近氣氛緊張），寒暄與當下動作不記。多數回合不用下，一次最多 3 則。
+  - layer：world（全站都知道的事）／region（玩家所在區域的近況）／scene（這個房間或
+    這個場所裡的事）／npc（某位在場 NPC 個人的事，要加 npcId）。地點由系統自動標上。
+  - text：一句話寫清楚事實，60 字內，不要寫成對白。
+  - weight：critical（關鍵轉折，不能忘）／normal（一般）／flavor（氣氛點綴）。
+  - keywords 選填：填了就變成「被提起才想起」的話題記憶；不填就是「到這裡就會知道」
+    的背景。只填事件標記（例如「停電」「借工具」），不要填人名地名。
+  - expireDays 選填：幾天後失效，適合暫時的狀況（例如維修中）。
 
 沒有對應 id 時就不要下該指令，改用敘述帶過。
 不要發放新任務或新物品 —— 目前的指令集還不支援，硬下指令只會失效。
 
 當前目標與當前摘要是玩家隨時看得到的側欄，不是每回合都要動。
-多數回合的 commands 應該是空的或只有一則。`;
+除了 npc_thought 與 advance_time，多數回合不需要其他指令。`;
 
-/** 把局勢整理成模型看得懂的一段文字。 */
-export function buildContextBlock(context: GmContext): string {
-  const { profile, stats, quests, items, presentNpcs, locationName, sceneObjects, objectives, summary, gameDate, gameTime, supplies, terminals } = context;
+const bullet = (list: readonly string[] | undefined) => (list ?? []).map((line) => `- ${line}`).join('\n');
+
+/**
+ * 第二～四層（骨架第三節「分層組裝」）：進場就定下、同一場景內不會變的局勢。
+ * 世界記憶、玩家六欄、在場 NPC 的人設與記憶、所在與相鄰地點。
+ * 放在 system 之後、對話紀錄之前：只在換場時改變，同一場景的多次往返共用同一段前綴，
+ * 供應商有前綴快取時能省錢省時間（沒有快取也照常運作）。
+ */
+export function buildSceneBlock(context: GmContext): string {
+  const { profile, presentNpcs, locationName } = context;
+  const memory = context.memory;
 
   const profileLines = profile.name
     ? [
@@ -108,9 +136,39 @@ export function buildContextBlock(context: GmContext): string {
         npc.background && `  背景：${npc.background}`,
         npc.routine && npc.routine !== '無' && `  日常活動：\n${npc.routine.split('\n').map((line) => `    ${line.trim()}`).join('\n')}`,
         npc.other && `  其他：${npc.other}`,
-        `  好感度：${npc.affection}（${npc.relationship}）`,
+        memory?.npcMemories[npc.id]?.length && `  記憶（這個人的事）：\n${memory.npcMemories[npc.id].map((line) => `    - ${line}`).join('\n')}`,
+        memory?.npcThoughts[npc.id]?.length && `  先前的內心想法（他自己知道，玩家看不到）：\n${memory.npcThoughts[npc.id].map((line) => `    - ${line}`).join('\n')}`,
       ].filter(Boolean).join('\n')).join('\n')
     : '（此處目前沒有其他角色。不要讓不在場的角色說話。）';
+
+  const absent = Object.entries(memory?.absentNpcMemories ?? {});
+  const absentBlock = absent.length
+    ? `\n\n## 不在場、但跟玩家親近的人（重要記憶，只供參考，不要讓他們出場說話）\n${absent.map(([name, items]) => `- ${name}：${items.join('；')}`).join('\n')}`
+    : '';
+
+  return `# 這個場景的背景
+${memory?.world.length ? `\n## 全站都知道的事（世界記憶）\n${bullet(memory.world)}\n` : ''}
+## 所在位置
+${locationName}
+${memory?.placeLore.length ? `\n## 所在地點與相鄰地點（設定集）\n${bullet(memory.placeLore)}\n` : ''}${memory?.place.length ? `\n## 這一帶的近況（區域與場景記憶）\n${bullet(memory.place)}\n` : ''}
+## 玩家
+${profileLines}
+
+## 在場 NPC
+${npcBlock}${absentBlock}`;
+}
+
+/**
+ * 第五層後段：每回合都可能變的狀態（時間、數值、好感、任務、目標、摘要、進場挑出的日記）。
+ * 放在對話紀錄之後：這些小欄位每回合刷新，放前面會讓後面整段對話紀錄的快取失效。
+ */
+export function buildStateBlock(context: GmContext): string {
+  const { stats, quests, items, presentNpcs, sceneObjects, objectives, summary, gameDate, gameTime, supplies, terminals } = context;
+  const memory = context.memory;
+
+  const relationBlock = presentNpcs.length
+    ? `\n## 在場 NPC 的好感與關係\n${presentNpcs.map((npc) => `- ${npc.name}：好感度 ${npc.affection}（${npc.relationship}）`).join('\n')}\n`
+    : '';
 
   const questBlock = quests.length
     ? quests.map((q) => `- id: ${q.id}｜[${q.category}][${q.status}] ${q.title}：${q.description}`).join('\n')
@@ -124,29 +182,27 @@ export function buildContextBlock(context: GmContext): string {
     ? objectives.map((o) => `- id: ${o.id}｜[${o.done ? '已完成' : '進行中'}] ${o.text}${o.location ? `（${o.location}）` : ''}`).join('\n')
     : '（目前沒有目標。）';
 
+  const nameOf = (npcId: string) => presentNpcs.find((npc) => npc.id === npcId)?.name ?? npcId;
+  const npcLogs = memory?.npcLogs ?? [];
+  const npcLogBlock = npcLogs.length
+    ? `\n\n## 在場的人記得的往事（NPC 日誌，只有他本人知道）\n${npcLogs.map((log) => `### ${nameOf(log.npcId)} ${log.title}\n${log.content}`).join('\n\n')}`
+    : '';
+
   return `# 目前局勢
 
 ## 時間
 ${gameDate} ${gameTime}
-
-## 所在位置
-${locationName}
-${sceneObjects ? `\n## 當前場景物件（僅供辨認名稱與相對位置，不要把座標直接說給玩家）\n${sceneObjects}\n` : ''}
-${supplies?.length ? `
+${sceneObjects ? `\n## 當前場景物件（僅供辨認名稱與相對位置，不要把座標直接說給玩家）\n${sceneObjects}\n` : ''}${supplies?.length ? `
 ## 站上物資（僅供參考：讓角色自然提起食材充足或短缺，不要報數字，也不要用指令改）
 ${supplies.join('\n')}
 ` : ''}${terminals?.length ? `
 ## 這裡可查詢的設施終端（角色要先走到終端前查看，才說得出下面的內容；沒查看前只能憑印象講大概，不要報日期或天數。有角色想知道時，可以讓他去查）
 ${terminals.map((t) => `### ${t.name}\n${t.lines.map((l) => `- ${l}`).join('\n')}`).join('\n')}
 ` : ''}
-## 玩家
-${profileLines}
+## 玩家狀態
 體力 ${stats.stamina}/${stats.maxStamina}　飢餓 ${stats.hunger}/${stats.maxHunger}　星幣 ${stats.credits}
 狀態：${stats.conditions.length ? stats.conditions.join('、') : '無'}
-
-## 在場 NPC
-${npcBlock}
-
+${relationBlock}
 ## 任務
 ${questBlock}
 
@@ -157,23 +213,57 @@ ${itemBlock}
 ${objectiveBlock}
 
 ## 當前摘要
-${summary || '（尚未寫過摘要。）'}`;
+${summary || '（尚未寫過摘要。）'}${diaryBlock('玩家日記（進入這個場景時想起的往事）', memory?.diaries)}${npcLogBlock}`;
+}
+
+/** 完整局勢（場景背景＋目前狀態）。測試與除錯用；實際送出時兩段分開排位，見 index.ts。 */
+export function buildContextBlock(context: GmContext): string {
+  return `${buildSceneBlock(context)}\n\n${buildStateBlock(context)}`;
+}
+
+/** 一組日記攤成一段。沒有就不出現這個標題，省 token。 */
+function diaryBlock(heading: string, diaries: MemoryBlocks['diaries'] | undefined): string {
+  if (!diaries?.length) return '';
+  return `\n\n## ${heading}\n${diaries.map((entry) => `### ${entry.date}｜${entry.title}\n${entry.content}`).join('\n\n')}`;
 }
 
 /**
- * 近期對話，給模型當上下文。
- * 只取最後 8 回：再多會讓每次呼叫的 token 成本快速膨脹，
- * 而玩家自備金鑰的架構下，成本是玩家在付的。
+ * 第五層尾端：本次輸入勾起的記憶（關鍵字追加）。
+ * 每回合都會變，所以緊貼在玩家輸入前面，不插進前面幾層。
+ */
+export function buildRecallBlock(context: GmContext): string {
+  const recalled = context.memory?.recalledMemories ?? [];
+  const npcLogs = context.memory?.recalledNpcLogs ?? [];
+  const nameOf = (npcId: string) => context.presentNpcs.find((npc) => npc.id === npcId)?.name ?? npcId;
+  const lore = context.memory?.recalledLore ?? [];
+  return [
+    lore.length ? `## 玩家剛才提到的人事物（設定集，背景知識）\n${lore.map((line) => `- ${line}`).join('\n')}` : '',
+    recalled.length ? `## 玩家剛才的話勾起的記憶\n${recalled.map((line) => `- ${line}`).join('\n')}` : '',
+    diaryBlock('玩家剛才的話勾起的往事（玩家日記）', context.memory?.recalledDiaries).trimStart(),
+    npcLogs.length
+      ? `## 玩家剛才的話讓在場的人想起的事（NPC 日誌）\n${npcLogs.map((log) => `### ${nameOf(log.npcId)} ${log.title}\n${log.content}`).join('\n\n')}`
+      : '',
+  ].filter(Boolean).join('\n\n');
+}
+
+/**
+ * 短期上下文（骨架第一節）：存檔裡的對話窗口整段附上。
+ * 窗口最多 20 回、滿了一次汰除 10 回（見 game/memory.ts 的 pushTurn），
+ * 這樣開頭只在汰除時改變，前綴快取每十回合才失效一次；逐回合滑動則每回合都失效。
  *
  * GM 的歷史回應必須以「與輸出要求相同的 json 格式」回填，不能攤成散文。
  * 否則模型會看到自己「過去」都用散文回答，與 JSON 輸出要求互相拉扯 ——
  * 實測 DeepSeek 在這種情況下會回傳 HTTP 200、內容卻全是空白。
- * 歷史裡沒有保存當時的指令，所以 commands 一律填空陣列。
+ * 指令只保留 npc_thought（骨架：短期上下文唯一保留的指令），讓主 GM 看得見自己
+ * 稍早寫下的心境；其餘指令不留，免得模型照著舊的好感、時間指令多發。
  */
 export function buildHistoryTurns(context: GmContext) {
-  return context.dialogueHistory.slice(-8).map((turn) => ({
+  return context.dialogueHistory.map((turn) => ({
     player: turn.playerInput,
-    gm: JSON.stringify({ segments: turn.segments, commands: [] }),
+    gm: JSON.stringify({
+      segments: turn.segments,
+      commands: (turn.thoughts ?? []).map((thought) => ({ type: 'npc_thought', npcId: thought.npcId, text: thought.text })),
+    }),
   }));
 }
 

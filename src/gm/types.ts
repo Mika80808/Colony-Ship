@@ -9,6 +9,7 @@ import {
   PlayerStats,
   Quest,
 } from '../types';
+import type { MemoryBlocks } from '../game/memory';
 
 /** 送給 GM 的完整局勢。組 prompt 時只能用這裡面的資料。 */
 export interface GmContext {
@@ -37,6 +38,8 @@ export interface GmContext {
    * 角色要先到終端前查看才知道這些內容，prompt 會講明，不讓 NPC 憑空報數字。
    */
   terminals?: { name: string; lines: string[] }[];
+  /** 記憶六通道組好的注入內容（game/memory.ts）。沒給視同沒有任何記憶。 */
+  memory?: MemoryBlocks;
 }
 
 /** GM 的回應。與先前 mock 的形狀相同，App 的套用邏輯不需要改。 */

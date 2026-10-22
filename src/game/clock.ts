@@ -9,6 +9,10 @@
 /** 走多少世界像素算 1 分鐘。一格 96 px ≈ 1 公尺；16 格（約一個溫室半寬）1 分鐘。 */
 export const WALK_PX_PER_MINUTE = 96 * 16;
 
+/** 一步 = 一格 96 px（約 1 公尺）。場景快取等「步數差」以這個為單位；傳送耗時也照每分鐘 16 步換算。 */
+export const WALK_PX_PER_STEP = 96;
+export const STEPS_PER_MINUTE = WALK_PX_PER_MINUTE / WALK_PX_PER_STEP;
+
 /** 傳送級距 → 分鐘。0 同場景、1 相鄰、2 繞環半圈內、3 跨環（外環↔中央廣場），垂直（艦橋）再 +1 級。 */
 export const TRAVEL_MINUTES = [0, 3, 8, 15, 20] as const;
 

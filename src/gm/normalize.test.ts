@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { normalizeSegments, normalizeCommands } from './index';
+import { buildRecallBlock } from './prompt';
 import { GmContext } from './types';
 
 /**
@@ -216,5 +217,83 @@ assert.deepEqual(
   [{ type: 'advance_time', minutes: 15 }, { type: 'advance_time', minutes: 720 }, { type: 'advance_time', minutes: 1 }],
   'advance_time 收斂',
 );
+
+// --- add_memory（通道 ① 寫入）---
+
+assert.deepEqual(
+  normalizeCommands([{ type: 'add_memory', layer: 'region', text: ' 溫室北側灑水器故障 ', weight: 'normal', expireDays: 3, keywords: ['灑水器', '真角色', '測試區', ''] }], context),
+  [{ type: 'add_memory', layer: 'region', text: '溫室北側灑水器故障', weight: 'normal', keywords: ['灑水器'], expireDays: 3 }],
+  'add_memory：去空白、剔掉人名地名關鍵字、期限保留',
+);
+assert.equal(
+  normalizeCommands([{ type: 'add_memory', layer: 'npc_diary', text: '想寫進 NPC 日記', weight: 'normal' }], context).length,
+  0,
+  '指向通道 ① 四層以外的一律丟棄',
+);
+assert.equal(
+  normalizeCommands([{ type: 'add_memory', layer: 'npc', npcId: 'npc_fake', text: '捏造的角色', weight: 'normal' }], context).length,
+  0,
+  'npc 層的對象必須是在場 NPC',
+);
+assert.deepEqual(
+  normalizeCommands([{ type: 'add_memory', layer: 'npc', npcId: 'npc_real', text: '答應幫忙修工具', weight: 'bogus' }], context),
+  [{ type: 'add_memory', layer: 'npc', text: '答應幫忙修工具', weight: 'normal', npcId: 'npc_real' }],
+  '權重不認得就當 normal',
+);
+assert.equal(
+  normalizeCommands(Array.from({ length: 5 }, (_, i) => ({ type: 'add_memory', layer: 'world', text: `第${i}件事`, weight: 'flavor' })), context).length,
+  3,
+  '一次回應最多寫 3 則',
+);
+assert.equal(normalizeCommands([{ type: 'add_memory', layer: 'world', text: '  ', weight: 'normal' }], context).length, 0, '沒有內容不寫');
+
+// --- npc_thought（通道 ② thought）---
+
+assert.deepEqual(
+  normalizeCommands([
+    { type: 'npc_thought', npcId: 'npc_real', text: '第一版' },
+    { type: 'npc_thought', npcId: 'npc_fake', text: '不在場的人' },
+    { type: 'npc_thought', npcId: 'npc_real', text: ' 他好像有心事 ' },
+    { type: 'npc_thought', npcId: 'npc_real', text: '' },
+  ], context),
+  [{ type: 'npc_thought', npcId: 'npc_real', text: '他好像有心事' }],
+  'npc_thought：只認在場 NPC、同一人只留最後一則、空的丟掉',
+);
+
+// --- 短期上下文只保留 npc_thought ---
+{
+  const [turn] = buildHistoryTurns({
+    ...context,
+    dialogueHistory: [{
+      playerInput: '你好',
+      segments: [{ kind: 'dialogue', speaker: '真角色', text: '「嗨。」' }],
+      thoughts: [{ npcId: 'npc_real', text: '新面孔' }],
+    }],
+  });
+  assert.deepEqual(JSON.parse(turn.gm).commands, [{ type: 'npc_thought', npcId: 'npc_real', text: '新面孔' }], '歷史回填 thought');
+}
+
+// --- 記憶排位 ---
+{
+  const memory = {
+    world: ['補給船延誤兩天'], npcMemories: { npc_real: ['答應幫忙修工具'] }, npcThoughts: { npc_real: ['[10-24 09:00｜A 走廊] 新面孔'] },
+    absentNpcMemories: { 路西恩: ['【重要】跟玩家吵過架'] }, place: ['（A 走廊）燈壞了'],
+    placeLore: ['居住區 A（所在地）：東北側宿舍'], recalledLore: ['【設定】補給船：每 7 日到港'],
+    diaries: [{ id: 'd1', date: '2090-10-24', title: '登艦', content: '今天登艦。' }],
+    npcLogs: [{ npcId: 'npc_real', title: '[10/23 觀察日誌]', content: '[10:00｜溫室] 一起搬貨。' }],
+    recalledMemories: ['（全站）【重要】停電過一次'], recalledDiaries: [], recalledNpcLogs: [],
+  };
+  const block = buildContextBlock({ ...context, memory });
+  for (const text of ['補給船延誤兩天', '答應幫忙修工具', '新面孔', '路西恩：【重要】跟玩家吵過架', '（A 走廊）燈壞了', '今天登艦。', '一起搬貨。', '東北側宿舍']) {
+    assert.ok(block.includes(text), `局勢要帶到：${text}`);
+  }
+  assert.ok(block.indexOf('補給船延誤兩天') < block.indexOf('## 時間'), '世界記憶在最前面');
+  assert.ok(!block.includes('停電過一次'), '關鍵字追加不放在局勢裡');
+  assert.ok(buildRecallBlock({ ...context, memory }).includes('停電過一次'), '關鍵字追加緊貼玩家輸入');
+  assert.ok(buildRecallBlock({ ...context, memory }).includes('每 7 日到港'), '設定集命中也放在尾端');
+  assert.ok(!block.includes('每 7 日到港'));
+  assert.equal(buildRecallBlock(context), '', '沒有記憶時不出現任何標題');
+  assert.ok(!buildContextBlock(context).includes('記憶'), '沒有記憶時局勢不出現記憶段落');
+}
 
 console.log('gm/prompt: 全部通過');
