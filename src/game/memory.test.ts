@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import type { DiaryEntry, LayeredMemory } from '../types';
 import {
   MEMORY_PARAMS,
+  MemoryDraft,
   MemoryWriteScope,
+  addPlayerMemory,
+  editMemory,
+  removeMemory,
+  toggleMemory,
+  validateMemoryDraft,
   addMemory,
   buildEntryPack,
   canReuseScene,
@@ -215,6 +221,37 @@ const scope = {
   const touched = touchMemories(store, [store[3].id], '2090-10-31 08:00');
   assert.equal(touched[3].usedAt, '2090-10-31 08:00');
   assert.equal(touchMemories(store, [], 'x'), store, '沒有要標記的回傳原陣列');
+}
+
+// --- ① 玩家手動管理 ---
+{
+  const draft = (extra: Partial<MemoryDraft> = {}): MemoryDraft => ({
+    layer: 'region', text: '走廊的燈壞了', weight: 'normal', keywords: [], location: 'residential_a', npcId: '', expire: '', ...extra,
+  });
+  assert.equal(validateMemoryDraft(draft()), null);
+  assert.equal(validateMemoryDraft(draft({ text: '  ' })), '內容必填');
+  assert.equal(validateMemoryDraft(draft({ location: '' })), '請選擇地點');
+  assert.equal(validateMemoryDraft(draft({ layer: 'npc' })), '請選擇對象');
+  assert.equal(validateMemoryDraft(draft({ layer: 'world', location: '' })), null, '世界層不用地點');
+  assert.equal(validateMemoryDraft(draft({ expire: '10/30' })), '期限格式是 YYYY-MM-DD');
+
+  let list = addPlayerMemory([], draft({ keywords: ['停電', '停 電'], expire: '2090-10-30' }), 'p1', '2090-10-25 09:00');
+  assert.deepEqual(list[0], {
+    id: 'p1', layer: 'region', content: '走廊的燈壞了', weight: 'normal', enabled: true, author: 'player',
+    createdAt: '2090-10-25 09:00', keywords: ['停電'], location: 'residential_a', expire: '2090-10-30',
+  }, '玩家手寫：作者標 player、關鍵字去重、期限照填');
+  assert.equal(addPlayerMemory(list, draft({ text: '' }), 'p2', 'x'), list, '表單不合格不寫');
+  assert.equal(addPlayerMemory(list, draft(), 'p3', 'x'), list, '同層同地點同內容不重寫');
+
+  list = editMemory(list, 'p1', draft({ layer: 'npc', npcId: 'lucian', text: '答應借他工具', weight: 'critical' }));
+  assert.deepEqual(list[0], {
+    id: 'p1', enabled: true, author: 'player', createdAt: '2090-10-25 09:00',
+    layer: 'npc', content: '答應借他工具', weight: 'critical', npcId: 'lucian',
+  }, '改層次時拿掉用不到的地點、關鍵字、期限；身分欄位不變');
+  assert.equal(editMemory(list, 'p1', draft({ text: '' })), list, '表單不合格不改');
+
+  assert.equal(toggleMemory(list, 'p1')[0].enabled, false);
+  assert.deepEqual(removeMemory(list, 'p1'), []);
 }
 
 console.log('memory.test.ts ok');

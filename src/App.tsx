@@ -11,8 +11,8 @@ import { FACILITIES } from './game/facility';
 import { describeFacilityObjects } from './game/facilityContext';
 import { STEPS_PER_MINUTE, WALK_PX_PER_STEP, travelMinutes, walkMeter } from './game/clock';
 import {
-  MEMORY_PARAMS, MemoryBlocks, MemoryWriteScope, SceneRecall,
-  addMemory, buildEntryPack, canReuseScene, describeRecalled, diaryCandidates, memoriesAt, packBlocks,
+  MEMORY_PARAMS, MemoryBlocks, MemoryDraft, MemoryWriteScope, SceneRecall,
+  addMemory, addPlayerMemory, buildEntryPack, editMemory, removeMemory, toggleMemory, canReuseScene, describeRecalled, diaryCandidates, memoriesAt, packBlocks,
   presentKey, pushTurn, recallDiaries, recallMemories, touchMemories,
 } from './game/memory';
 import { placeLore, scanLore } from './game/lore';
@@ -37,6 +37,7 @@ import ProfileDrawer from './components/Drawers/ProfileDrawer';
 import MapModal from './components/Modals/MapModal';
 import StoryModal from './components/Modals/StoryModal';
 import DiaryModal from './components/Modals/DiaryModal';
+import MemoryModal from './components/Modals/MemoryModal';
 import SettingsModal from './components/Modals/SettingsModal';
 import GrowthModal from './components/Modals/GrowthModal';
 import MonitorModal from './components/Modals/MonitorModal';
@@ -83,7 +84,8 @@ import { loadGameSave, writeGameSave, clearGameSave } from './data/persistence';
 import { loadBuiltinStory, writeBuiltinStory, mergeStory, splitEntries, fillMissingBuiltin, findRoomOccupant } from './data/story';
 import { sound } from './utils/audio';
 import { runGm, GmError } from './gm';
-import { suggestQuickReplies, generateDiaryDraft, selectSceneMemories, distillNpcThoughts } from './gm/assistant';
+import { suggestQuickReplies, generateDiaryDraft, condenseDiaryDraft, selectSceneMemories, distillNpcThoughts } from './gm/assistant';
+import { condenseEntries, splitCondensed } from './game/diary';
 import {
   addThoughts, appendLog, frozenThoughts, needsDistill, npcLogCandidates, npcMemoryOf, pendingThoughts,
   recallNpcLogs, thoughtSnapshot, toggleNpcLog,
@@ -735,6 +737,19 @@ export default function App() {
   };
 
   // Handle deleting diary entry
+  // 記憶管理視窗（通道 ① 的玩家手動新增、修改、停用、刪除）。
+  const handleAddMemory = (draft: MemoryDraft) => {
+    const next = addPlayerMemory(memories, draft, `mem-p-${Date.now()}`, memoryNow());
+    if (next === memories) return false;
+    setMemories(next);
+    return true;
+  };
+  const memoryRegions = sectors.map((sector) => ({ id: sector.id, name: sector.name }));
+  const memoryScenes = [
+    ...sectors.map((sector) => ({ id: sector.id, name: ROOMS.some((room) => room.sectorId === sector.id) ? `${sector.name}走廊` : sector.name })),
+    ...ROOMS.map((room) => ({ id: room.id, name: `${room.id} 房間` })),
+  ];
+
   const handleDeleteDiaryEntry = (id: string) => {
     setDiaryEntries((prev) => prev.filter((entry) => entry.id !== id));
   };
@@ -874,6 +889,23 @@ export default function App() {
         onToggleNpcLog={(npcId, logId) => setNpcMemories((prev) => toggleNpcLog(prev, npcId, logId))}
       />
 
+      {/* 記憶管理（通道 ①） */}
+      <MemoryModal
+        isOpen={activeModal === 'memory'}
+        onClose={() => setActiveModal(null)}
+        memories={memories}
+        gameDate={gameDate}
+        regions={memoryRegions}
+        scenes={memoryScenes}
+        npcs={npcs.map((npc) => ({ id: npc.id, name: npc.name }))}
+        currentRegion={currentSectorId}
+        currentScene={playerScene}
+        onAdd={handleAddMemory}
+        onUpdate={(id, draft) => setMemories((prev) => editMemory(prev, id, draft))}
+        onToggle={(id) => setMemories((prev) => toggleMemory(prev, id))}
+        onDelete={(id) => setMemories((prev) => removeMemory(prev, id))}
+      />
+
       {/* 3. 日記 */}
       <DiaryModal
         isOpen={activeModal === 'diary'}
@@ -885,6 +917,9 @@ export default function App() {
         playerName={profile.name}
         gameDate={gameDate}
         onGenerateDraft={requestDiaryDraft}
+        onCondenseDraft={(ids) => condenseDiaryDraft({ profile, entries: diaryEntries.filter((entry) => ids.includes(entry.id)) })}
+        onSaveCondensed={(ids, entry) => setDiaryEntries((prev) => condenseEntries(prev, ids, entry, `d_${Date.now()}`))}
+        onSplitEntry={(id) => setDiaryEntries((prev) => splitCondensed(prev, id))}
       />
 
       {/* 溫室植栽監測機：這一翼作物的收成倒數與健康（健康為模擬） */}

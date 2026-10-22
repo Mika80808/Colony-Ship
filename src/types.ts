@@ -1,5 +1,5 @@
 export type DrawerType = 'quests' | 'inventory' | 'profile' | null;
-export type ModalType = 'map' | 'storybook' | 'diary' | 'settings' | 'growth' | 'monitor' | null;
+export type ModalType = 'map' | 'storybook' | 'diary' | 'settings' | 'growth' | 'monitor' | 'memory' | null;
 export type ThemeMode = 'dark' | 'light';
 
 export interface ToastMessage {
@@ -204,6 +204,11 @@ export interface DiaryEntry {
   content: string;
   author: string;
   tags?: string[];
+  /**
+   * 「整理」濃縮進這一篇的原篇（骨架第五節）。原篇收在這裡、退出索引：
+   * 檢索與注入只看最上層，同一段記憶永遠只有一個代表。濃縮篇可以再被整理，逐層疊上去。
+   */
+  sources?: DiaryEntry[];
 }
 
 // ------------------------------------------------------------------ 記憶（通道 ①）

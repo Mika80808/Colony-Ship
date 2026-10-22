@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import Markdown from 'react-markdown';
-import { BookMarked, X, Plus, Check, Pencil, Trash2, Search, Tag, Sparkles } from 'lucide-react';
+import { BookMarked, X, Plus, Check, Pencil, Trash2, Search, Tag, Sparkles, Layers, Ungroup, ChevronDown } from 'lucide-react';
 import { DiaryEntry } from '../../types';
+import { CONDENSE_MIN, sourceDateRange } from '../../game/diary';
 import { sound } from '../../utils/audio';
 import ModalShell from './ModalShell';
 
@@ -18,6 +19,12 @@ interface DiaryModalProps {
   gameDate: string;
   /** 請助理 AI 依對話紀錄寫一份草稿。回傳的草稿會填進編輯表單，由玩家確認後才儲存。 */
   onGenerateDraft?: () => Promise<{ title: string; summary: string; content: string; tags: string[] }>;
+  /** 「整理」：請助理 AI 把選中的幾篇濃縮成一篇草稿。一樣先填進表單，玩家確認後才存。 */
+  onCondenseDraft?: (ids: string[]) => Promise<{ title: string; summary: string; content: string; tags: string[] }>;
+  /** 存下濃縮篇：選中的原篇收進它底下、退出索引。 */
+  onSaveCondensed?: (ids: string[], entry: Omit<DiaryEntry, 'id' | 'sources'>) => void;
+  /** 拆開濃縮篇，原篇放回原位。 */
+  onSplitEntry?: (id: string) => void;
 }
 
 export default function DiaryModal({
@@ -30,6 +37,9 @@ export default function DiaryModal({
   playerName,
   gameDate,
   onGenerateDraft,
+  onCondenseDraft,
+  onSaveCondensed,
+  onSplitEntry,
 }: DiaryModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
@@ -47,6 +57,46 @@ export default function DiaryModal({
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
+  // 整理中：表單存檔時要把這幾篇收進濃縮篇。null 表示一般的新增或修改。
+  const [condensingIds, setCondensingIds] = useState<string[] | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // 勾選只算還在最上層的日記：被整理收進去、或刪掉的不算。
+  const checkedTopIds = entries.filter((entry) => checkedIds.has(entry.id)).map((entry) => entry.id);
+
+  /** 整理：請助理 AI 把勾選的日記濃縮成一篇草稿，填進表單。 */
+  const handleCondense = async () => {
+    if (!onCondenseDraft || isGenerating || checkedTopIds.length < CONDENSE_MIN) return;
+    sound.playClick();
+    setIsGenerating(true);
+    setGenerateError(null);
+    try {
+      const draft = await onCondenseDraft(checkedTopIds);
+      setEditingId(null);
+      setCondensingIds(checkedTopIds);
+      setTitle(draft.title);
+      setSummary(draft.summary);
+      setContent(draft.content);
+      setTags(draft.tags);
+      setTagInput('');
+      setEnabled(true);
+      setIsWriting(true);
+    } catch (error) {
+      setGenerateError(error instanceof Error ? error.message : '整理失敗，請稍後再試。');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const toggleExpanded = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    sound.playClick();
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   /**
    * 自動生成日記：請助理 AI 寫草稿，填進編輯表單。
@@ -114,6 +164,7 @@ export default function DiaryModal({
     setTags([]);
     setTagInput('');
     setEnabled(true);
+    setCondensingIds(null);
     setIsWriting(true);
   };
 
@@ -126,6 +177,7 @@ export default function DiaryModal({
     setTags(entry.tags ? [...entry.tags] : []);
     setTagInput('');
     setEnabled(entry.enabled);
+    setCondensingIds(null);
     setIsWriting(true);
   };
 
@@ -133,6 +185,7 @@ export default function DiaryModal({
     sound.playClick();
     setIsWriting(false);
     setEditingId(null);
+    setCondensingIds(null);
     setTitle('');
     setSummary('');
     setContent('');
@@ -173,7 +226,20 @@ export default function DiaryModal({
       finalTags.push(leftoverTag);
     }
 
-    if (editingId && onUpdateEntry) {
+    if (condensingIds && onSaveCondensed) {
+      onSaveCondensed(condensingIds, {
+        title: title.trim() || '未命名筆記',
+        summary: summary.trim() || undefined,
+        content: content.trim() || '（無內容）',
+        // 濃縮篇的時間戳是整理當下（骨架第五節）；涵蓋的日期範圍由原篇推出來顯示。
+        date: gameDate,
+        enabled,
+        author: playerName || '未具名',
+        tags: finalTags.length > 0 ? finalTags : undefined,
+      });
+      setCheckedIds(new Set());
+      setCondensingIds(null);
+    } else if (editingId && onUpdateEntry) {
       const existing = entries.find((item) => item.id === editingId);
       onUpdateEntry({
         id: editingId,
@@ -184,6 +250,8 @@ export default function DiaryModal({
         enabled,
         author: existing?.author || playerName || '未具名',
         tags: finalTags.length > 0 ? finalTags : undefined,
+        // 修改濃縮篇時，收在底下的原篇要跟著留下。
+        ...(existing?.sources ? { sources: existing.sources } : {}),
       });
     } else {
       onAddEntry({
@@ -228,6 +296,7 @@ export default function DiaryModal({
   const resetForm = () => {
     setIsWriting(false);
     setEditingId(null);
+    setCondensingIds(null);
     setTitle('');
     setSummary('');
     setContent('');
@@ -310,6 +379,18 @@ export default function DiaryModal({
                 </div>
               )}
 
+              {!isWriting && onCondenseDraft && checkedTopIds.length >= CONDENSE_MIN && (
+                <button
+                  id="btn-diary-condense"
+                  onClick={handleCondense}
+                  disabled={isGenerating}
+                  className={`h-7 px-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/35 active:scale-95 text-emerald-300 hover:text-white border border-emerald-400/40 flex items-center gap-1 text-xs transition cursor-pointer shadow-sm flex-shrink-0 disabled:cursor-wait ${isGenerating ? 'animate-pulse' : ''}`}
+                  title="把勾選的日記整理成一篇（原篇收在底下，不再被 GM 檢索）"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>整理 {checkedTopIds.length} 篇</span>
+                </button>
+              )}
               {!isWriting && (
                 <>
                   <button
@@ -380,8 +461,8 @@ export default function DiaryModal({
               >
                 <div className="flex items-center justify-between text-xs font-semibold text-sky-300">
                   <span className="flex items-center gap-1.5">
-                    {editingId ? <Pencil className="w-3.5 h-3.5 text-sky-400" /> : <Plus className="w-3.5 h-3.5 text-sky-400" />}
-                    <span>{editingId ? '修改日誌' : '新增日誌'}</span>
+                    {condensingIds ? <Layers className="w-3.5 h-3.5 text-emerald-400" /> : editingId ? <Pencil className="w-3.5 h-3.5 text-sky-400" /> : <Plus className="w-3.5 h-3.5 text-sky-400" />}
+                    <span>{condensingIds ? `整理 ${condensingIds.length} 篇（存檔後原篇收進這一篇）` : editingId ? '修改日誌' : '新增日誌'}</span>
                   </span>
                   <span className="font-hud text-[12px] text-slate-400">
                     {/* 顯示的是遊戲日期，不是現實時間；修改時顯示該篇原本的日期。 */}
@@ -549,9 +630,18 @@ export default function DiaryModal({
                       </span>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-2 pr-[5px]">
                         <span className="font-hud font-bold px-1.5 py-0.5 rounded text-[14px] text-sky-400 bg-sky-950/40 border border-sky-500/30">
-                          {entry.date}
+                          {entry.sources?.length ? sourceDateRange(entry) : entry.date}
                         </span>
                         <div className="flex items-center">
+                          {!!entry.sources?.length && onSplitEntry && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); sound.playClick(); onSplitEntry(entry.id); }}
+                              className="w-5 h-5 mr-1 rounded hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-300 flex items-center justify-center transition"
+                              title="拆開：原篇放回清單"
+                            >
+                              <Ungroup className="w-3 h-3" />
+                            </button>
+                          )}
                           <button
                             id={`btn-edit-diary-${entry.id}`}
                             onClick={(e) => { e.stopPropagation(); handleStartEdit(entry); }}
@@ -581,6 +671,33 @@ export default function DiaryModal({
                     <div className="text-[14px] text-slate-400 leading-relaxed line-clamp-2 ml-3 pr-1 mb-1.5 markdown-body !text-[14px]">
                       <Markdown>{entry.content}</Markdown>
                     </div>
+                    {/* 濃縮篇：原篇收在底下，點開以小字顯示 */}
+                    {!!entry.sources?.length && (
+                      <div className="ml-3 mb-1.5">
+                        <button
+                          type="button"
+                          onClick={(e) => toggleExpanded(entry.id, e)}
+                          className="inline-flex items-center gap-1 text-[12px] text-emerald-300 hover:text-emerald-200"
+                        >
+                          <Layers className="w-3 h-3" />
+                          <span>收錄 {entry.sources.length} 篇</span>
+                          <ChevronDown className={`w-3 h-3 transition-transform ${expandedIds.has(entry.id) ? 'rotate-180' : ''}`} />
+                        </button>
+                        {expandedIds.has(entry.id) && (
+                          <div className="mt-1.5 space-y-1.5 border-l border-white/[0.1] pl-2.5" onClick={(e) => e.stopPropagation()}>
+                            {entry.sources.map((source) => (
+                              <div key={source.id} className="text-[12px] text-slate-500 leading-relaxed">
+                                <div className="text-slate-400">
+                                  {source.sources?.length ? sourceDateRange(source) : source.date}｜{source.title}
+                                  {source.sources?.length ? `（含 ${source.sources.length} 篇）` : ''}
+                                </div>
+                                <div className="whitespace-pre-line">{source.content}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {/* Keyword Tags List on Card */}
                     {entry.tags && entry.tags.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5 pt-1 ml-[9px]">
@@ -621,7 +738,13 @@ export default function DiaryModal({
               <Trash2 className="w-5 h-5" />
             </div>
             <h3 className="text-sm font-bold text-slate-100">確認刪除日誌？</h3>
-            <p className="text-xs text-slate-400">此操作無法復原，是否確定要刪除這筆航行記錄？</p>
+            <p className="text-xs text-slate-400">
+              此操作無法復原，是否確定要刪除這筆航行記錄？
+              {(() => {
+                const count = entries.find((entry) => entry.id === deleteConfirmId)?.sources?.length;
+                return count ? `收錄的 ${count} 篇原篇也會一起刪除；只想取消整理請改用「拆開」。` : '';
+              })()}
+            </p>
             <div className="flex justify-center gap-3 pt-2">
               <button
                 onClick={cancelDelete}

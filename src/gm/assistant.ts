@@ -1,9 +1,9 @@
-import { DialogueTurn, NPCData, NpcThought, PlayerProfile } from '../types';
+import { DialogueTurn, DiaryEntry, NPCData, NpcThought, PlayerProfile } from '../types';
 import { MEMORY_PARAMS, SceneCandidate, SceneSelection, mergeKeywords, normalizeSceneSelection, selectWithoutLlm } from '../game/memory';
 import { requestJson } from './client';
 
 /**
- * 助理 AI 的工作：快速回覆建議、日記草稿、進場語意篩選、NPC 日誌提煉。
+ * 助理 AI 的工作：快速回覆建議、日記草稿與整理、進場語意篩選、NPC 日誌提煉。
  *
  * 助理不是 GM：它不推進劇情、不改遊戲狀態，只替玩家「代筆」。
  * 所以對話紀錄以整段逐字稿交給它閱讀，而不是當成它自己說過的話。
@@ -174,6 +174,52 @@ export async function generateDiaryDraft(context: DiaryDraftContext): Promise<Di
   });
   const draft = normalizeDiaryDraft(raw);
   if (!draft) throw new Error('助理 AI 沒有產出可用的日記內容，請再試一次。');
+  return draft;
+}
+
+// ---------------------------------------------------------------- 日記整理
+
+export interface CondenseContext {
+  profile: PlayerProfile;
+  /** 玩家選的日記，照清單順序（新的在前）。 */
+  entries: Pick<DiaryEntry, 'date' | 'title' | 'content' | 'tags'>[];
+}
+
+const CONDENSE_SYSTEM = `你是科幻角色扮演遊戲《星際港》的玩家助理，負責把玩家角色的幾篇日記整理成一篇。
+
+要求：
+- 以玩家角色的第一人稱書寫，繁體中文，語氣像私人日記，與原篇一致。
+- **只能用原篇裡寫過的事**，不可添加沒發生的事件、人物或對話。
+- 刪掉重複的內容，保留之後還用得上的事實（發生了什麼、答應了什麼、對誰的看法變了）
+  與當時的感受。事情照時間先後寫。
+- content 約 200 到 400 字；title 10 字以內；summary 20 字以內；
+  tags 2 到 4 個，每個 6 字以內，填事件標記，不要填人名或地名。
+
+只輸出 json，格式如下，不要有其他文字：
+{"title":"登艦這一週","summary":"從陌生到慢慢熟悉","content":"這一週……","tags":["登艦","搬貨"]}`;
+
+/**
+ * 日記「整理」（骨架第五節）：玩家複選數篇，濃縮成一篇草稿。
+ * 跟「自動」一樣先填進編輯表單，玩家看過、改過才存；存檔時原篇收進濃縮篇底下（game/diary.ts）。
+ */
+export async function condenseDiaryDraft(context: CondenseContext): Promise<DiaryDraft> {
+  if (context.entries.length < 2) throw new Error('至少選兩篇日記才能整理。');
+  // 舊的在前，讓模型照時間順序讀。
+  const ordered = [...context.entries].sort((a, b) => a.date.localeCompare(b.date));
+  const raw = await requestJson('assistant', {
+    system: CONDENSE_SYSTEM,
+    messages: [{
+      role: 'user',
+      content: [
+        `# 玩家角色\n${describePlayer(context.profile)}`,
+        `# 要整理的日記\n${ordered.map((entry) => `## ${entry.date}｜${entry.title}${entry.tags?.length ? `（${entry.tags.join('、')}）` : ''}\n${entry.content}`).join('\n\n')}`,
+      ].join('\n\n'),
+    }],
+    schema: DIARY_SCHEMA,
+    schemaName: 'diary_condense',
+  });
+  const draft = normalizeDiaryDraft(raw);
+  if (!draft) throw new Error('助理 AI 沒有產出可用的整理內容，請再試一次。');
   return draft;
 }
 

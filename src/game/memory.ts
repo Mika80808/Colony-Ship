@@ -314,7 +314,7 @@ export interface MemoryWriteScope {
  */
 export function addMemory(
   memories: LayeredMemory[],
-  input: { layer: MemoryLayer; text: string; weight: MemoryWeight; keywords?: string[]; expireDays?: number; npcId?: string; location?: string },
+  input: { layer: MemoryLayer; text: string; weight: MemoryWeight; keywords?: string[]; expireDays?: number; expire?: string; npcId?: string; location?: string },
   scope: MemoryWriteScope,
   author: LayeredMemory['author'] = 'gm',
 ): LayeredMemory[] {
@@ -343,10 +343,75 @@ export function addMemory(
     ...(keywords.length ? { keywords } : {}),
     ...(location ? { location } : {}),
     ...(npcId ? { npcId } : {}),
-    ...(input.expireDays ? { expire: scope.addDays(input.expireDays) } : {}),
+    ...(input.expire ? { expire: input.expire } : input.expireDays ? { expire: scope.addDays(input.expireDays) } : {}),
   };
   return evictOverflow([...memories, entry]);
 }
+
+// ---------------------------------------------------------------- ① 玩家手動管理
+
+/** 記憶管理介面的表單內容。期限直接填日期（YYYY-MM-DD），空字串表示不會過期。 */
+export interface MemoryDraft {
+  layer: MemoryLayer;
+  text: string;
+  weight: MemoryWeight;
+  keywords: string[];
+  /** region 層填區域 id，scene 層填場景 id（區域 id 或房號）。 */
+  location: string;
+  /** npc 層的對象。 */
+  npcId: string;
+  expire: string;
+}
+
+/** 檢查表單，回傳給玩家看的錯誤訊息；沒問題回傳 null。 */
+export function validateMemoryDraft(draft: MemoryDraft): string | null {
+  if (!draft.text.trim()) return '內容必填';
+  if ((draft.layer === 'region' || draft.layer === 'scene') && !draft.location) return '請選擇地點';
+  if (draft.layer === 'npc' && !draft.npcId) return '請選擇對象';
+  if (draft.expire && !/^\d{4}-\d{2}-\d{2}$/.test(draft.expire)) return '期限格式是 YYYY-MM-DD';
+  return null;
+}
+
+/** 表單轉成記憶欄位：依層次只留該層用得到的地點或對象，關鍵字去重。 */
+function draftFields(draft: MemoryDraft): Pick<LayeredMemory, 'layer' | 'content' | 'weight' | 'keywords' | 'location' | 'npcId' | 'expire'> {
+  const keywords = mergeKeywords([], draft.keywords);
+  return {
+    layer: draft.layer,
+    content: draft.text.trim(),
+    weight: draft.weight,
+    keywords: keywords.length ? keywords : undefined,
+    location: draft.layer === 'region' || draft.layer === 'scene' ? draft.location : undefined,
+    npcId: draft.layer === 'npc' ? draft.npcId : undefined,
+    expire: draft.expire || undefined,
+  };
+}
+
+/** 修改一筆記憶。id、寫入者、寫入時間、啟用狀態不變；沒用到的欄位拿掉，不留 undefined。 */
+export function editMemory(memories: LayeredMemory[], id: string, draft: MemoryDraft): LayeredMemory[] {
+  if (validateMemoryDraft(draft)) return memories;
+  return memories.map((memory) => {
+    if (memory.id !== id) return memory;
+    const { id: keepId, enabled, author, createdAt, usedAt } = memory;
+    const fields = Object.fromEntries(Object.entries(draftFields(draft)).filter(([, value]) => value !== undefined));
+    return { id: keepId, enabled, author, createdAt, ...(usedAt ? { usedAt } : {}), ...fields } as LayeredMemory;
+  });
+}
+
+/** 玩家手寫一筆記憶。玩家手寫的不會被儲存上限淘汰。 */
+export function addPlayerMemory(memories: LayeredMemory[], draft: MemoryDraft, id: string, now: string): LayeredMemory[] {
+  if (validateMemoryDraft(draft)) return memories;
+  const fields = draftFields(draft);
+  return addMemory(memories, {
+    layer: fields.layer, text: fields.content, weight: fields.weight, keywords: fields.keywords,
+    location: fields.location, npcId: fields.npcId, expire: fields.expire,
+  }, { region: '', scene: '', now, addDays: () => '', id }, 'player');
+}
+
+export const toggleMemory = (memories: LayeredMemory[], id: string) =>
+  memories.map((memory) => (memory.id === id ? { ...memory, enabled: !memory.enabled } : memory));
+
+export const removeMemory = (memories: LayeredMemory[], id: string) =>
+  memories.filter((memory) => memory.id !== id);
 
 /** 進場包裡的記憶依層次拆開，交給 prompt 排位。 */
 export function packBlocks(

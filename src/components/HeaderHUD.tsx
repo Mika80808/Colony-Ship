@@ -228,7 +228,18 @@ export default function HeaderHUD({
                   <Brain className="w-3.5 h-3.5 text-sky-400" />
                   <span className="text-[12px]">區域記憶清單 ({memories.length})</span>
                 </span>
-                <span className="text-slate-400 text-[12px]">點擊任一則條目切換焦點</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsAccordionOpen(false);
+                    onOpenModal('memory');
+                  }}
+                  className="text-[12px] text-sky-300 hover:text-white px-2 py-0.5 rounded-md bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 transition"
+                  title="查看、手寫、停用全部記憶"
+                >
+                  管理記憶
+                </button>
               </div>
 
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">

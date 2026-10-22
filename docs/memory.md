@@ -10,18 +10,20 @@
 | `src/game/memory.ts` | 可調參數 `MEMORY_PARAMS`、關鍵字比對、① 分層記憶、⑤ 玩家日記挑選、進場語意篩選的收斂、場景快取、短期上下文 `pushTurn` |
 | `src/game/npcMemory.ts` | ② NPC 的 thought 窗口、提煉觸發、一天一篇的日誌、注入 |
 | `src/game/lore.ts` | ④ 設定集：地點強制注入、名稱與關鍵字掃描 |
+| `src/game/diary.ts` | ⑤ 玩家日記的「整理」：濃縮、拆開、日期範圍 |
+| `src/components/Modals/MemoryModal.tsx` | ① 記憶管理視窗：查看、手寫、修改、停用、刪除 |
 | `src/gm/prompt.ts` | 分層組裝：`buildSceneBlock`（換場才變）、`buildStateBlock`（每回合變）、`buildRecallBlock`（關鍵字追加） |
 | `src/gm/assistant.ts` | `selectSceneMemories`（進場語意篩選）、`distillNpcThoughts`（NPC 日誌提煉） |
 | `src/components/Modals/NpcMemoryPanel.tsx` | 人物頁的好感、關係、上次見面、內心想法、專屬記憶庫 |
 | `App.tsx` | 狀態持有、換場時算進場結果、每回合組注入集合、回寫 thought |
 
-測試：`memory.test.ts`、`npcMemory.test.ts`、`lore.test.ts`（`src/game/`），`normalize.test.ts`、`assistant.test.ts`（`src/gm/`），`story.test.ts`（種子遷移）。
+測試：`memory.test.ts`、`npcMemory.test.ts`、`lore.test.ts`、`diary.test.ts`（`src/game/`），`normalize.test.ts`、`assistant.test.ts`（`src/gm/`），`story.test.ts`（種子遷移）。
 
 ## 六通道現況
 
 | # | 通道 | 寫入 | 帶給主 GM 的方式 |
 |---|---|---|---|
-| ① | 分層記憶 world／region／scene／npc | 主 GM 的 `add_memory` 指令 | 沒關鍵字的走「進場包」（換場時依啟用、期限、地點挑，凍結到離場）；有關鍵字的走「追加區」（每回合掃玩家輸入） |
+| ① | 分層記憶 world／region／scene／npc | 主 GM 的 `add_memory` 指令、玩家在記憶管理視窗手寫 | 沒關鍵字的走「進場包」（換場時依啟用、期限、地點挑，凍結到離場）；有關鍵字的走「追加區」（每回合掃玩家輸入） |
 | ② | NPC 日記：thought＋日誌 | 主 GM 每回合替在場 NPC 寫 `npc_thought`；助理 GM 提煉成日誌 | thought：進場時窗口裡的帶進來，本場景新生的留在對話紀錄裡；日誌：進場語意篩選＋關鍵字追加 |
 | ④ | 設定集：地點、人物、物品、事件、設定 | 故事書（玩家手動） | 所在與相鄰地點每回合都帶；其他條目被提到名稱或關鍵字才帶 |
 | ⑤ | 玩家日記 | 玩家手寫、助理代筆草稿 | 進場語意篩選＋關鍵字（日記的「關鍵字標籤」）追加 |
@@ -36,6 +38,7 @@
 - 儲存上限 150 則，寫入時順帶淘汰：critical 與玩家手寫豁免，flavor 先走，再走最久沒被帶進局勢的。
 - 關鍵字填事件標記，不填人名地名；正規化（`normalizeCommands`）會剔掉在場 NPC 名字與地點名稱。主 GM 一次回應最多寫 3 則。
 - 玩家看得到的地方：頂欄「區域記憶」（所在區域與場景）、星圖「場景記憶」（選中的地點與它的房間）。
+- 記憶管理視窗（頂欄區域記憶展開後的「管理記憶」）：依層次篩選、搜尋；可以手寫新的（標成「手寫」，不會被儲存上限淘汰）、修改、停用、刪除 GM 記下的。手寫時地點預設帶入玩家所在處，期限直接填日期。
 
 ### ② NPC 日記
 
@@ -55,6 +58,7 @@
 
 - 只帶啟用中的。語意軌最多 3 則、關鍵字追加最多 2 則、單則 600 字。
 - 助理代筆的關鍵字改成事件標記，不填人名地名。
+- 整理：在日記視窗勾兩篇以上，按「整理 N 篇」，助理 AI 把它們濃縮成一篇草稿，玩家看過、改過才存。存下後原篇收在濃縮篇底下（`sources`），點「收錄 N 篇」以小字展開；原篇退出索引，檢索與注入只看最上層。濃縮篇可以再被整理，逐層疊上去；也可以「拆開」把原篇放回原位。濃縮篇的日期是整理當下，卡片上顯示原篇涵蓋的日期範圍。
 
 ## 換場時做的事（階段 8）
 
@@ -77,9 +81,9 @@ system：指令集說明 → 場景背景（世界記憶、所在與相鄰地點
 ## 還沒做（骨架有寫、這次沒接）
 
 - ① 七道判定裡的 3 冷卻、4 黏著、7 擲骰：骨架只給名稱，沒有定義數值與行為，等定義後再接。
-- ① 玩家手動新增、編輯分層記憶的介面（資料欄位已有 `author: 'player'`）。
 - NPC「釘選」：骨架提到「未在場，釘選或好感 ≥ 60」，目前只有好感門檻。
 - 階段 9：助理 GM 依進展更新摘要、目標、任務（目前由主 GM 直接下 `set_summary` 等指令），以及歷史摘要串。
 - 主 GM 新生成的 ITEM、地點自動補設定集條目（指令集還沒有 ITEM、LOCATION_DISCOVER）。
-- 玩家日記的「整理」（多篇濃縮成一篇、原篇退出索引），以及改由主 GM 執筆。
+- 玩家日記的「自動」與「整理」骨架寫由主 GM 執筆（文筆與正文一致），目前沿用既有做法由助理 AI 寫，比較省錢；要換只改 `src/gm/assistant.ts` 兩處的 `requestJson('assistant', …)`。
+- 「自動」第二次起只取上一篇之後的新內容：對話紀錄沒有時間戳，還做不到。
 - 空場互動開關（無 NPC 場景零呼叫）。
