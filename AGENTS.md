@@ -5,7 +5,8 @@
 
 ## 分工
 
-- Claude Code：寫程式、接場景、去背切圖、拼接素材、維護文件。
+- Claude Code：寫程式、接場景、去背切圖、拼接素材、維護文件。擺物件、拆圖層、畫碰撞前，先讀 `.claude/skills/starport-scene-props/SKILL.md` 的「圖層與碰撞規則」，擺完照它的檢查表走一次。
+- **寫任何生圖 prompt 前必讀** `.claude/skills/starport-asset-gen/SKILL.md`（Claude Code 寫 prompt、Codex 生圖都一樣），並把第一節的「共用規則段」原文照貼在 prompt 最前面（像素風、4×4 像素格、同色系描邊、階梯圓角、不准光暈與光線外溢、不帶地面）。
 - Codex：生圖。開工先看 `docs/tasks/` 有沒有指派給你的任務單（狀態「待執行」），照任務單交件；Claude Code 負責驗收。生圖前先讀 `.claude/skills/starport-asset-gen/SKILL.md`（素材規範）與對應場景的提示詞檔。做整張場景地圖（規劃、地板與牆的素材套件、底圖、碰撞）時，再讀 `.claude/skills/generate2dmap/SKILL.md`。畫場景裡的機台、家具、擺設時，照 `.claude/skills/starport-scene-props/SKILL.md` 的流程（先在底圖上生擺設參考圖，再生最終物件）。
 - 一律用繁體中文溝通與寫文件。
 
@@ -23,7 +24,7 @@
 | `docs/world.md` | 世界觀：2090 年月球—火星航線的中繼港、物資、人員、GM 邊界 |
 | `docs/PROGRESS.md` | 各場景進度、下一步、已定案的決定 |
 | `問題修正紀錄.md` | 修正過的問題與累積的設計原則。動手設計前先看原則；修完問題要更新 |
-| `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名 |
+| `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名；第一節「共用規則段」是每個生圖 prompt 都要貼的英文規則 |
 | `.claude/skills/starport-scene-props/SKILL.md` | 場景物件繪製流程：分區規劃 → 擺設參考圖（取得 RPG 斜俯視）→ 最終物件 → 切圖擺放 |
 | `.claude/skills/generate2dmap/` | 場景地圖流程（改編自 agent-sprite-forge，MIT）：格局規劃 → 素材套件 → 拼接底圖 → 牆／門／前景分層 → 碰撞與 map.json → 驗證 |
 | `tools/asset-prompts.md` | 角色與房間家具的生圖提示詞 |

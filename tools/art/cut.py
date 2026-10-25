@@ -7,6 +7,7 @@
 原圖預設在 tools/art/<場景>/raw/。場景資料寫在 tools/art/<場景>_objects.py：
   sheets()  物件表：{批次: [(順序, 名稱, 遊戲寬, 遊戲高或 None)]}（給高度＝照高度縮放）
   JOIN      選填：{批次: 併塊距離}，格子排得擠的表調小，免得把相鄰的兩件併成一件
+  KEEP_ALPHA 選填：{批次, ...} 物件本身有半透明（玻璃）的批次，不做 clean_edges
   door()    門的規格 dict：
               source    原圖檔名（在 raw/ 裡）
               frame     門框圖大小 (寬, 高)，座標都是門框圖內的世界 px
@@ -20,6 +21,7 @@
 
 做法（流程見 .claude/skills/starport-scene-props/）：
 1. 去背：透明或洋紅；貼著背景的淡紫邊再削一圈（物件本身偏紫的地方不動）。
+   物件表再跑 clean_edges：實心補滿、柔邊換成物件本色、外圍陰影霧刪掉。
 2. 物件表：找出每一塊物件；相距不到 JOIN px 的先併成同一件（並排的油桶），剩下的碎塊併給 80 px 內最近的大塊，太遠的丟掉。
    由上到下、由左到右排序，對到 sheets() 的順序；數量對不上就報錯，不猜。縮放到清單裡的遊戲寬度（或高度）。
 3. 門：主體外框對齊門框外緣後，門洞切成兩片門扇（半透明保留），門框挖空門洞。
@@ -58,6 +60,23 @@ def remove_background(im):
     tinted = near_bg & ((r + b) / 2 - g > 28)
     rgba = np.asarray(im).copy()
     rgba[bg | magenta | tinted] = 0
+    return rgba
+
+
+def clean_edges(rgba, solid=128, edge=2):
+    """整理 GPT 透明底的髒邊。GPT 的「不透明」常只有 alpha 253、輪廓線半透明，外圍還有一圈半透明陰影霧。
+    alpha ≥ solid 的算實心、補成 255；實心外 edge px 內的柔邊保留透明度，但顏色換成最近實心像素的顏色（去掉灰黑陰影色）；
+    再往外的半透明（陰影、光暈、霧）全刪。物件本身要半透明（玻璃）的批次在 <場景>_objects.py 的 KEEP_ALPHA 列出來就不跑。"""
+    from scipy import ndimage
+    al = rgba[..., 3].astype(np.int16)
+    core = al >= solid
+    al[~ndimage.binary_dilation(core, iterations=edge)] = 0
+    al[al < 16] = 0
+    _, (iy, ix) = ndimage.distance_transform_edt(~core, return_indices=True)
+    soft = (al > 0) & ~core
+    rgba[..., :3][soft] = rgba[iy[soft], ix[soft], :3]
+    al[core] = 255
+    rgba[..., 3] = al
     return rgba
 
 
@@ -121,6 +140,8 @@ def props(scene, sheet, raw=None):
     plan = data.sheets()[sheet]
     im = Image.open(raw or raw_dir(scene) / f'{sheet}.png').convert('RGBA')
     rgba = remove_background(im)
+    if sheet not in getattr(data, 'KEEP_ALPHA', ()):
+        rgba = clean_edges(rgba)
     boxes = objects_in(rgba, len(plan), join=getattr(data, 'JOIN', {}).get(sheet, 40))
     src = Image.fromarray(rgba)
     out = out_dir(scene) / 'props'
