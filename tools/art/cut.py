@@ -3,11 +3,14 @@
 用法：
   python tools/art/cut.py props <場景> <批次|all> [原圖]   物件表 → public/assets/<場景>/props/<名稱>.webp
   python tools/art/cut.py door <場景> [原圖]                門 → public/assets/<場景>/door_frame.webp、door_left.webp、door_right.webp
+  python tools/art/cut.py psd <場景> <PSD 路徑>            使用者在 PSD 排好的物件 → public/assets/<場景>/props/<圖層名>.webp
+                                                          ＋ tools/art/<場景>/layout_<PSD 檔名>.json（每件的世界座標）
 
 原圖預設在 tools/art/<場景>/raw/。場景資料寫在 tools/art/<場景>_objects.py：
   sheets()  物件表：{批次: [(順序, 名稱, 遊戲寬, 遊戲高或 None)]}（給高度＝照高度縮放）
   JOIN      選填：{批次: 併塊距離}，格子排得擠的表調小，免得把相鄰的兩件併成一件
   KEEP_ALPHA 選填：{批次, ...} 物件本身有半透明（玻璃）的批次，不做 clean_edges
+  CANVAS    選填：{圖層名: 另一個圖層名}，PSD 匯入時把這層墊到那層的畫布（同位置、同底邊，例：配藥櫃的玻璃墊到櫃體）
   door()    門的規格 dict：
               source    原圖檔名（在 raw/ 裡）
               frame     門框圖大小 (寬, 高)，座標都是門框圖內的世界 px
@@ -25,8 +28,13 @@
 2. 物件表：找出每一塊物件；相距不到 JOIN px 的先併成同一件（並排的油桶），剩下的碎塊併給 80 px 內最近的大塊，太遠的丟掉。
    由上到下、由左到右排序，對到 sheets() 的順序；數量對不上就報錯，不猜。縮放到清單裡的遊戲寬度（或高度）。
 3. 門：主體外框對齊門框外緣後，門洞切成兩片門扇（半透明保留），門框挖空門洞。
+4. PSD：使用者把物件擺在一層「底圖位置」（遊戲底圖裁一塊、放大）上排位置與大小。先用影像比對找出那層在遊戲底圖的
+   哪裡、放大幾倍，再把其他看得見的圖層換算成世界座標，存成 2 倍尺寸（一格 96，map.json 用 scale 0.5）。
+   圖層名取到第一個括號或空白前（「pharmacy-dispensing-glass（2倍尺寸）」→ pharmacy-dispensing-glass）。
 """
 import importlib
+import json
+import re
 import sys
 from pathlib import Path
 
@@ -203,6 +211,88 @@ def door(scene, raw=None):
     print('door ok:', scene, 'frame', frame.size, 'outer', geo['outer'], 'opening', opening, 'panels', half, 'x', panels.height)
 
 
+BASE_LAYER = '底圖位置'
+
+
+def _ncc(image, template):
+    """正規化互相關：回傳 (分數, (y, x))，template 在 image 裡最像的左上角。"""
+    from scipy.signal import fftconvolve
+    t = template - template.mean()
+    ones = np.ones(t.shape)
+    num = fftconvolve(image, t[::-1, ::-1], mode='valid')
+    s1 = fftconvolve(image, ones, mode='valid')
+    s2 = fftconvolve(image * image, ones, mode='valid')
+    den = np.sqrt(np.maximum(s2 - s1 * s1 / t.size, 1e-9) * (t * t).sum())
+    r = num / den
+    i = np.unravel_index(np.argmax(r), r.shape)
+    return float(r[i]), (int(i[0]), int(i[1]))
+
+
+def locate_base(base, ground):
+    """底圖位置圖層 → (放大倍率, 圖層左上角在世界的 x, y, 相似度)。先在 1/4 尺寸掃倍率，再在原尺寸附近細找。"""
+    gray = lambda im: np.asarray(im.convert('L')).astype(float)
+    g = gray(ground)
+    g4 = gray(ground.resize((ground.width // 4, ground.height // 4), Image.BOX))
+    best = None
+    for k in np.arange(1.0, 4.0, 0.02):
+        w, h = round(base.width / k / 4), round(base.height / k / 4)
+        if w > g4.shape[1] or h > g4.shape[0] or w < 24 or h < 24:
+            continue
+        score, (y, x) = _ncc(g4, gray(base.resize((w, h), Image.BOX)))
+        if not best or score > best[0]:
+            best = (score, k, x * 4, y * 4)
+    _, k0, x0, y0 = best
+    for k in np.arange(k0 - .03, k0 + .03, .001):
+        w, h = round(base.width / k), round(base.height / k)
+        bx, by = max(0, x0 - 12), max(0, y0 - 12)
+        window = g[by:min(g.shape[0], y0 + h + 12), bx:min(g.shape[1], x0 + w + 12)]
+        if window.shape[0] < h or window.shape[1] < w:
+            continue
+        score, (y, x) = _ncc(window, gray(base.resize((w, h), Image.LANCZOS)))
+        if score > best[0] or best[1] == k0:
+            best = (score, k, bx + x, by + y)
+    score, k, x, y = best
+    return base.width / round(base.width / k), x, y, score
+
+
+def psd(scene, path):
+    from psd_tools import PSDImage
+    doc = PSDImage.open(path)
+    layers = [l for l in doc.descendants() if not l.is_group() and l.is_visible()]
+    base = next((l for l in layers if l.name.strip() == BASE_LAYER), None)
+    if base is None:
+        raise SystemExit(f'PSD 裡要有一層「{BASE_LAYER}」（遊戲底圖裁一塊），用來換算座標')
+    k, ox, oy, score = locate_base(base.composite().convert('RGB'), Image.open(out_dir(scene) / 'ground.webp').convert('RGB'))
+    if score < .8:
+        raise SystemExit(f'「{BASE_LAYER}」在遊戲底圖上找不到（相似度 {score:.2f}）：底圖改過的話，重新放一層目前的底圖')
+    bx, by = base.bbox[:2]
+    wx, wy = (lambda px: (px - bx) / k + ox), (lambda py: (py - by) / k + oy)
+    info = {}
+    for l in layers:
+        if l is base:
+            continue
+        name = re.split(r'[（(\s]', l.name.strip())[0]
+        x0, y0, x1, y1 = l.bbox
+        sprite = l.composite().convert('RGBA').resize((round((x1 - x0) * 2 / k), round((y1 - y0) * 2 / k)), Image.LANCZOS)
+        info[name] = {'sprite': sprite, 'left': wx(x0), 'top': wy(y0), 'right': wx(x1), 'bottom': wy(y1)}
+    for name, host in getattr(scene_data(scene), 'CANVAS', {}).items():   # 墊到另一層的畫布：同位置、同底邊
+        d, h = info[name], info[host]
+        canvas = Image.new('RGBA', h['sprite'].size, (0, 0, 0, 0))
+        canvas.alpha_composite(d['sprite'], (round((d['left'] - h['left']) * 2), round((d['top'] - h['top']) * 2)))
+        info[name] = {**h, 'sprite': canvas}
+    props_dir = out_dir(scene) / 'props'
+    props_dir.mkdir(parents=True, exist_ok=True)
+    layout = {'_base': {'psd': Path(path).name, 'scale': round(k, 4), 'origin': [round(ox, 1), round(oy, 1)], 'match': round(score, 3)}}
+    for name, d in info.items():
+        d['sprite'].save(props_dir / f'{name}.webp', lossless=True)
+        layout[name] = {'x': round((d['left'] + d['right']) / 2, 1), 'bottom': round(d['bottom'], 1),
+                        'left': round(d['left'], 1), 'top': round(d['top'], 1), 'right': round(d['right'], 1), 'size': list(d['sprite'].size)}
+        print(f"{name}: 中心 {layout[name]['x']}、底邊 {layout[name]['bottom']}、2 倍圖 {d['sprite'].size}")
+    target = ART / scene / f'layout_{Path(path).stem}.json'
+    target.write_text(json.dumps(layout, ensure_ascii=False, indent=1), encoding='utf-8')
+    print(f'psd ok: 底圖位置放大 {k:.3f} 倍、左上角 ({ox}, {oy})、相似度 {score:.3f} → {target.relative_to(ROOT)}')
+
+
 if __name__ == '__main__':
     command, scene, *rest = sys.argv[1:]
-    {'props': props, 'door': door}[command](scene, *rest)
+    {'props': props, 'door': door, 'psd': psd}[command](scene, *rest)

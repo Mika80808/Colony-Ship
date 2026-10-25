@@ -1,0 +1,110 @@
+{
+ "_base": {
+  "psd": "pharmacy-dispensing-body.psd",
+  "scale": 2.2485,
+  "origin": [
+   1004,
+   627
+  ],
+  "match": 0.999
+ },
+ "pharmacy-dispensing-body": {
+  "x": 1322.4,
+  "bottom": 865.4,
+  "left": 1013.3,
+  "top": 673.3,
+  "right": 1631.5,
+  "size": [
+   1236,
+   384
+  ]
+ },
+ "pharmacy-picker": {
+  "x": 1352.7,
+  "bottom": 799.1,
+  "left": 1341.1,
+  "top": 740.0,
+  "right": 1364.2,
+  "size": [
+   46,
+   118
+  ]
+ },
+ "pharmacy-dispensing-glass": {
+  "x": 1322.4,
+  "bottom": 865.4,
+  "left": 1013.3,
+  "top": 673.3,
+  "right": 1631.5,
+  "size": [
+   1236,
+   384
+  ]
+ },
+ "pharmacy-supply-crates": {
+  "x": 1342.7,
+  "bottom": 1026.8,
+  "left": 1299.8,
+  "top": 943.2,
+  "right": 1385.6,
+  "size": [
+   172,
+   167
+  ]
+ },
+ "pharmacy-workstation": {
+  "x": 1228.8,
+  "bottom": 1026.8,
+  "left": 1148.1,
+  "top": 896.1,
+  "right": 1309.5,
+  "size": [
+   323,
+   262
+  ]
+ },
+ "pharmacy-cold-cabinet": {
+  "x": 1514.3,
+  "bottom": 1039.3,
+  "left": 1478.5,
+  "top": 884.1,
+  "right": 1550.1,
+  "size": [
+   143,
+   310
+  ]
+ },
+ "pharmacy-compounding-hood": {
+  "x": 1590.4,
+  "bottom": 1039.3,
+  "left": 1548.8,
+  "top": 884.1,
+  "right": 1632.0,
+  "size": [
+   166,
+   310
+  ]
+ },
+ "pharmacy-counter-south": {
+  "x": 1320.9,
+  "bottom": 1192.7,
+  "left": 1009.3,
+  "top": 961.9,
+  "right": 1632.4,
+  "size": [
+   1246,
+   462
+  ]
+ },
+ "pharmacy-bar-stool": {
+  "x": 1214.4,
+  "bottom": 1227.4,
+  "left": 1188.6,
+  "top": 1134.0,
+  "right": 1240.2,
+  "size": [
+   103,
+   187
+  ]
+ }
+}

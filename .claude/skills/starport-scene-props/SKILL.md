@@ -1,85 +1,63 @@
 ---
 name: starport-scene-props
-description: 星際港場景物件（機台、家具、擺設）的繪製流程：先規劃分區與物件清單，在地面底圖上生成「擺設參考圖」取得正確的 RPG 斜俯視，再依參考圖生成最終物件、切圖、擺進地圖（碰撞、互動、遮擋）。當要幫設施或房間畫家具、機台、擺設，或物件「看起來是正面圖、不像 RPG」、「全部長得像櫃子」、「角度跟地板不合」時使用。畫風、尺寸、材質配色看 starport-asset-gen。
+description: 星際港場景物件（機台、家具、擺設）從生圖到擺進地圖的流程：規劃分區與物件清單 → 單件物件（洋紅底、正面俯視）→ 切圖交給使用者在 PSD 排位置與修細節 → 匯入擺放（圖層、碰撞、互動、躺坐）。當要幫設施或房間畫家具、機台、擺設，擺物件、拆圖層、畫碰撞，或物件「斜的、看得到側面」、「蓋住角色」、「影子壓到物件」時使用。畫風、尺寸、鏡頭用詞看 starport-asset-gen。
 ---
 
-# 星際港場景物件繪製流程
+# 星際港場景物件流程
 
-一句話：**物件的視角要從「畫在這張地圖上」得來，不要用程式定視角。** 先讓生圖模型在我們的地面底圖上把物件畫進去（擺設參考圖），模型自然會用跟地板一致的 RPG 視角；最後的物件再拿底圖＋參考圖當依據另外生成。
+一句話：**物件單獨生、正面俯視；位置和大小由使用者在 PSD 排；擺進地圖時照「圖層與碰撞規則」。**
 
-整張場景（底圖、牆、門、碰撞）的流程見 `.claude/skills/generate2dmap/`，這份接在它的第 6 步。工程區（2026-10-04）是第一個照這個流程做的場景，程式都可以照抄：`tools/art/engineering_objects.py`（清單）、`engineering_build.py`（地圖）。切圖一律用共用工具 `tools/art/cut.py`，新場景只要寫 `tools/art/<場景>_objects.py` 的資料（`sheets()`、`JOIN`、`door()`）。
+整張場景（底圖、牆、門、碰撞）的流程見 `.claude/skills/generate2dmap/`，這份接在它的第 6 步。目前的範例是醫療室藥局（2026-10-26）：`tools/art/medical_objects.py`（物件表、拆圖、擺放、互動）、`tools/art/medical_base_v9.py`（寫 map.json）。切圖一律用共用工具 `tools/art/cut.py`，新場景只要寫 `tools/art/<場景>_objects.py` 的資料。工程區的物件要重做，`engineering_objects.py` 是舊流程，不要照抄它的物件。
 
-## 視角規範（RPG 斜俯視）
+## 視角與設計
 
-- 跟 RPG Maker、星露谷一樣：地板格是正方形；**矮的東西（桌子、控制台、推車）主要看到頂面**，高的東西（櫃子、貨架、機台）看到正面加頂面。
-- 不要等角（isometric）斜轉，不要透視收縮。
-- 光源左上。畫風是 HD 像素風（一格 48 × 48 px），prompt 最前面貼 `starport-asset-gen` 第一節的「共用規則段」。
-- **年代感：2090 年的高科技太空站（世界觀見 `docs/world.md`），物件是 sci-fi concept 設計**。光寫「乾淨、沒鏽」不夠：模型會畫出乾淨但造型老派的東西（外露螺栓、粗保險桿腳、波紋軟管、方盒舊螢幕、物件身上的黃黑條紋），工程區 batch20 就因此整批作廢。prompt 要寫出設計語言並列出禁止項（見下方範本的 Design language 一段）；區域特色（例：工程區的警示黃）只當小點綴。
-- 設計語言可以附使用者給的風格參考圖（放 `tools/art/<場景>/style_ref/`），prompt 寫明只參考設計語言，不照它的鏡頭、寫實渲染、商標文字。
-- 不要用程式白模定家具、機台的視角：白模只有薄薄一條頂面，模型照描就變成正面圖。
+- **正面俯視（使用者定）**：物件正面跟畫面平行、上方露出頂面，左右側面都不能出現；不斜放、不旋轉、不等角。斜的物件放不進地圖，直接作廢。矮的東西（桌子、櫃台、床）主要看到頂面，高的東西（櫃子、機台）看到正面加頂面。prompt 寫法見 `starport-asset-gen` 第三節（鏡頭規則要寫在設計段前面）。
+- 畫風：HD 像素風，照一格 96 px 的密度畫，進遊戲縮一半；prompt 最前面貼 `starport-asset-gen` 第一節的共用規則段。乾淨：不要光暈、霧、髒污。
+- **年代感：2090 年的高科技太空站（`docs/world.md`）**，sci-fi concept 設計。光寫「乾淨、沒鏽」不夠：模型會畫出乾淨但造型老派的東西（外露螺栓、粗保險桿腳、波紋軟管、方盒舊螢幕、黃黑條紋），工程區 batch20 因此整批作廢。prompt 要寫出設計語言並列禁止項：
+
+```
+Design language for every prop: clean modular sci-fi equipment of a high-tech space station in the year 2090, smooth matte graphite and white composite panels, rounded corners, flush hidden fasteners, slim integrated light strips, flush flat screens, cables hidden inside the bodies. Not retro, not vintage, not old industrial: no exposed bolts or rivets, no chunky bumper feet, no ribbed hoses, no exposed wiring, no boxy old monitors, no yellow-black stripes on the props.
+```
+
+- 使用者的風格參考圖放 `tools/art/<場景>/style_ref/`，跟 prompt 一起附上，寫明只參考設計語言，不照它的鏡頭、寫實渲染、商標文字。
+- 不要用程式白模定家具、機台的造型或視角：白模只有薄薄一條頂面，模型照描就變成扁扁的正面圖、每件都像櫃子。
 
 ## 流程
 
 ### 1. 底圖（只有地面）
-- 地板、牆、門等不動的結構做成底圖（例：`public/assets/<場景>/ground.webp`）。底圖**不能**有家具、機台、可互動或要排前後的東西。
-- 門、會動的東西、蓋在角色上的前景（牆簷、欄杆）另外分層。牆的遮擋規則見 `問題修正紀錄.md`「牆與遮擋」。
+- 地板、牆、門等不動的結構做成底圖（`public/assets/<場景>/ground.webp`）。底圖**不能**有家具、機台、可互動或要排前後的東西。使用者自己改底圖時，改的檔案在 `tools/art/<場景>/ground.webp`。
+- 門、會動的東西、蓋在角色上的前景（牆簷、欄杆）另外分層。
 
 ### 2. 規劃分區與物件清單
-- **依這個地方的功能和動線分區，不要照搬別的場景的格局**（工程區曾經不自覺抄了溫室的「中間主角＋左右對稱」）。先問：東西從哪進來、在哪處理、人在哪休息。
-- 物件清單寫成一個 Python 檔（例 `tools/art/engineering_objects.py`）：id、名稱、佔地（x, y, 寬, 深，格）、高度、站位、互動文字。地圖、預覽都從這份產生。
-- 檢查：佔地不重疊、所有空地從入口走得到。互動站位不用在這裡定，擺進地圖時由程式挑（步驟 5）。
-- 用白色方塊把清單擺到底圖上做預覽，先給使用者看配置（只看位置，不拿去生圖）。
+- **依這個地方的功能和動線分區，不要照搬別的場景的格局**（工程區曾經不自覺抄了溫室的「中間主角＋左右對稱」）。先問：東西從哪進來、在哪處理、人在哪休息；要參考真實場所怎麼布置的（例：大醫院的藥局）先查。
+- 清單寫在 `<場景>_objects.py`：每件的名稱、大約佔地與高矮、用途、有沒有互動、會不會動（要動的零件要另外一層）。
 
-### 3. 擺設參考圖（dressed reference）
-- 把底圖裁成要畫的那一區（每張參考圖**最多 9 種不同物件**，物件多就分區分張），縮到 1024 寬並保持比例。
-- 用 Codex 生圖，底圖當 Image1。prompt 範本：
+### 3. 整區設計稿（選用）
+- 一區物件很多、要先看整體感時，可以在底圖上畫一張整區設計稿（藥局 `raw/props_pharmacy_area_v3.png`），給使用者確認造型和配置。
+- 設計稿**只當設計參考**：不切、不當底圖，物件一律在第 4 步單獨重生。
 
-```
-Generate ONE image with your image generation tool and save it as ./raw/<批次>.png. Use image generation, not code. Do not edit any other files.
+### 4. 單件物件
+- 一張表放幾件同類物件，背景純洋紅 #FF00FF（物件本身帶紫紅時改中性灰）、不畫地板與陰影、不寫字、物件之間和圖邊留大空隙。大型、要對齊的長物件（整面櫃、長櫃台）一張一件或兩件。
+- 參考圖：style_ref ＋ 第 3 步的設計稿（有的話），寫明照它的造型，但鏡頭照正面俯視規則。
+- 要動的部分分層生（藥局配藥櫃：櫃體、取藥爪、玻璃各一層），同畫布對齊。
+- 生圖前先把 prompt 給使用者看（見下方「Codex 生圖」）。實際送出的 prompt 寫進 `tools/art/<場景>/prompts.md`。
 
-Use Image1 as the exact base map reference: it is <哪一區> of a <場景> in a top-down 2D RPG, seen from the game camera (three-quarter top-down RPG view: the back wall is seen from the front, the floor is seen from above).
-Create a dressed-reference version of the same map by adding props only.
-Preserve exactly: camera, framing, image size and aspect ratio (<寬 x 高>), <地板、牆的特徵>. Do not crop, zoom, rotate, repaint or redesign the room.
+### 5. 切圖，交給使用者排
+- 切圖：`python tools/art/cut.py props <場景> <批次|all>`（表寫在 `<場景>_objects.py` 的 `sheets()`；並排太近被併成一件就調 `JOIN`，有玻璃的批次放 `KEEP_ALPHA`）。物件切成 **2 倍尺寸**（一格 96），map.json 用 `scale: 0.5`。
+- 去背檢查洋紅殘留要是 0。數量對不上 `cut.py` 會報錯，不要猜。
+- 全尺寸去背 PNG 放到 `場景/<區>物件/` 給使用者：使用者在 PSD 修細節、排位置與大小（PSD 裡放一層「底圖位置」＝遊戲底圖，用來換算座標）。`場景/` 是使用者的資料夾，只放交給使用者的檔案，不整理、不刪。
 
-Design language for every prop: clean modular sci-fi equipment of a high-tech space station in the year 2090, smooth matte graphite and white composite panels, rounded and chamfered corners, flush hidden fasteners, slim integrated light strips, flush flat screens, cables hidden inside the bodies. Not retro, not vintage, not old industrial: no exposed bolts or rivets, no chunky bumper feet, no ribbed hoses, no exposed wiring, no boxy old monitors, no yellow-black stripes on the props.
-
-Draw every prop in the same camera as the room, like objects in a top-down RPG such as RPG Maker or Stardew Valley: low objects (desks, consoles, worktables) clearly show their top surfaces as seen from above, tall objects (cabinets, racks, machines) show their front face plus their top. All props stand on the floor; their front bottom edge sits at the stated bottom position. No isometric diagonal rotation, no perspective convergence.
-
-Add these props naturally on top of the existing map (positions are percent of image width x and height y):
-1. <物件>: x <左-右>%, bottom edge at y <%>, <高矮>. <造型描述>
-...
-
-<共用規則段，見 starport-asset-gen 第一節> Match the pixel scale of the floor. <區域材質，見 starport-asset-gen 第四節>.
-No characters, no UI, no text, no labels, no numbers, no watermark, no glow halos.
-```
-
-- 位置換算：x% = 格 x ÷ 圖寬格數；y% = 佔地下緣的格 y ÷ 圖高格數。
-- **大型機台不限尺寸**：只寫放在哪一區（左上、右上…），加一句 make them large and imposing, as big as fits in their area, larger than a person，不寫寬幾 %、幾格高。限制尺寸時模型會畫得太小、沒氣勢（工程區 batch27，使用者要求）。遊戲尺寸一樣事後從參考圖量。
-- 參考圖**只是規劃用**：模型常會重畫一點地板，不能拿來當底圖，也不要從參考圖直接切物件。
-- 給使用者看參考圖；模型自己加的小東西（椅子、檯燈）問使用者要不要留。
-
-### 4. 最終物件
-- 生圖時把**底圖＋參考圖都當參考圖**交給模型，prompt 寫明「照參考圖裡那件物件的樣子與視角，單獨畫出來」。
-- 依物件分類決定一次生幾件（generate2dmap 的規則）：
-  - 大型、高的、要對齊碰撞的（主要機台、櫃子、門）：一件一張。
-  - 同類的高物件（例：幾種貨架）：可以同一張並排，格子留大。
-  - 小型雜物（箱子、桶子、推車）：可以 3 × 3 一張表。
-- 背景純洋紅 #FF00FF（物件本身帶紫紅時改中性灰）、不畫地板與陰影、不寫字、物件不碰圖邊。
-- 每批 prompt 寫明：照參考圖裡那件的設計、細節、視角畫出來，每件獨立完整、洋紅底、物件之間和圖邊留大空隙、不畫地板和陰影；椅子這類參考圖裡貼著桌子的東西寫「Without its chair」，另外生。
-- **尺寸與位置**：在參考圖上疊座標格線（每 32 px 一條）用眼睛讀每件的左右、上緣、底邊，換算成遊戲 px（參考圖 1 px = 底圖原寬 ÷ 1024；下半部參考圖要加上裁切的 y 起點）。不要用「參考圖減底圖」自動找，模型會重畫地板，差異會黏成一片。切圖時縮放到量出的寬度；生出來的比例跟參考圖差很多的（例：手臂往旁邊伸）改照高度縮放。
-
-### 5. 切圖與擺放
-- 切圖：`python tools/art/cut.py props <場景> <批次|all>`；門用 `python tools/art/cut.py door <場景>`。
-- 去背：透明或洋紅都去掉、貼著背景的淡紫邊再削一圈（物件本身偏紫的地方不動），切完檢查洋紅殘留要是 0。
-- 找物件：相距 40 px 內的塊先併成一件（並排的油桶），剩下的碎塊（散落零件）併給 80 px 內最近的大塊，再依閱讀順序對到清單；數量對不上就報錯（見 `cut.py`）。
-- 擺進地圖：decor 以**底部中心**對齊；圖層與碰撞一律照下方「圖層與碰撞規則」，擺完照最後的檢查表走一次。有互動文字的加 interaction（點擊範圍＝整張圖）。
-- **互動站位用程式挑，不要手填**：從入口在細格上走一遍，挑走得到、離圖 ≤ 48 px（互動範圍 56 px 以內）、最靠近正前方、不在椅子上的點。手填常常太遠按 E 沒反應，或卡在走不到的縫裡。
+### 6. 匯入擺放
+- 匯入：`python tools/art/cut.py psd <場景> <PSD 路徑>`。程式用影像比對找出「底圖位置」圖層在遊戲底圖的位置與倍率（相似度低於 0.8 會停下，表示底圖改過、要重放一層），把其他看得見的圖層匯出成 2 倍 webp 到 `public/assets/<場景>/props/`（檔名＝圖層名括號前那段），每件的世界座標存成 `tools/art/<場景>/layout_<PSD 檔名>.json`。要跟另一層同畫布的（玻璃墊到櫃體）寫在 `<場景>_objects.py` 的 `CANVAS`。
+- `PLACE` 從 layout 讀位置（醫療室的 `at('圖層名')`），碰撞自己填格數。使用者改 PSD 後：重跑 `cut.py psd`、再跑場景的地圖腳本就好，不用手改數字。
+- 擺進地圖：decor 以**底部中心**對齊；圖層與碰撞照下方「圖層與碰撞規則」，擺完照檢查表走一次。
+- 互動（`INTERACTIONS`）：點擊範圍＝整張圖；站位要測過走得到、離圖 ≤ 48 px（互動範圍 56 px 以內）、不在縫裡。坐、躺用 interaction 的 `seat`（相對圖的位置）。
 - GM 物件清單：在 `src/game/facilityContext.ts` 補中文名稱。
-- 測試：跑場景測試（每格走得到、站位、碰撞）、lint、build；瀏覽器實際走一圈，看前後遮擋與點擊互動。
+- 不要跑使用者正在改的場景的 build 腳本（會蓋掉使用者改的底圖）；要驗證就跑測試或在暫存區合成。
 
-### 6. 收尾
-- 原圖放 `tools/art/<場景>/raw/`，prompt 寫進 `tools/art/<場景>/prompts.md`；試錯檔放暫存區（規則見 `starport-asset-gen` 第六節）。
-- 更新 `docs/scenes/<場景>.md`、`docs/PROGRESS.md`；有修正問題就更新 `問題修正紀錄.md`；commit 並 push。
+### 7. 收尾
+- 原圖放 `tools/art/<場景>/raw/`，prompt 寫進 `prompts.md`；試錯檔放暫存區（`starport-asset-gen` 第六節）。
+- 更新 `docs/scenes/<場景>.md`、`docs/PROGRESS.md`；有修正問題就更新 `問題修正紀錄.md`；使用者說可以再 commit。
 
 ## 圖層與碰撞規則
 
@@ -91,7 +69,7 @@ No characters, no UI, no text, no labels, no numbers, no watermark, no glow halo
 
 遊戲每一幀照「腳點的高低」重排（Y 排序）：物件的腳點是**圖的底邊**，角色腳點比物件底邊低（畫面更下方）就畫在物件前面。
 
-1. **一張圖只能有一個底邊。** 有一部分是角色能站在它「旁邊」、腳點卻比整張圖底邊高的（L 型、U 型櫃台、圍一圈的沙發、前後兩段不一樣深的機台），拆成幾張圖，每段各有自己的底邊。拆法寫在 `<場景>_objects.py` 的 `LAYERS`（crop／clear／keep，見醫療室），不要在 PSD 外手切。
+1. **一張圖只能有一個底邊。** 有一部分是角色能站在它「旁邊」、腳點卻比整張圖底邊高的（L 型、U 型櫃台、圍一圈的沙發、前後兩段不一樣深的機台），拆成幾張圖，每段各有自己的底邊。拆法：使用者在 PSD 分成不同圖層，或寫在 `<場景>_objects.py` 的 `LAYERS`（crop／clear／keep）讓程式拆；不要手動改像素。
 2. **同一件物件的疊層**（櫃體→動畫零件→玻璃、床→被單）：同畫布、同中心，用底邊差 0～1 px 決定順序（同底邊時照 PLACE 的先後）。
 3. **躺、坐**：角色改用家具的排序線（interaction 的 `sortY`），要蓋在角色身上的那層（被單、近側扶手）底邊比家具多 1 px。
 4. **左右兩側**：角色腳點在圖的左右範圍外，一律畫在物件前面（`beside`，設施場景所有 decor 都套）。只補矮桌側邊這種情況，**不能拿來代替第 1 條的拆圖**。
@@ -136,20 +114,22 @@ codex exec -s workspace-write -i <image1> -i <image2> - < <暫存區的 prompt �
 
 | 症狀 | 原因 | 做法 |
 |---|---|---|
-| 物件全是正面圖，不像 RPG | 用程式白模定視角，頂面畫太薄，模型照描 | 改用擺設參考圖，讓模型在底圖上畫 |
-| 每件都長得像櫃子 | 白模全是實心方塊 | 不用白模定形；描述造型，讓參考圖決定樣子 |
-| 生出來的物件位置跟表對不上 | 改了配置後 prompt 裡「第幾格放什麼」沒跟著改 | prompt 的順序由程式從同一份清單產生，或改完逐項核對 |
-| 牆邊長條物件下半部露出地板（隱形牆） | 圖的高度蓋不滿佔地 | 依參考圖的實際大小定佔地，不要為了填滿佔地拉長物件 |
-| 切圖邊緣一圈紫紅 | 洋紅混色 | 去背加強（見步驟 5），檢查殘留為 0 |
+| 物件斜放、看得到側面，放不進地圖 | 鏡頭規則沒寫在最前面，或叫模型「照範例圖」連鏡頭一起抄 | 正面俯視規則放在 prompt 設計段之前；參考圖寫明只照造型 |
+| 物件扁扁的、只有一條薄頂面，每件都像櫃子 | 用程式白模定視角或造型 | 不用白模；用文字描述造型＋風格參考圖 |
+| 物件乾淨但看起來很中古（工程區 batch20） | prompt 只寫 clean / no rust，又拿舊設計表叫模型照抄 | 寫出 2090 設計語言＋禁止項；改用使用者的風格參考圖 |
+| 顏色變髒、有光暈、描邊粗細不一 | 沒寫乾淨規則 | `starport-asset-gen` 的乾淨規則；但不能因此變成扁平向量，像素感優先 |
+| 整區畫好再切，物件互相黏住、背後缺一塊 | 把整區設計稿當素材切 | 設計稿只當參考，物件單獨生（第 3、4 步） |
+| 改了原圖，遊戲裡還是舊的 | 改完沒重切 | 改 raw 表要重跑 `cut.py`；改 PSD 要重新匯入 |
+| 一件物件被切成兩件，或兩件被併成一件 | 並排物件的間距跟併塊距離不合 | 調 `<場景>_objects.py` 的 `JOIN` |
+| 切圖邊緣一圈紫紅 | 洋紅混色 | `cut.py` 去背，檢查殘留為 0 |
+| 牆邊長條物件下半部露出地板（隱形牆） | 圖的高度蓋不滿佔地 | 依圖的實際大小定佔地，不要為了填滿佔地拉長物件 |
 | 角色臉被 L 型櫃台的短邊蓋住 | 整張 L 只有長邊一個底邊 | 拆圖（圖層與碰撞規則一-1） |
 | 影子壓到桌腳、頭凸進牆 | 碰撞只算腳圈，沒算影子和頭寬 | 規則二-1、二-4（程式自動） |
 | 走到櫃子後面只剩頭髮 | 碰撞上緣照佔地深度給，背後走道太深 | 規則二-3（程式自動） |
-| 互動站位走不到、按 E 沒反應 | 手填站位：落在格線上、離物件超過 56 px、或在縫裡 | 站位用程式挑（步驟 5） |
+| 互動站位走不到、按 E 沒反應 | 手填站位：落在格線上、離物件超過 56 px、或在縫裡 | 站位要測過走得到（第 6 步） |
 | 終點格中心被精細碰撞蓋住就找不到路 | 尋路只走格子中心 | facility.ts 的 findPath 已改成：任一格中心能直線走到終點就算到 |
-| 一件物件被切成兩件、順序全亂 | 並排的東西（兩個油桶）中間有空隙 | 切圖先把 40 px 內的塊併成一件 |
-| 物件乾淨但看起來很中古（工程區 batch20） | prompt 只寫 clean / no rust，Image2 又拿舊設計表叫模型照抄 | 寫出 2090 sci-fi 設計語言＋禁止項；不要拿舊風格的物件表當設計來源，改用文字描述＋使用者的風格參考圖 |
-| 照搬別的場景格局 | 沒先想這裡的功能 | 步驟 2 先寫動線與分區 |
-| 「備用物件」又變回正面圖（冰箱、櫃子、沙發只剩一條薄頂面） | 跳過步驟 3，直接生 3 × 3 物件表，參考圖只拿來「抓鏡頭」——模型單獨畫物件時一律退回正面 | **沒有例外**：還沒定位置的物件也要先上擺設參考圖（底圖用空房間 `場景/工程區/base_showroom.png`，3 × 3 擺開），最終物件再拿底圖＋參考圖生 |
+| 照搬別的場景格局 | 沒先想這裡的功能 | 第 2 步先寫動線與分區 |
+| 跑了 build 腳本，使用者改的底圖被蓋掉（工程區 2026-10-17） | build 會重寫 public/ 的底圖 | 不跑使用者正在改的場景的 build；驗證用測試或暫存區 |
 
 ## 瀏覽器測試小技巧
 

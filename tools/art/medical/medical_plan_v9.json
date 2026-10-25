@@ -412,7 +412,7 @@
         4
       ],
       "label": "診間北門（直通手術室）",
-      "lintel": true,
+      "lintel": false,
       "framed": true,
       "floor": "#f5f6f4"
     },
@@ -424,7 +424,7 @@
         4
       ],
       "label": "診間南門（通候診區）",
-      "lintel": true,
+      "lintel": false,
       "framed": true,
       "floor": "#f5f6f4"
     },

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { walkable, type FacilityMap } from './facility';
-import { decorSprites, seasonOf, spriteFor } from './decor';
+import { decorSprites, seasonOf, spriteFor, trackX, type TrackAnim } from './decor';
 
 assert.equal(seasonOf('2090-10-24'), 'autumn'); assert.equal(seasonOf('2090-01-05'), 'winter'); assert.equal(seasonOf('2090-12-31'), 'winter');
 assert.equal(seasonOf('2090-03-01'), 'spring'); assert.equal(seasonOf('2090-08-31'), 'summer');
@@ -24,3 +24,14 @@ for (const d of decor) {
   assert.ok(d.x > 0 && d.x < m.width && d.y > 0 && d.y <= m.height, `${d.sprite} on the map`);
 }
 console.log('decor ok');
+
+// Track animation (pharmacy picker): stays between the stops while visible, slides out to the right, then hides.
+{
+  const anim: TrackAnim = { stops: [100, 200, 300], top: 0, clip: [50, 0, 300, 50] };
+  const xs = Array.from({ length: 4000 }, (_, i) => trackX(anim, i * .02, 20));
+  assert.ok(xs.every(x => x >= 100 && x <= 370), 'never left of the first stop or beyond the hidden spot');
+  assert.ok(xs.some(x => x === 370), 'spends time hidden past the right edge');
+  assert.ok(xs.some(x => [100, 200, 300].includes(x)), 'pauses at stops');
+  for (let i = 1; i < xs.length; i++) assert.ok(Math.abs(xs[i] - xs[i - 1]) <= 110 * .02 + 1e-6, 'moves smoothly');
+  console.log('track ok');
+}

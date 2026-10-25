@@ -9,6 +9,8 @@
   repaint_{nw,ne,sw,se}.png GPT 照 base_v9.png 分四塊重畫的質感版（作法與 prompt 見 tools/art/medical/prompts.md）
 輸出 tools/art/medical/base_v9.png：室內 48 列＋走廊原尺寸 996 px，補到整格（69 列，1680 × 3312）。這張是腳本拼的版本，
 也是重畫的輸入圖；四張重畫圖都在時，遊戲底圖改用重畫版（室內換掉，走廊不變）。
+使用者手修的整張底圖 tools/art/medical/ground.webp 在的話，以它為準（尺寸要跟地圖一樣 1680 × 3312，牆線不能動，
+碰撞與牆的遮擋都照格線算）。手修從 public/assets/medical/ground.webp 開始改，PSD 原檔放 場景/。
 走廊不縮放：角色在每個場景都是 148 世界單位高，走廊要跟居住區走廊一樣大；室內一格 48 所以房間相對角色比較小。
 程式只做切割、縮放、拼接：地板切中間四片（縫中線到縫中線，可無縫重複），一片 2 × 2 格；牆頂與牆面取參考圖的剖面像素照牆線鋪。
 另外寫 public/assets/medical/map.json：碰撞（牆、病床與櫃台佔位、門洞）、牆的遮擋片（walls：從底圖切牆頂那一條，
@@ -95,14 +97,16 @@ def floor_texture(name, origin, height, width, seed=9):
 
 
 # ── 牆：從參考圖取剖面 ─────────────────────────────────────────────
-REF = np.array(Image.open(RAW / 'medical_walls_ref.jpg').convert('RGB'))
-TOP_EDGE = REF[0:8, 700]                    # 牆頂上緣（北牆）：深色描邊→亮邊→藍
-LEFT_EDGE = REF[600, 0:8]                   # 牆頂左緣（西牆）
-RIGHT_EDGE = REF[600, 29:35][::-1]          # 牆頂右緣：深色描邊＋暗斜面（由外往內）
-FRONT_EDGE = REF[408:424, 300][::-1]        # 橫牆牆頂下緣（面向鏡頭的斜面，由外往內）
-NAVY = REF[8:30, 560:700]                   # 牆頂中間的藍色材質
-FACE_IN = REF[424:486, 300]                 # 內牆牆面：上亮線、白、踢腳板、底線
-FACE_OUT = REF[40:104, 700]                 # 北牆牆面
+WALL_REF = RAW / 'medical_walls_ref.jpg'   # 只有重拼底圖時要；已改用手修底圖（tools/art/medical/ground.webp）時可以不在
+if WALL_REF.exists():
+    REF = np.array(Image.open(RAW / 'medical_walls_ref.jpg').convert('RGB'))
+    TOP_EDGE = REF[0:8, 700]                    # 牆頂上緣（北牆）：深色描邊→亮邊→藍
+    LEFT_EDGE = REF[600, 0:8]                   # 牆頂左緣（西牆）
+    RIGHT_EDGE = REF[600, 29:35][::-1]          # 牆頂右緣：深色描邊＋暗斜面（由外往內）
+    FRONT_EDGE = REF[408:424, 300][::-1]        # 橫牆牆頂下緣（面向鏡頭的斜面，由外往內）
+    NAVY = REF[8:30, 560:700]                   # 牆頂中間的藍色材質
+    FACE_IN = REF[424:486, 300]                 # 內牆牆面：上亮線、白、踢腳板、底線
+    FACE_OUT = REF[40:104, 700]                 # 北牆牆面
 FACE_SIDE = np.array([[12, 17, 20], [12, 17, 20], [120, 124, 126]], np.uint8)  # 牆面在門洞、牆端的側邊
 
 
@@ -280,6 +284,11 @@ def spans(cols):
     return out
 
 
+HEAD_PAD = 14   # 頭寬一半（36，頭寬 72）減腳圈半徑（22）
+SHADOW_GAP = 3  # 物件碰撞比圖寬出的 px：影子半寬 23 − 腳圈 22，再留 2 px
+SHOW_DEPTH = 92  # 物件碰撞上緣最低在圖上緣往下幾 px：角色高 140 − 露出頭肩 70 ＋ 腳圈 22
+
+
 def collision(corridor_top, passage, frame_x, frame_top):
     """整格碰撞表＋精細矩形（格為單位）＋牆的遮擋片（px）。
     室內：牆、櫃台、病床佔的格擋住；門洞可走。橫牆北緣讓腳點走進牆頂線以下 58 px，牆頂往下 66 px 那條畫在角色上面。
@@ -308,6 +317,15 @@ def collision(corridor_top, passage, frame_x, frame_top):
                      [[a * T, y * T, (b - a) * T, T] for a, b in spans(doors)],   # 門洞上方只有門楣（牆頂）
             'bottom': min(bottom) * T, 'left': x0 * T, 'right': x1 * T,
         })
+    # 直牆內側多擋一條：碰撞只算腳圈（半徑 22），角色頭寬 72，貼牆時頭會凸進牆裡 14 px（門洞兩側不擋，免得門變窄）
+    for y in range(INTERIOR_ROWS):
+        for x in range(1, W - 1):
+            if grid[y][x] or cell(x, y) in 'WD':
+                continue
+            if cell(x + 1, y) == 'W':
+                rects.append({'x': r4(x + 1 - HEAD_PAD / T), 'y': y, 'w': r4(HEAD_PAD / T), 'h': 1})
+            if cell(x - 1, y) == 'W':
+                rects.append({'x': x, 'y': y, 'w': r4(HEAD_PAD / T), 'h': 1})
     # 南牆：牆頂一列、往下 STOP 為止可走；門洞以外擋住到走廊
     top = INTERIOR_ROWS * T
     px0, px1 = passage['x'], passage['x'] + passage['w']
@@ -356,6 +374,19 @@ def repainted(ground):
     return Image.fromarray(out, 'RGBA')
 
 
+ART = HERE / 'medical' / 'ground.webp'
+
+
+def hand_edited(ground):
+    if not ART.exists():
+        return ground
+    art = Image.open(ART).convert('RGBA')
+    if art.size != ground.size:
+        raise SystemExit(f'{ART.name} 是 {art.size[0]} × {art.size[1]}，要跟地圖一樣 {ground.size[0]} × {ground.size[1]}（從 public/assets/medical/ground.webp 開始改，不要裁切或縮放）')
+    print('底圖用手修版（tools/art/medical/ground.webp）')
+    return art
+
+
 def install(ground):
     """放進遊戲：ground.webp、走廊欄杆前景、map.json（碰撞、牆的遮擋、大門）。"""
     out = HERE.parent.parent / 'public' / 'assets' / 'medical'
@@ -381,14 +412,60 @@ def install(ground):
     frame_top = int(np.nonzero(alpha.max(1))[0][0])          # 門框圖上方透明的那幾列
     passage = {'x': round((fx + ox0) / T, 4), 'y': INTERIOR_ROWS, 'w': round((ox1 - ox0) / T, 4), 'h': CORRIDOR_TOP - INTERIOR_ROWS}
     grid, rects, walls = collision(CORRIDOR_TOP, passage, fx, frame_top)
+    # 物件（tools/art/medical_objects.py 的 PLACE）：圖切好了（props/<圖名>.webp 存在）才擺
+    import medical_objects as objects
+    decor = []
+    for y in range(INTERIOR_ROWS):                       # 櫃台、病床照圖擺：規劃的佔位格不再整格擋，改用 PLACE 的碰撞
+        for x in range(W):
+            if cell(x, y) in getattr(objects, 'PLAN_FROM_ART', ()):
+                grid[y][x] = 0
+    for name, (src, box, mode) in getattr(objects, 'LAYERS', {}).items():   # 一張圖拆成幾層
+        if not (out / 'props' / f'{src}.webp').exists():
+            continue
+        im = Image.open(out / 'props' / f'{src}.webp').convert('RGBA')
+        part = Image.new('RGBA', im.size, (0, 0, 0, 0))
+        if mode == 'clear':
+            part = im.copy()
+            part.paste((0, 0, 0, 0), box)
+        else:
+            part.paste(im.crop(box), box[:2])
+        (part.crop(box) if mode == 'crop' else part).save(out / 'props' / f'{name}.webp', lossless=True)
+    for oid, sprite, cx, bottom, block, *extra in getattr(objects, 'PLACE', []):
+        if sprite is None:                               # 只有碰撞
+            bx, by, bw, bh = block
+            rects.append({'x': bx, 'y': by, 'w': bw, 'h': bh})
+            continue
+        if not (out / 'props' / f'{sprite}.webp').exists():
+            continue
+        decor.append({'sprite': sprite, 'id': oid, 'x': round(cx / T, 4), 'y': round(bottom / T, 4), 'scale': objects.SCALE,
+                      'block': bool(block), 'size': list(Image.open(out / 'props' / f'{sprite}.webp').size), **(extra[0] if extra else {})})
+        if block:
+            bx, by, bw, bh = block
+            # 上緣：角色站到物件後面最深處，頭和肩（頭頂往下 70 px）還要露在圖上緣之上，所以碰撞上緣最低在圖上緣往下 SHOW_DEPTH
+            alpha = np.array(Image.open(out / 'props' / f'{sprite}.webp').convert('RGBA'))[:, :, 3]
+            h, w = alpha.shape
+            art_top, art_left = bottom - h * objects.SCALE, cx - w * objects.SCALE / 2
+            opaque_top = art_top + np.nonzero(alpha.max(1) > 40)[0][0] * objects.SCALE
+            if (opaque_top + SHOW_DEPTH) / T < by:
+                bh, by = round(by + bh - (opaque_top + SHOW_DEPTH) / T, 4), round((opaque_top + SHOW_DEPTH) / T, 4)
+            # 左右至少蓋到圖在這幾列的實際寬度外 3 px：影子（半寬 23）比腳圈（22）寬 1 px，貼著物件時影子才不會壓到圖
+            rows = alpha[max(0, int((by * T - art_top) / objects.SCALE)):min(h, int(((by + bh) * T - art_top) / objects.SCALE))]
+            cols = np.nonzero(rows.max(0) > 40)[0] if rows.size else []
+            if len(cols):
+                x0 = min(bx, (art_left + cols[0] * objects.SCALE - SHADOW_GAP) / T)
+                x1 = max(bx + bw, (art_left + (cols[-1] + 1) * objects.SCALE + SHADOW_GAP) / T)
+                bx, bw = round(x0, 4), round(x1 - x0, 4)
+            rects.append({'x': bx, 'y': by, 'w': bw, 'h': bh})
     data = {
         'tileSize': T, 'width': W, 'height': ROWS,
         'legend': {'0': '可行走', '1': '碰撞'},
         'note': '由 tools/art/medical_base_v9.py 產生，不要手改。室內第 0–47 列（v9 格局），第 48 列起是居住區走廊（左通 B、右通 C）。'
-                '病床、櫃台照規劃佔位擋住（物件還沒畫）。walls 是牆頂那一條，依 bottom 跟角色排前後；大門是靠近自動開的玻璃門。',
+                '櫃台、病床的碰撞照圖給（medical_objects.py 的 PLACE）。walls 是牆頂那一條，依 bottom 跟角色排前後；大門是靠近自動開的玻璃門。',
         'collision': grid,
         'collisionRects': rects,
         'walls': walls,
+        'decor': decor,
+        'interactions': getattr(objects, 'INTERACTIONS', []),
         'entrances': [
             {'x': 0, 'y': CORRIDOR_TOP, 'w': 1, 'h': CORRIDOR_BOTTOM - CORRIDOR_TOP, 'to': 'residential_b', 'label': '往居住區 B', 'spawn': [4, mid]},
             {'x': W - 1, 'y': CORRIDOR_TOP, 'w': 1, 'h': CORRIDOR_BOTTOM - CORRIDOR_TOP, 'to': 'residential_c', 'label': '往居住區 C', 'spawn': [W - 4, mid]},
@@ -410,7 +487,13 @@ def install(ground):
 
 if __name__ == '__main__':
     out = HERE / 'medical' / 'base_v9.png'
-    ground = build()
-    ground.save(out)
-    install(repainted(ground))
-    print('已產生', out.relative_to(HERE.parent.parent))
+    if WALL_REF.exists():
+        ground = build()
+        ground.save(out)
+        print('已產生', out.relative_to(HERE.parent.parent))
+        install(hand_edited(repainted(ground)))
+    elif ART.exists():
+        print('沒有牆的參考圖：不重拼底圖，直接用手修版（tools/art/medical/ground.webp）')
+        install(Image.open(ART).convert('RGBA'))
+    else:
+        raise SystemExit('找不到 raw/medical_walls_ref.jpg，也沒有手修底圖 tools/art/medical/ground.webp')

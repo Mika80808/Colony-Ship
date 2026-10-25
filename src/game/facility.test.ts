@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { FACILITIES, FacilityMap, arrivalDirection, blocked, camera, clicked, doorBlocks, doorDistance, doorStand, DOOR_PASSABLE, findPath, interactions, RADIUS, keyboardTarget, move, nearby, segmentClear, spawn, stepDoor, walkable, withDoorClosed, worldSize } from './facility';
 import { ACTOR_HEIGHT } from './viewport';
+import { drawBeforePlayer } from './sceneDepth';
 const load = (folder: string): FacilityMap => JSON.parse(readFileSync(`public/assets/${folder}/map.json`, 'utf8'));
 
 // Every registered facility: a well-formed grid, open doorways, and interactions you can walk up to.
@@ -193,14 +194,34 @@ console.log('greenhouse ok');
   for (let y = 0; y < md.height; y++) for (let x = 0; x < md.width; x++)
     if (walkable(md, centre(x, y))) assert.ok(seen.has(y * md.width + x), `medical tile ${x},${y} reachable`);
   // One spot in every room: surgery, ward, clinic, pharmacy (behind the counter), waiting, lounge, both research rooms.
-  for (const [x, y, room] of [[5, 8, 'surgery'], [31, 11, 'ward'], [6, 20, 'clinic'], [27, 20, 'pharmacy'], [6, 31, 'waiting'], [27, 31, 'lounge'], [6, 45, 'medical research'], [27, 45, 'drug research']] as const)
+  for (const [x, y, room] of [[5, 8, 'surgery'], [31, 11, 'ward'], [6, 20, 'clinic'], [28, 22, 'pharmacy'], [6, 31, 'waiting'], [27, 31, 'lounge'], [6, 45, 'medical research'], [27, 45, 'drug research']] as const)
     assert.ok(seen.has(y * md.width + x), `${room} is reachable`);
-  // Beds and counters block by their planned footprint; the pharmacy work gap stays open.
-  for (const [x, y] of [[16, 6], [22, 6], [28, 6], [21, 18], [21, 23], [27, 24]]) assert.ok(blocked(md, x, y), `furniture at ${x},${y}`);
-  assert.equal(blocked(md, 21, 21), false, 'pharmacy work opening');
+  // Beds and the pharmacy counter block by their art (2026-10-26): the counter's long side and L arm block,
+  // the strip above the arm is the staff entrance from the aisle, and the right-hand pickup port can be reached by the pharmacist.
+  for (const [x, y] of [[16, 6], [22, 6], [28, 6]]) assert.equal(walkable(md, centre(x, y)), false, `bed at ${x},${y}`);
+  // Lying in a bed: the player sorts on the bed's bottom, so the bed draws under them and its blanket (1 px lower) over them;
+  // getting up puts them back at the foot of the bed.
+  const beds = interactions(md).filter(i => i.kind === 'bed');
+  assert.equal(beds.length, 3, 'three ward beds you can lie in');
+  for (const bed of beds) {
+    const base = md.decor!.find(d => d.id === bed.id)!, blanket = md.decor!.find(d => d.id === `${bed.id}-blanket`)!;
+    const lying = { x: bed.seat!.x, y: bed.sortY! };
+    assert.equal(bed.sortY, base.y * T);
+    assert.ok(drawBeforePlayer({ bottom: base.y * T }, lying) && !drawBeforePlayer({ bottom: blanket.y * T }, lying), `${bed.id}: under the blanket`);
+    assert.ok(bed.seat!.y < bed.sortY! && walkable(md, bed.exit!) && findPath(md, fromB, bed.exit!).length, `${bed.id}: get up at the foot`);
+  }
+  for (const [x, y] of [[27 * T, 24 * T], [21.5 * T, 22 * T]]) assert.equal(walkable(md, { x, y }), false, `counter at ${x},${y}`);
+  const staffDoor = { x: 21.5 * T, y: 19 * T };
+  assert.ok(walkable(md, staffDoor) && findPath(md, fromB, staffDoor).length, 'staff entrance between the dispensing wall and the counter');
+  assert.ok(findPath(md, staffDoor, { x: 1594, y: 895 }).length, 'the pharmacist can walk up to the pickup port');
+  // Side walls: the head is 72 px wide, so the feet stop 36 px short of the wall face, not just the 22 px foot radius.
+  const eastFace = 34 * T;
+  assert.ok(walkable(md, { x: eastFace - 37, y: 19 * T }) && !walkable(md, { x: eastFace - 34, y: 19 * T }), 'the head stays out of the east wall');
   // Behind every horizontal inner wall you can step 58 px past the wall top line, and the 66 px strip drawn over you hides it.
   const walls = md.walls!.filter(w => w.left !== undefined);
-  assert.equal(walls.length, 6, 'six stretches of inner wall top');
+  assert.equal(walls.length, 8, 'eight stretches of inner wall top (the clinic doors have no lintel, so their walls split in two)');
+  // Clinic doors are open gaps (no lintel since 2026-10-23): nothing covers an actor walking through them.
+  for (const y of [13, 24]) assert.ok(walls.every(w => !w.rects.some(([x, ry, rw]) => ry === y * T && x < 7 * T && x + rw > 5 * T)), `no wall strip over the clinic door at row ${y}`);
   for (const w of walls) for (const [x, y, rw, h] of w.rects) {
     if (h === T) continue;   // 門楣：門洞上方只有牆頂，從門洞走得過去
     assert.ok(walkable(md, { x: x + rw / 2, y: y + 58 }), `feet go behind the wall at ${x},${y}`);
