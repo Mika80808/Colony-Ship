@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { Point } from '../game/corridor';
 import { FacilityInteraction, FacilityMap, arrivalDirection, camera, clicked, doorBlocks, doorDistance, doorStand, findPath, interactions, keyboardTarget, move, nearby, spawn, stepDoor, withDoorClosed, worldSize } from '../game/facility';
 import { ACTOR_HEIGHT, approach, fitViewport } from '../game/viewport';
+import { drawSeatedPose } from '../game/seatedPose';
 import { CropsMeta, RacksMeta, layoutRack, rackBounds, rackKey } from '../game/racks';
 import { dayNumber, stageAt } from '../game/growth';
-import { decorSprites, spriteFor } from '../game/decor';
+import { decorSprites, spriteFor, trackX } from '../game/decor';
 import { Fish, WaterMask, drawFish, rng, spawnFish, stepFish } from '../game/fish';
 import { drawBeforePlayer } from '../game/sceneDepth';
 
@@ -36,7 +37,7 @@ export default function FacilityScene(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controls = useRef(props); controls.current = props;
   const [status, setStatus] = useState(`正在載入${props.facility.name}…`);
-  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point } | null, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null, door: null as { frame: HTMLImageElement; left: HTMLImageElement; right: HTMLImageElement } | null, doorOpen: 0, doorWanted: false, closedMap: null as FacilityMap | null, overlays: [] as { image: HTMLImageElement; x: number; y: number }[] });
+  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point; sortY?: number } | null, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null, door: null as { frame: HTMLImageElement; left: HTMLImageElement; right: HTMLImageElement } | null, doorOpen: 0, doorWanted: false, closedMap: null as FacilityMap | null, overlays: [] as { image: HTMLImageElement; x: number; y: number }[] });
   const act = (item?: FacilityInteraction) => {
     const s = state.current;
     if (!s.map || controls.current.paused) return;
@@ -49,7 +50,7 @@ export default function FacilityScene(props: Props) {
       const inPassage = s.map.door && doorDistance(s.map, s.map.door, s.p) === 0;
       if (!(s.doorWanted && inPassage)) s.doorWanted = !s.doorWanted;
     }
-    else if (item.kind === 'seat' && item.seat) { s.seated = { id: item.id, exit: item.exit ?? item.point }; s.p = item.seat; s.direction = 'down'; s.notice = null; }
+    else if ((item.kind === 'seat' || item.kind === 'bed') && item.seat) { s.seated = { id: item.id, exit: item.exit ?? item.point, sortY: item.sortY }; s.p = item.seat; s.direction = 'down'; s.notice = null; }
     else {
       // An empty text means the object has no tip: show no bubble at all.
       const response = controls.current.onAction?.(item), text = response === true ? '' : response || item.text;
@@ -98,12 +99,18 @@ export default function FacilityScene(props: Props) {
       return specs.map(d => ({
         bottom: d.y * T,
         sprite: d.sprite,
+        // 角色站在物件左右兩側之外時一律畫在前面：L 型櫃台、長桌這種底邊很低但圖很高的物件，才不會蓋住旁邊角色的臉
+        beside: true,
         left: d.x * T - images.get(spriteFor(d, controls.current.gameDate))!.width * d.scale / 2,
         right: d.x * T + images.get(spriteFor(d, controls.current.gameDate))!.width * d.scale / 2,
         draw: (c: CanvasRenderingContext2D) => {
           const im = images.get(spriteFor(d, controls.current.gameDate))!, w = im.width * d.scale, h = im.height * d.scale;
-          c.imageSmoothingEnabled = true;
-          if (d.flip) { c.save(); c.translate(d.x * T, 0); c.scale(-1, 1); c.drawImage(im, -w / 2, d.y * T - h, w, h); c.restore(); }
+          c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; // 2 倍圖縮成一半時才不會鋸齒、細線斷掉
+          if (d.anim) {   // 沿軌道移動的零件：只畫在 clip 範圍裡，滑出去就看不見
+            const [cx, cy, cw, ch] = d.anim.clip, x = trackX(d.anim, performance.now() / 1000, w);
+            c.save(); c.beginPath(); c.rect(cx, cy, cw, ch); c.clip(); c.drawImage(im, x - w / 2, d.anim.top, w, h); c.restore();
+          }
+          else if (d.flip) { c.save(); c.translate(d.x * T, 0); c.scale(-1, 1); c.drawImage(im, -w / 2, d.y * T - h, w, h); c.restore(); }
           else c.drawImage(im, d.x * T - w / 2, d.y * T - h, w, h);
         },
       }));
@@ -176,11 +183,9 @@ export default function FacilityScene(props: Props) {
         const col = ({ down: 0, up: 1, left: 2, right: 3 } as Record<string, number>)[s.direction];
         const row = moving ? [0, 1, 0, 2][Math.floor(s.elapsed * 8) % 4] : 0;
         const x = s.p.x - w / 2, y = s.p.y - h + 5;
-        if (s.seated) {
-          // The seat anchor marks the hips near the cushion's middle; feet stay over its front edge.
-          const seatedY = s.p.y - h * .55;
-          ctx.drawImage(sprite, col * sw, row * sh, sw, sh * .7, x, seatedY, w, h * .7);
-          ctx.drawImage(sprite, col * sw, row * sh + sh * .7, sw, sh * .3, x, seatedY + h * .7, w, h * .3 * .6);
+        if (s.seated?.sortY !== undefined) ctx.drawImage(sprite, 0, 0, sw, sh, x, y, w, h);   // 躺在床上：正面站姿，身體蓋在被單層下面
+        else if (s.seated) {
+          drawSeatedPose(ctx, sprite, col * sw, 0, sw, sh, x, s.p.y - h * .55, w, h, s.direction as 'down' | 'up' | 'left' | 'right');
         } else ctx.drawImage(sprite, col * sw, row * sh, sw, sh, x, y, w, h);
       };
       const render = (time: number) => {
@@ -233,9 +238,11 @@ export default function FacilityScene(props: Props) {
           glow.addColorStop(0, `rgba(255,170,60,${.55 + .35 * Math.sin(time / 90)})`); glow.addColorStop(1, 'rgba(255,140,40,0)');
           ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(lx, ly, 46, 0, Math.PI * 2); ctx.fill();
         }
-        s.standing.forEach(o => { if (drawBeforePlayer(o, s.p, !!s.seated)) o.draw(ctx); });
+        // 躺在床上時用床的底邊排：床在角色下面、被單（底邊多 1 px）蓋在角色上面
+        const depth = s.seated?.sortY !== undefined ? { x: s.p.x, y: s.seated.sortY } : s.p;
+        s.standing.forEach(o => { if (drawBeforePlayer(o, depth, !!s.seated)) o.draw(ctx); });
         ctx.imageSmoothingEnabled = false; drawPlayer(moving && !frozen);
-        s.standing.forEach(o => { if (!drawBeforePlayer(o, s.p, !!s.seated)) o.draw(ctx); });
+        s.standing.forEach(o => { if (!drawBeforePlayer(o, depth, !!s.seated)) o.draw(ctx); });
         if (inDoorway()) drawDoor(true);
         for (const o of s.overlays) ctx.drawImage(o.image, o.x, o.y);
         ctx.imageSmoothingEnabled = false;

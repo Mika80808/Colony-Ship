@@ -1,5 +1,16 @@
 # 開發進度
 
+- 2026-10-26 淋浴效果微調：提高底霧、上升霧團與兩側蒸氣的不透明度；洗澡時沿用人物實際朝向，不再強制使用正面圖格。
+
+- 2026-10-26 A-1 淋浴間修正：依使用者要求停用門片縮放動畫，維持關門尺寸；收緊後壁及兩側碰撞，點擊淋浴間導向蓮蓬頭下方站位；水流改由實際噴頭位置在角色後方繪製，降低玻璃及蒸氣遮蔽以保留完整身體。浴巾移至腰部並改為淺色，避免腿部與玻璃混色。驗證：lint、build、roomInteraction／roomCollision／roomRuntime 測試通過；Chromium 實測點擊入浴、上／左／右碰撞、向下離開，門片保持關閉，無頁面錯誤，已檢視入浴及離開截圖。
+
+- 2026-10-25 A-1 淋浴間：角色放在玻璃門後，保留頭髮與臉部；門片沿右側軸承開關，加入蓮蓬頭灑水及漸淡上升的熱氣。
+
+- 2026-10-19 走道地板精修：依使用者提供的十字形地板原圖，以內建 imagegen 整理外圍破碎區域為洋紅背景，修整板縫、邊框與導光燈，保留原十字構圖與中央圓飾。精修 PNG 與完整提示詞暫存 `tmp/imagegen/corridor-floor-refined-20261019.png`、同名 `.prompt.txt`；待驗收，尚未去背、套用碰撞或替換遊戲素材。
+- 2026-10-19 醫療室地板第二套選樣：內建 imagegen 生成淡彩水泥粉光、霧面環氧樹脂、柔光環氧樹脂各三款，合為一張 3 × 3 選樣圖。原圖與完整提示詞暫存 `tmp/imagegen/medical-floor-pastel-cement-epoxy-20261019.png`、同名 `.prompt.txt`，待使用者挑選；尚未做無縫鋪設驗收或替換遊戲素材。
+- 2026-10-19 醫療室地板選樣：依使用者要求，用內建 imagegen 生成一張 3 × 3 九款地板比較圖（暖白樹脂、薄荷綠大板、霧藍灰複合板、象牙白陶瓷、淺鼠尾草綠橡膠、細粒人造石、淡灰長板、白綠拼色、淺灰八角板）。選樣圖與完整提示詞暫存 `tmp/imagegen/medical-floor-options-20261019.png`、同名 `.prompt.txt`；待使用者挑選後再整理正式可重複鋪設素材，尚未替換遊戲地板。未選用的試畫依規範不放進 raw 或 Git。
+- 2026-10-17 醫療室牆壁素材：依使用者確認生成純洋紅背景、深藍磁磚牆頂、白牆與薄荷綠飾線。美術來源在 `tools/art/medical/raw/medical-wall-modules-magenta-v1.png`、`medical-walltop-a2-magenta-v2.png`，完整提示詞與狀態在 `tools/art/medical/wall-autotile-prompts.md`。尚待切圖、48 px 尺寸整理與拼接驗收，未替換遊戲底圖。
+
 每次收工更新這份。格式：已完成、進行中、下一步、已定案。
 
 ## 溫室
@@ -90,7 +101,9 @@
 - 2026-10-17 碰撞與遮擋：`medical_base_v9.py` 照 v9 規劃寫 `map.json` 的碰撞（牆、病床與櫃台佔位、門洞）與 `walls`（橫牆牆頂那一條，從底圖切，依底邊跟角色排前後；站到牆後只露出胸口以上，站在牆端旁邊不被蓋）。大門改成靠近自動開（`DoorSpec.auto`）。`facility.test.ts` 檢查全部格子走得到、八個房間、門洞、牆後深度。說明見 `docs/scenes/medical.md`「碰撞與遮擋」。
 - 2026-10-17 地板與底圖質感：地板改成四色霧面樹脂大方板（`raw/medical_floor_resin.png`，一片 2 × 2 格，取代太像浴室的小方格磁磚）；拼好的底圖切四塊交給 GPT（astra）「照描＋加質感」重畫（牆頂倒角、牆面嵌板與薄荷綠飾線、邊緣陰影），`medical_base_v9.py` 看到 `raw/repaint_*.png` 就接起來當遊戲底圖。作法與 prompt 在 `tools/art/medical/prompts.md`。
 - `tools/art/medical/raw/` 另有使用者的物件草稿（`draft_*.png`：側門、雙開門、L 型沙發、候診椅、病床）與整張擺設參考圖 `props_ref_v9.png`。
-- 下一步：物件清單，用白色方塊擺上底圖給使用者看 → 擺設參考圖。
+- 2026-10-26 藥局物件：使用者在 `場景/藥局物件/pharmacy-dispensing-body.psd` 排好位置與大小，匯出成 `public/assets/medical/props/pharmacy-*.webp`，用 `python tools/art/cut.py psd medical <PSD>` 匯入（位置存在 `tools/art/medical/layout_pharmacy-dispensing-body.json`），擺放與碰撞寫在 `tools/art/medical_objects.py` 的 PLACE。配藥櫃分三層（櫃體、取藥爪、玻璃），取藥爪在玻璃後停三格後往右滑出（`decor.ts` 的 trackX）；右端取藥口前留給藥劑師 NPC 站。L 型櫃台拆成短邊、長邊兩張圖（LAYERS），各自排前後。
+- 2026-10-26 病床：三張床照規劃貼北牆，被單拆成另一層；按 E 或點床躺下（互動 kind `bed`，角色夾在床跟被單中間），移動就起來。床用第一版病房表 `raw/props_ward.png` 的圖。
+- 下一步：病房其他物件（床邊藥車已切好 `ward-cart` 還沒擺、拉簾）、其他分區物件照藥局的新畫風重做；藥劑師 NPC 與呼叫鈴。
 - 延後的事：兩位 NPC 外型與名字（地圖建完再說）、看診費與藥價（跟其他物價一起定）、北牆接中央廣場（廣場建完再改）。
 
 ## 角色素材
