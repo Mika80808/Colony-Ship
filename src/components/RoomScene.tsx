@@ -7,7 +7,9 @@ import { canInteract, createActor, npcSpawnPoint, RoomActor, setDestination, upd
 
 import { ACTOR_HEIGHT, approach, cameraTarget, fitViewport } from '../game/viewport';
 import { nearbyInspection } from '../game/roomInspection';
-import { isShowering } from '../game/roomFurniture';
+import { inRect, isShowering, SHOWER_ZONE } from '../game/roomFurniture';
+import { drawShowerSpray, drawShowerSteam } from '../game/showerSteam';
+import { createShowerLayers, drawShowerDoor, isBehindShowerGlass, showerLayerDepths } from '../game/showerDoor';
 import { DECALS, PIECES, RoomFurnishing, SHELL, setActiveRoom } from '../game/roomRuntime';
 import { loadImage } from '../utils/loadImage';
 import { useSceneKeys } from './useSceneKeys';
@@ -147,15 +149,15 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
     const ASSETS = '/assets/rooms/';
     const room = new Image(), playerSprite = new Image();
     const objects = PIECES;
+    const shower = objects.find(item => item.id === 'shower');
+    let showerLayers: ReturnType<typeof createShowerLayers> | undefined;
     const furnitureImages = objects.map(() => new Image());
     const decalImages = DECALS.map(() => new Image());
     // One element per overlay entry; several may share a file but not a crop.
     const overlayImages = SHELL.overlays.map(() => new Image());
-    let disposed = false, raf = 0, last = 0;
+    let disposed = false, raf = 0, last = 0, steamElapsed = 0;
     const load = (img: HTMLImageElement, src: string) => loadImage(src, img);
-    // Showering re-colours the sprite instead of swapping in a second set of
-    // artwork: painting skin over the frame with source-atop keeps the pose and
-    // silhouette but washes the uniform out, and stays in sync if walk.webp changes.
+    // Keep the face and hair clear while tinting only the body for bathing.
     const skin = document.createElement('canvas');
     const skinCtx = skin.getContext('2d')!;
     const skinToned = (sprite: HTMLImageElement, sx: number, sy: number, sw: number, sh: number) => {
@@ -163,8 +165,9 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
       skinCtx.clearRect(0, 0, sw, sh);
       skinCtx.drawImage(sprite, sx, sy, sw, sh, 0, 0, sw, sh);
       skinCtx.globalCompositeOperation = 'source-atop';
-      skinCtx.fillStyle = 'rgba(246, 211, 180, 0.85)';
-      skinCtx.fillRect(0, 0, sw, sh);
+      skinCtx.fillStyle = 'rgba(246, 211, 180, 0.86)';
+      const bodyTop = sh * 0.49 - 2;
+      skinCtx.fillRect(0, bodyTop, sw, sh - bodyTop);
       skinCtx.globalCompositeOperation = 'source-over';
       return skin;
     };
@@ -175,10 +178,11 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
       if (!resting && !sitting) {
         ctx.fillStyle = '#0008'; ctx.beginPath(); ctx.ellipse(x, y - 3, 22, 7, 0, 0, Math.PI * 2); ctx.fill();
       }
+      const bathing = player && isShowering(actor.position);
       const column = { down: 0, up: 1, left: 2, right: 3 }[actor.direction];
       const rows = player ? 3 : 4;
       const frames = player ? [0, 1, 0, 2] : [0, 1, 2, 3];
-      const row = actor.moving && !frozen ? frames[Math.floor(actor.elapsed * 8) % frames.length] : 0;
+      const row = bathing ? 0 : actor.moving && !frozen ? frames[Math.floor(actor.elapsed * 8) % frames.length] : 0;
       const sw = sprite.naturalWidth / 4, sh = sprite.naturalHeight / rows;
       const height = ACTOR_HEIGHT, width = height * sw / sh;
       if (sitting) {
@@ -186,7 +190,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
         const top = y - height * 0.85;
         ctx.drawImage(sprite, column * sw, 0, sw, sh * 0.7, x - width / 2, top, width, height * 0.7);
         ctx.drawImage(sprite, column * sw, sh * 0.7, sw, sh * 0.3, x - width / 2, top + height * 0.7, width, height * 0.15);
-      } else if (player && isShowering(actor.position)) {
+      } else if (bathing) {
         ctx.drawImage(skinToned(sprite, column * sw, row * sh, sw, sh), x - width / 2, y - height * (166 / 172), width, height);
       } else {
         ctx.drawImage(sprite, column * sw, row * sh, sw, sh, x - width / 2, y - height * (166 / 172), width, height);
@@ -207,6 +211,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
       const { player } = actors.current;
       const present = controls.current.npcs.map((npc, index) => ({ npc, actor: npcActor(npc, index) }));
       const frozen = controls.current.paused || document.hidden;
+      if (!frozen) steamElapsed += dt;
       if (!frozen) {
         // An NPC stops walking while the player is close enough to talk to them.
         for (const { actor } of present) {
@@ -233,6 +238,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
           }
         }
       }
+      const bathingNow = isShowering(player.position);
       const frame = view.current;
       const target = { x: cameraTarget(player.position.x, frame.width, ROOM_WIDTH), y: cameraTarget(player.position.y, frame.height, ROOM_HEIGHT) };
       if (camera.current.settled && !frozen) {
@@ -257,9 +263,13 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
         const sprite = npcSprite(npc);
         if (sprite) visibleActors.push({ actor, sprite, player: false });
       }
-      const layers = objects.map((item, index) => ({ depth: item.depth, draw: () => {
+      const layers = objects.map((item, index) => ({ depth: item.id === 'shower' ? showerLayerDepths(item).back : item.depth, draw: () => {
         const picture = furnitureImages[index];
-        ctx.drawImage(picture, item.x, item.y, item.width, item.height);
+        if (item.id === 'shower') {
+          ctx.drawImage(showerLayers!.back, item.x, item.y, item.width, item.height);
+          if (bathingNow) drawShowerSpray(ctx, item, steamElapsed);
+        }
+        else ctx.drawImage(picture, item.x, item.y, item.width, item.height);
         if (item.id === 'room-door' && doorElapsed.current > 0) {
           // Keep the outer frame stationary while both door leaves retract.
           const t = Math.min(1, doorElapsed.current / 0.7);
@@ -273,23 +283,16 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
           ctx.restore();
         }
       }}));
-      visibleActors.forEach(entry => layers.push({ depth: entry.player && bed.current.phase === 'resting' ? bedActorDepth() : entry.player && seating.current.phase === 'sitting' ? seating.current.seat!.furniture.depth + 0.5 : entry.player && isShowering(entry.actor.position) ? 813 : entry.actor.position.y, draw: () => drawActor(entry.actor, entry.sprite, entry.player, frozen) }));
+      // Glass and mist sort with the cabin, so an actor outside can pass in front.
+      if (shower) {
+        const glassDepth = showerLayerDepths(shower).glass;
+        const actorBehind = visibleActors.some(({ actor }) => isBehindShowerGlass(actor.position, shower));
+        if (bathingNow) layers.push({ depth: glassDepth - 0.25, draw: () => drawShowerSteam(ctx, shower, player.position, steamElapsed) });
+        layers.push({ depth: glassDepth, draw: () => drawShowerDoor(ctx, showerLayers!.glass, shower, actorBehind) });
+      }
+      visibleActors.forEach(entry => layers.push({ depth: entry.player && bed.current.phase === 'resting' ? bedActorDepth() : entry.player && seating.current.phase === 'sitting' ? seating.current.seat!.furniture.depth + 0.5 : entry.actor.position.y, draw: () => drawActor(entry.actor, entry.sprite, entry.player, frozen) }));
       layers.sort((a, b) => a.depth - b.depth).forEach(layer => layer.draw());
       const bathing = isShowering(player.position);
-      if (bathing) {
-        const steamTime = frozen ? player.elapsed : time / 1000;
-        const { x, y } = player.position;
-        // The sprite's opaque box runs from 136px above the feet down to them, so
-        // a still veil covers that whole span and the drifting puffs only animate.
-        ctx.fillStyle = '#e8f1f44a';
-        ctx.beginPath(); ctx.ellipse(x, y - 66, 56, 82, 0, 0, Math.PI * 2); ctx.fill();
-        for (let i = 0; i < 8; i++) {
-          ctx.fillStyle = i % 2 ? '#eef7f932' : '#dce7ed3c';
-          ctx.beginPath();
-          ctx.ellipse(x + Math.sin(steamTime + i * 1.6) * 14, y + 2 - i * 20, 40 + (i % 3) * 6, 24, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
       const nearby = !!nearestNpc();
       drawOverlays('front');
       ctx.restore();
@@ -303,6 +306,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
       canvas.dataset.canInteract = String(nearby);
       canvas.dataset.playerOutfit = bathing ? 'visible-in-steam' : 'uniform';
       canvas.dataset.showering = String(bathing);
+      canvas.dataset.showerDoorOpen = '0.00';
       canvas.dataset.bedState = bed.current.phase;
       canvas.dataset.seatState = seating.current.phase;
       canvas.dataset.seatId = seating.current.seat?.id ?? '';
@@ -329,6 +333,7 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
     ])
       .then(() => {
         if (!disposed) {
+          if (shower) showerLayers = createShowerLayers(furnitureImages[objects.indexOf(shower)]);
           setReady(true);
           canvas.focus({ preventScroll: true });
           raf = requestAnimationFrame(render);
@@ -376,7 +381,12 @@ export default function RoomScene({ roomId, furnishing, npcs, paused, onInteract
           leaveBed(actors.current.player, bed.current);
           const clickedExit = point.x >= 220 && point.x <= 402 && point.y >= 980;
           exiting.current = clickedExit;
-          setDestination(actors.current.player, clickedExit ? ROOM_EXIT_POINT : point);
+          // Clicking anywhere on the enclosure approaches the safe spot below the nozzle.
+          const shower = PIECES.find(item => item.id === 'shower');
+          const destination = shower && inRect(point, shower)
+            ? { x: SHOWER_ZONE.x + SHOWER_ZONE.width / 2, y: SHOWER_ZONE.y + SHOWER_ZONE.height / 2 }
+            : point;
+          setDestination(actors.current.player, clickedExit ? ROOM_EXIT_POINT : destination);
         }} />
       {inspection && <p role="status" className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded px-4 py-2 text-sm text-sky-100 bg-slate-950/65">{inspection.text}</p>}
       {!ready && <p role="status" className="absolute inset-0 flex items-center justify-center text-sky-200">{error ? '房間素材載入失敗，請重新整理。' : '正在載入房間…'}</p>}

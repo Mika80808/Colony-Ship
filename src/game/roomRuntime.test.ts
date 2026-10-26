@@ -54,7 +54,7 @@ assert.ok(isWalkable(ROOM_EXIT_POINT) && canExitRoom(ROOM_EXIT_POINT) && nearRoo
 assert.equal(isWalkable({ x: 440, y: 463 }), true, "A-1's sofa spot is open floor");
 assert.equal(isWalkable({ x: 697, y: 300 }), false, 'the shell walls still block');
 assert.ok(findPath(ROOM_EXIT_POINT, { x: 200, y: 300 }).length, 'the whole living area is reachable');
-assert.ok(findPath(ROOM_EXIT_POINT, { x: 1100, y: 760 }).length, 'the bathroom is reachable');
+assert.ok(findPath(ROOM_EXIT_POINT, { x: 1120, y: 790 }).length, 'the bathroom is reachable');
 for (const piece of SHELL.fixtures) for (const rect of piece.solid ?? []) {
   assert.equal(isWalkable({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }), false, `${piece.id} still blocks`);
 }
@@ -92,7 +92,7 @@ for (const piece of PIECES) for (const rect of piece.solid ?? []) {
   assert.equal(isWalkable({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }), false, `${piece.id} must block movement`);
 }
 assert.ok(isWalkable(SHELL.exit), 'the shared exit stays reachable');
-assert.ok(findPath({ x: 300, y: 900 }, { x: 1100, y: 760 }).length, 'route into the shared bathroom survives the swap');
+assert.ok(findPath({ x: 300, y: 900 }, { x: 1120, y: 790 }).length, 'route into the shared bathroom survives the swap');
 
 // Declared seats and bed must resolve against the furnishing that declared them, not A-1's.
 assert.equal(SEATS.length, 1);

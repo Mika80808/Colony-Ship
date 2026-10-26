@@ -11,7 +11,7 @@ assert.ok(canInteract(createActor({ x: 300, y: 540 }), createActor({ x: 380, y: 
 assert.equal(canInteract(createActor({ x: 300, y: 540 }), createActor({ x: 500, y: 540 })), false);
 assert.equal(canInteract(createActor({ x: 640, y: 500 }), createActor({ x: 740, y: 500 })), false, 'No interaction across partition');
 const player = createActor({ x: 460, y: 820 });
-assert.ok(setDestination(player, { x: 1100, y: 760 }), 'Shower can be entered through bathroom doorway');
+assert.ok(setDestination(player, { x: 1120, y: 790 }), 'Shower can be entered through bathroom doorway');
 let doorway = false;
 for (let i = 0; i < 1000; i++) {
   updatePlayer(player, 1 / 60, new Set());
@@ -20,6 +20,19 @@ for (let i = 0; i < 1000; i++) {
 }
 assert.ok(doorway);
 assert.ok(isShowering(player.position));
+const showerSpot = { ...player.position };
+for (const key of ['w', 'a', 'd']) {
+  const constrained = createActor({ ...showerSpot });
+  for (let i = 0; i < 90; i++) updatePlayer(constrained, 1 / 60, new Set([key]));
+  assert.ok(isShowering(constrained.position), 'Cabin walls keep the player beneath the shower head: ' + key);
+  assert.ok(constrained.position.y >= 787, 'Head cannot move up into the shower fixture');
+}
+assert.equal(isWalkable({ x: 1120, y: 760 }), false, 'Back wall blocks the old forehead-level shower position');
+assert.equal(isWalkable({ x: 1100, y: 790 }), false, 'Left panel blocks sideways movement');
+assert.equal(isWalkable({ x: 1140, y: 790 }), false, 'Right panel blocks sideways movement');
+const leavingShower = createActor({ ...showerSpot });
+for (let i = 0; i < 45; i++) updatePlayer(leavingShower, 1 / 60, new Set(['s']));
+assert.equal(isShowering(leavingShower.position), false, 'Keyboard can leave through the front of the cabin');
 assert.ok(setDestination(player, { x: 920, y: 900 }));
 for (let i = 0; i < 1000; i++) updatePlayer(player, 1 / 60, new Set());
 assert.equal(isShowering(player.position), false, 'Leaving the shower restores clothing');

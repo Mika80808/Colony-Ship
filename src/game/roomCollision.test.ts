@@ -10,7 +10,7 @@ assert.equal(isWalkable({ x: 490, y: 200 }), false, 'Window wall blocks the nort
 for (const [from, to] of [
   [{ x: 760, y: 800 }, { x: 920, y: 820 }],
   [{ x: 920, y: 820 }, { x: 760, y: 800 }],
-  [{ x: 900, y: 500 }, { x: 1100, y: 760 }],
+  [{ x: 900, y: 500 }, { x: 1120, y: 790 }],
 ]) {
   const path = findPath(from, to);
   assert.ok(path.length, 'Bathroom remains reachable');
