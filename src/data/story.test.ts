@@ -149,26 +149,26 @@ assert.match(
   }
 }
 
-// ---- 設定待補的三位 NPC：可讀取故事書，不占房間，也不被日程移入場景
+// ---- 設定待補的三位 NPC：住進 A-3～A-5，暫定日程整天在房間
 {
   const pending = INITIAL_NPCS.filter((npc) => ['aiden', 'ethan', 'luca'].includes(npc.id));
   assert.equal(pending.length, 3);
   const story = mergeStory({ ...builtin, npcs: pending }, EMPTY_RUN_STORY, EMPTY_OVERRIDES);
+  const homes: Record<string, string> = { aiden: 'A-3', ethan: 'A-4', luca: 'A-5' };
   for (const npc of story.npcs) {
     assert.equal(npc.source, 'builtin');
     assert.deepEqual([npc.age, npc.position, npc.personality, npc.background], ['', '', '', '']);
     assert.equal(npc.other, '人物設定待補。');
-    assert.equal(npc.roomId, undefined);
-    assert.equal(npc.department, undefined);
-    assert.equal(npc.schedules, undefined);
-    assert.equal(npc.location, undefined);
-    assert.deepEqual(validateRoom('', npc.id, story.npcs, ROOMS), {});
-    for (let hour = 0; hour < 24; hour++) assert.equal(locateNpc(npc.schedules, hour, npc.affection), null);
+    assert.equal(npc.roomId, homes[npc.id]);
+    assert.equal(npc.department, undefined, '部門還沒定');
+    assert.deepEqual(validateRoom(npc.roomId!, npc.id, story.npcs, ROOMS), {}, '房號不跟別人重複');
+    for (let hour = 0; hour < 24; hour++) assert.equal(locateNpc(npc.schedules, hour, npc.affection), homes[npc.id], '整天在自己房間');
+    assert.equal(findRoomOccupant(story.npcs, homes[npc.id])?.id, npc.id, '房號反查得到住戶');
   }
-  for (const room of ROOMS) assert.equal(findRoomOccupant(story.npcs, room.id), undefined);
-  assert.deepEqual(planRelocation(story.npcs, 8, null), { apply: {}, deferred: [] });
-  assert.deepEqual(planRelocation(story.npcs, 8, 'A-1'), { apply: {}, deferred: [] });
-  assert.deepEqual(story.npcs.filter((npc) => npc.location === 'A-1'), [], '房間在場名單不包含未安排位置的角色');
+  assert.deepEqual(planRelocation(story.npcs, 10, null).apply, { aiden: 'A-3', ethan: 'A-4', luca: 'A-5' }, '換場時依日程移進房間');
+  assert.deepEqual(planRelocation(story.npcs, 10, 'A-3'), { apply: { ethan: 'A-4', luca: 'A-5' }, deferred: ['aiden'] }, '玩家眼前的房間照舊延到換場才套用');
+  const occupied = new Set([...INITIAL_NPCS.map((npc) => npc.roomId).filter(Boolean)]);
+  assert.equal(occupied.size, INITIAL_NPCS.filter((npc) => npc.roomId).length, '內建 NPC 的房號互不重複');
 }
 
 // ---- 內建內容：種子遷移只補空欄位、補上缺少的條目
@@ -199,7 +199,7 @@ assert.match(
   assert.deepEqual(b.schedules, customSchedule, '遷移不覆蓋已經改過的日程');
 
   writeBuiltinStory(loaded);
-  assert.equal(JSON.parse(memory.get('starport_builtin_story')!).seedVersion, 6);
+  assert.equal(JSON.parse(memory.get('starport_builtin_story')!).seedVersion, 7);
   assert.equal(b.roomId, 'A-2', 'v3 遷移讓布雷茲住進 A-2');
   assert.deepEqual(loadBuiltinStory().npcs.find((n) => n.id === 'blaze')!.schedules, customSchedule, '已是最新版本時不再遷移');
 
@@ -330,6 +330,42 @@ assert.match(
     { npcs: [], items: [], chapters: [], sectors: [] } as unknown as StoryLayer,
     { npcs: {}, items: {}, chapters: {}, sectors: {} } as unknown as StoryOverrides);
   assert.deepEqual(merged.lore.map((entry) => [entry.id, entry.enabled]), [['lore-x', true]]);
+}
+
+// ---- 種子 v6 → v7：艾登、伊森、路卡住進 A-3～A-5；已改過或房間被占用的不動
+{
+  const memory = new Map<string, string>();
+  (globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (key: string) => memory.get(key) ?? null,
+    setItem: (key: string, value: string) => void memory.set(key, value),
+    removeItem: (key: string) => void memory.delete(key),
+  };
+  const code = (id: string) => INITIAL_NPCS.find((npc) => npc.id === id)!;
+  const bare = (id: string) => ({ ...code(id), roomId: undefined, schedules: undefined });
+  const custom: NpcSchedule[] = [base([{ start: 0, end: 0, locationId: 'park', nature: 'free' }])];
+  const store = (npcs: unknown[]) => memory.set('starport_builtin_story', JSON.stringify({
+    seedVersion: 6, npcs, items: [], chapters: [], sectors: INITIAL_SECTORS, lore: [],
+  }));
+
+  store([code('lucian'), bare('aiden'), bare('ethan'), bare('luca')]);
+  let npcs = loadBuiltinStory().npcs;
+  const byId = (id: string) => npcs.find((npc) => npc.id === id)!;
+  assert.deepEqual(['aiden', 'ethan', 'luca'].map((id) => byId(id).roomId), ['A-3', 'A-4', 'A-5'], '沒房號的補上');
+  assert.deepEqual(byId('aiden').schedules, code('aiden').schedules, '沒日程的補上');
+
+  store([
+    { ...code('lucian'), roomId: 'A-3' },           // A-3 已經被別人住
+    bare('aiden'),
+    { ...bare('ethan'), roomId: 'B-2' },             // 在 UI 改過房號
+    { ...bare('luca'), schedules: custom },          // 在 UI 改過日程
+  ]);
+  npcs = loadBuiltinStory().npcs;
+  assert.equal(byId('aiden').roomId, undefined, '房間被占用就不補房號');
+  assert.equal(byId('aiden').schedules, undefined, '沒住進去也不補日程，免得被帶進別人房間');
+  assert.equal(byId('ethan').roomId, 'B-2', '改過的房號不動');
+  assert.equal(byId('ethan').schedules, undefined, '房號不是 A-4 就不補 A-4 的日程');
+  assert.equal(byId('luca').roomId, 'A-5');
+  assert.deepEqual(byId('luca').schedules, custom, '改過的日程不動');
 }
 
 // ---- 房號校驗把玩家算進去

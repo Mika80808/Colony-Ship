@@ -149,7 +149,7 @@ function asBuiltin<E extends { id: string; source: EntrySource }>(list: unknown)
  * 種子版本。initialGameData 的既有條目內容有更新、要同步給已經啟動過的瀏覽器時 +1，
  * 並在 SEED_MIGRATIONS 補一段遷移。遷移只能「補空欄位」，不可覆蓋開發者在 UI 改過的內容。
  */
-const SEED_VERSION = 6;
+const SEED_VERSION = 7;
 
 /** 用程式碼裡的值補上存下來條目的空欄位。 */
 function fillEmptyFromCode(stored: NpcEntry[], fields: (keyof NpcEntry)[]): NpcEntry[] {
@@ -223,6 +223,19 @@ const SEED_MIGRATIONS: Record<number, (story: StoryLayer) => StoryLayer> = {
       return old && code && sector.description === old ? { ...sector, description: code.description } : sector;
     }),
     lore: story.lore?.length ? story.lore : INITIAL_LORE,
+  }),
+  // v6 → v7：艾登、伊森、路卡住進 A-3～A-5，補上暫定日程（整天在房間）。
+  // 房號只在他沒房號、且那間沒人住時補；日程只在沒有日程、且房號確實是那間時補，
+  // 免得日程把人帶進別人的房間。
+  6: (story) => ({
+    ...story,
+    npcs: story.npcs.map((npc) => {
+      const code = INITIAL_NPCS.find((entry) => entry.id === npc.id);
+      if (!code?.roomId || !['aiden', 'ethan', 'luca'].includes(npc.id)) return npc;
+      const taken = story.npcs.some((other) => other.id !== npc.id && other.roomId === code.roomId);
+      const withRoom = !npc.roomId && !taken ? { ...npc, roomId: code.roomId } : npc;
+      return withRoom.roomId === code.roomId ? fillEmptyFromCode([withRoom], ['schedules'])[0] : withRoom;
+    }),
   }),
 };
 

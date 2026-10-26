@@ -73,7 +73,7 @@ export const INITIAL_RELATIONSHIP = '陌生';
 /**
  * 世界觀設定：NPC。
  * 路西恩、布雷茲、艾登、伊森、路卡皆有角色卡、立繪、六種表情與行走圖。
- * 艾登、伊森、路卡的人物設定待補，暫不指定房號、日程或部門。
+ * 艾登、伊森、路卡的人物設定與部門待補；房號先排在居住區 A（A-3～A-5），日程暫定整天在房間。
  * 好感、關係、所在位置是本局進度，不寫在這裡。
  */
 export const INITIAL_NPCS: NpcEntry[] = [
@@ -141,6 +141,15 @@ export const INITIAL_NPCS: NpcEntry[] = [
     id: 'aiden', source: 'builtin', name: '艾登', age: '', gender: '男', position: '',
     appearance: '黑色短髮、褐色眼睛，額上戴護目鏡，穿著黑灰色外套與橘色背帶，佩戴金屬吊牌。',
     personality: '', background: '', other: '人物設定待補。',
+    roomId: 'A-3',
+    // 暫定日程：人物設定與部門還沒定，先整天待在自己房間，玩家找得到人。
+    schedules: [{
+      kind: 'base',
+      slots: [
+        { start: 0, end: 8, locationId: 'A-3', nature: 'sleep' },
+        { start: 8, end: 0, locationId: 'A-3', nature: 'free' },
+      ],
+    }],
     portraitUrl: '/assets/aiden/neutral.webp', fullBodyUrl: '/assets/aiden/profile.webp',
     cardUrl: '/assets/aiden/portrait.webp', walkUrl: '/assets/aiden/walk.webp',
     expressionUrls: {
@@ -156,6 +165,15 @@ export const INITIAL_NPCS: NpcEntry[] = [
     id: 'ethan', source: 'builtin', name: '伊森', age: '', gender: '男', position: '',
     appearance: '深紫色長髮束成低馬尾，戴細框眼鏡與耳環，穿著白襯衫、黑色背心與深紫色領帶。',
     personality: '', background: '', other: '人物設定待補。',
+    roomId: 'A-4',
+    // 暫定日程：人物設定與部門還沒定，先整天待在自己房間，玩家找得到人。
+    schedules: [{
+      kind: 'base',
+      slots: [
+        { start: 0, end: 8, locationId: 'A-4', nature: 'sleep' },
+        { start: 8, end: 0, locationId: 'A-4', nature: 'free' },
+      ],
+    }],
     portraitUrl: '/assets/ethan/neutral.webp', fullBodyUrl: '/assets/ethan/profile.webp',
     cardUrl: '/assets/ethan/portrait.webp', walkUrl: '/assets/ethan/walk.webp',
     expressionUrls: {
@@ -171,6 +189,15 @@ export const INITIAL_NPCS: NpcEntry[] = [
     id: 'luca', source: 'builtin', name: '路卡', age: '', gender: '男', position: '',
     appearance: '銀白色短髮、淺色眼睛，戴多枚耳飾，穿著白色外套與黑色高領內搭，頸前掛護目鏡。',
     personality: '', background: '', other: '人物設定待補。',
+    roomId: 'A-5',
+    // 暫定日程：人物設定與部門還沒定，先整天待在自己房間，玩家找得到人。
+    schedules: [{
+      kind: 'base',
+      slots: [
+        { start: 0, end: 8, locationId: 'A-5', nature: 'sleep' },
+        { start: 8, end: 0, locationId: 'A-5', nature: 'free' },
+      ],
+    }],
     portraitUrl: '/assets/luca/neutral.webp', fullBodyUrl: '/assets/luca/profile.webp',
     cardUrl: '/assets/luca/portrait.webp', walkUrl: '/assets/luca/walk.webp',
     expressionUrls: {
