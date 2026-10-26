@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CorridorAsset, CorridorConfig, HEIGHT, WIDTH, SPAWN, Point, Interaction, findPath, move, interactions, nearby, signNotice, benchSeat, doorRoomId, spawnOutside, rightEdgeExit, leftEdgeExit, signFacility, FACILITY_SECTOR } from '../game/corridor';
 import { FACILITIES } from '../game/facility';
 import { ACTOR_HEIGHT, fitViewport } from '../game/viewport';
+import { drawSeatedPose } from '../game/seatedPose';
 
 interface Props {
   corridor: CorridorConfig; paused: boolean; playerName: string;
@@ -74,9 +75,7 @@ export default function CorridorScene(props: Props) {
         const col=({down:0,up:1,left:2,right:3} as Record<string,number>)[s.direction];
         const row=moving?[0,1,0,2][Math.floor(s.elapsed*8)%4]:0;
         if(s.sitting) {
-          // Preserve head/body scale; shorten the lower-leg section for a seated preview pose.
-          ctx.drawImage(sprite,col*sw,row*sh,sw,sh*.7,s.p.x-w/2,s.p.y-h*.85+5,w,h*.7);
-          ctx.drawImage(sprite,col*sw,row*sh+sh*.7,sw,sh*.3,s.p.x-w/2,s.p.y-h*.15+5,w,h*.15);
+          drawSeatedPose(ctx,sprite,col*sw,0,sw,sh,s.p.x-w/2,s.p.y-h*.85+5,w,h,s.direction as 'down' | 'up' | 'left' | 'right');
         } else ctx.drawImage(sprite,col*sw,row*sh,sw,sh,s.p.x-w/2,s.p.y-h+5,w,h);
       };
       const render=(time: number)=>{
