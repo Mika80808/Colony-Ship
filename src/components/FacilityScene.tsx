@@ -10,6 +10,7 @@ import { dayNumber, stageAt } from '../game/growth';
 import { decorSprites, spriteFor, trackX } from '../game/decor';
 import { Fish, WaterMask, drawFish, rng, spawnFish, stepFish } from '../game/fish';
 import { drawBeforePlayer } from '../game/sceneDepth';
+import { GardenState, needsWater, stageOf } from '../game/garden';
 
 /** 畫在地面之上、要和玩家排前後的東西：依底部 y 由上到下畫，玩家插在自己腳的位置。 */
 interface Standing { bottom: number; sprite?: string; left?: number; right?: number; beside?: boolean; draw: (ctx: CanvasRenderingContext2D) => void }
@@ -32,6 +33,8 @@ interface Props {
   /** 遊戲時間：自動植栽區的作物依此決定生長階段。 */
   gameDate: string;
   gameTime: string;
+  /** 玩家菜圃的狀態：畫在 map.json 第一塊 plots 上，一格一株。 */
+  garden?: GardenState;
 }
 export default function FacilityScene(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -77,7 +80,7 @@ export default function FacilityScene(props: Props) {
      * 回傳的 paint 依遊戲時間重畫作物的生長階段；三個階段的圖一開始就全部載好，換階段不用等。
      */
     async function loadRacks(folder: string, map: FacilityMap) {
-      if (!map.racks?.length) return { racks: [], paint: () => {} };
+      if (!map.racks?.length) return { racks: [], paint: () => {}, images: new Map<string, HTMLImageElement>() };
       const specs = map.racks;
       const json = async <T,>(src: string) => { const r = await fetch(src); if (!r.ok) throw new Error(src); return r.json() as Promise<T>; };
       const [meta, crops] = await Promise.all([json<RacksMeta>(`/assets/${folder}/racks.json`), json<CropsMeta>(`/assets/${folder}/crops/crops.json`)]);
@@ -90,7 +93,7 @@ export default function FacilityScene(props: Props) {
         g.clearRect(0, 0, meta.width, meta.height); g.drawImage(frames[r.kind], 0, 0);
         for (const p of layoutRack(r, meta, crops, crop => stageAt(crop, rackKey(r), day))) { const im = images.get(`${p.crop}_${p.stage}`)!; g.drawImage(im, p.x, p.bottom - im.height); }
       });
-      return { racks, paint };
+      return { racks, paint, images };
     }
     /** 樹、花：每張圖以底部中心對齊 map.json 的位置；有 {season} 的依當下遊戲日期挑圖。 */
     async function loadDecor(folder: string, map: FacilityMap): Promise<Standing[]> {
@@ -145,6 +148,21 @@ export default function FacilityScene(props: Props) {
       s.standing = [
         ...racks.racks.map(r => ({ bottom: r.bottom, draw: (c: CanvasRenderingContext2D) => { c.imageSmoothingEnabled = false; c.drawImage(r.image, r.x, r.y, r.width, r.height); } })),
         ...decor,
+        // 玩家菜圃：每格一株，跟角色排前後；圖放大 2 倍（跟種植架同比例），底部對齊那一格的下緣
+        ...(map.plots?.[0] ? Array.from({ length: map.plots[0].w * map.plots[0].h }, (_, index) => {
+          const plot = map.plots![0], T = map.tileSize, cx = (plot.x + index % plot.w + .5) * T, bottom = (plot.y + Math.floor(index / plot.w) + 1) * T - 14;
+          return { bottom, draw: (c: CanvasRenderingContext2D) => {
+            const cell = controls.current.garden?.cells[index]; if (!cell) return;
+            const day = dayNumber(controls.current.gameDate, controls.current.gameTime);
+            // 澆過水的土顏色深一點
+            if (!cell.dead && !needsWater(cell, day)) { c.fillStyle = '#2b1d1255'; c.beginPath(); c.ellipse(cx, bottom - 4, 34, 12, 0, 0, Math.PI * 2); c.fill(); }
+            const im = racks.images.get(`${cell.crop}_${stageOf(cell)}`); if (!im) return;
+            c.imageSmoothingEnabled = false;
+            if (cell.dead) c.filter = 'grayscale(1) brightness(.55)';
+            c.drawImage(im, cx - im.width, bottom - im.height * 2, im.width * 2, im.height * 2);
+            c.filter = 'none';
+          } };
+        }) : []),
         // 橫牆牆頂：從底圖切同一塊蓋回去，角色走到牆後面時就被蓋住下半身
         ...(map.walls ?? []).map(w => ({ bottom: w.bottom, left: w.left, right: w.right, beside: w.left !== undefined, draw: (c: CanvasRenderingContext2D) => {
           const k = background.width / world.width;

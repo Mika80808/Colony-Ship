@@ -21,24 +21,30 @@ export const RING = ['lab', 'residential_a', 'greenhouse', 'residential_b', 'med
 /** 中央廣場；艦橋在中央塔上方，算垂直移動。 */
 const CENTRE = 'park', VERTICAL = new Set(['bridge']);
 
+/**
+ * 玩家有的交通工具（骨架第八節「交通工具降級」，企劃 docs/supply-ship.md 第七節）：
+ * 滑板車讓外環繞行少一級（半圈 → 相鄰）；貨運輕軌走十字輻條，跨環降到最低一級。垂直移動不受影響。
+ */
+export interface TravelPerks { scooter?: boolean; rail?: boolean }
+
 /** 兩個區域之間的傳送級距（0–4）。不認得的區域當相鄰。 */
-export function travelTier(from: string, to: string): number {
+export function travelTier(from: string, to: string, perks: TravelPerks = {}): number {
   if (from === to) return 0;
   const vertical = Number(VERTICAL.has(from)) + Number(VERTICAL.has(to)) > 0 ? 1 : 0;
   const ground = (id: string) => VERTICAL.has(id) ? CENTRE : id;
   const a = ground(from), b = ground(to);
   let tier: number;
   if (a === b) tier = 0;
-  else if (a === CENTRE || b === CENTRE) tier = 3;                                  // 跨環
+  else if (a === CENTRE || b === CENTRE) tier = perks.rail ? 1 : 3;                // 跨環；輕軌降到最低
   else {
     const i = RING.indexOf(a), j = RING.indexOf(b);
     if (i < 0 || j < 0) tier = 1;
-    else { const d = Math.abs(i - j), ring = Math.min(d, RING.length - d); tier = ring <= 1 ? 1 : 2; }
+    else { const d = Math.abs(i - j), ring = Math.min(d, RING.length - d); tier = ring <= 1 || perks.scooter ? 1 : 2; }
   }
   return Math.min(TRAVEL_MINUTES.length - 1, tier + vertical);
 }
 
-export const travelMinutes = (from: string, to: string) => TRAVEL_MINUTES[travelTier(from, to)];
+export const travelMinutes = (from: string, to: string, perks: TravelPerks = {}) => TRAVEL_MINUTES[travelTier(from, to, perks)];
 
 /**
  * 把走過的像素累積成整數分鐘：餘數留著下次加，不會因為每次只走一小段就永遠不滿一分鐘。

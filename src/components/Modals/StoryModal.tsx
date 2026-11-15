@@ -27,10 +27,13 @@ import {
   StoryLore,
   SectorEntry,
   StoryKind,
-  ItemDefinition,
+  ITEM_CATEGORIES,
+  ItemCategory,
+  ItemEffect,
   SCHEDULE_KIND_LABEL,
   SCHEDULE_NATURE_LABEL,
 } from '../../types';
+import { DEFAULT_STACK, effectLabel } from '../../game/inventory';
 import { sound } from '../../utils/audio';
 import ModalShell from './ModalShell';
 import StoryForm, { FieldDef, FormValues } from './StoryForm';
@@ -119,9 +122,15 @@ const FORM_SCHEMA: Record<StoryTabType, FieldDef[]> = {
   // 設定集的物品定義沒有「數量」：持有幾個屬於玩家背包，不屬於設定集。
   item: [
     { key: 'name', label: '物品名稱', kind: 'text', placeholder: '物品名稱...', span: 'half', autoFocus: true },
-    { key: 'category', label: '類別', kind: 'select', options: ['消耗品', '裝備'], span: 'half' },
-    { key: 'effectText', label: '效果提示（例如：+15 體力 / LV 1 權限）', kind: 'text', placeholder: '效果描述...', span: 'full' },
+    { key: 'category', label: '類別', kind: 'select', options: [...ITEM_CATEGORIES], span: 'half' },
     { key: 'description', label: '詳細描述', kind: 'textarea', placeholder: '物品功能與背景描述...', span: 'full', rows: 3 },
+    // 使用效果由前端直接結算（game/inventory.ts）。兩欄都留空的物品，按「使用」時交給 GM 演。
+    { key: 'effectStamina', label: '使用效果：體力增減', kind: 'number', placeholder: '例如 10', span: 'half' },
+    { key: 'effectHunger', label: '使用效果：飢餓增減（吃的填負數）', kind: 'number', placeholder: '例如 -20', span: 'half' },
+    { key: 'effectText', label: '效果說明（留空會照上面兩欄自動產生）', kind: 'text', placeholder: '例如：LV 1 權限', span: 'full' },
+    { key: 'price', label: '參考價（星幣）', kind: 'number', placeholder: '不買賣就留空', span: 'half' },
+    { key: 'stackMax', label: '一格最多疊幾個', kind: 'number', placeholder: `預設 ${DEFAULT_STACK}`, span: 'half' },
+    { key: 'icon', label: '圖示路徑（留空用分類的預設圖示）', kind: 'text', placeholder: '/assets/items/coffee.webp', span: 'full' },
   ],
   event: [
     { key: 'title', label: '事件標題', kind: 'text', placeholder: '航行事件名稱...', span: 'full', autoFocus: true },
@@ -151,10 +160,7 @@ function blankForm(tab: StoryTabType, locationCount: number): FormValues {
     values[field.key] = '';
   }
   if (tab === 'character') values.gender = '男';
-  if (tab === 'item') {
-    values.category = '消耗品';
-    values.effectText = '+10 體力';
-  }
+  if (tab === 'item') values.category = '消耗品';
   if (tab === 'location') values.code = `SEC-0${locationCount + 1}`;
   return values;
 }
@@ -307,6 +313,12 @@ export default function StoryModal({
       const raw = (entity as unknown as Record<string, unknown>)[field.key];
       values[field.key] = raw == null ? '' : Array.isArray(raw) ? raw.join('、') : String(raw);
     }
+    // 物品的使用效果是巢狀欄位，攤成表單的兩個數字欄。
+    if (type === 'item') {
+      const effect = (entity as StoryItem).effect;
+      values.effectStamina = effect?.stamina ? String(effect.stamina) : '';
+      values.effectHunger = effect?.hunger ? String(effect.hunger) : '';
+    }
     const entitySchedules = type === 'character' ? (entity as NPCData).schedules ?? [] : [];
     openForm(values, entity.id, entitySchedules);
     setSelectedCharacterId(type === 'character' ? entity.id : null);
@@ -404,11 +416,25 @@ export default function StoryModal({
       );
     } else if (activeTab === 'item') {
       if (!value('name')) return;
+      /** 數字欄：空白或不是數字就當沒填。 */
+      const number = (key: string) => {
+        const parsed = Number(value(key));
+        return value(key) !== '' && Number.isFinite(parsed) ? Math.round(parsed) : undefined;
+      };
+      const editing = editingId ? itemDefinitions.find((i) => i.id === editingId) : undefined;
+      // 表單只編體力與飢餓；效果裡其他欄位（狀態增減）沿用原本的。
+      const effect: ItemEffect = { ...editing?.effect, stamina: number('effectStamina') || undefined, hunger: number('effectHunger') || undefined };
+      const hasEffect = Object.values(effect).some((entry) => entry !== undefined);
+      const price = number('price'), stackMax = number('stackMax');
       const patch = {
         name: value('name'),
-        category: (form.category === '裝備' ? '裝備' : '消耗品') as ItemDefinition['category'],
+        category: (ITEM_CATEGORIES.includes(form.category as ItemCategory) ? form.category : '消耗品') as ItemCategory,
         effectText: value('effectText'),
         description: value('description'),
+        icon: value('icon') || undefined,
+        price: price !== undefined && price >= 0 ? price : undefined,
+        stackMax: stackMax !== undefined && stackMax >= 1 ? stackMax : undefined,
+        effect: hasEffect ? effect : undefined,
       };
       onChangeItems(
         editingId
@@ -839,9 +865,9 @@ export default function StoryModal({
                                 )}
 
                                 <div className="flex items-center gap-2 flex-shrink-0">
-                                  {item.effectText && (
+                                  {effectLabel(item) && (
                                     <span className="font-hud font-bold px-2 py-0.5 rounded text-[12px] text-emerald-400 bg-emerald-950/40 border border-emerald-500/30">
-                                      {item.effectText}
+                                      {effectLabel(item)}
                                     </span>
                                   )}
                                   {renderRowActions('item', item, item.name)}

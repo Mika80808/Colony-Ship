@@ -46,6 +46,8 @@ interface HeaderHUDProps {
   /** 遊戲內日期與時間。不與現實時鐘綁定，也不每秒重繪整個 header。 */
   gameDate: string;
   gameTime: string;
+  /** 補給船船期（全站都知道的事），例「補給船約 3 天後到港」。 */
+  shipText?: string;
 }
 
 export default function HeaderHUD({
@@ -56,6 +58,7 @@ export default function HeaderHUD({
   memories,
   gameDate,
   gameTime,
+  shipText,
 }: HeaderHUDProps) {
   const [currentMemoryIndex, setCurrentMemoryIndex] = useState<number>(0);
   const [isAccordionOpen, setIsAccordionOpen] = useState<boolean>(false);
@@ -139,6 +142,8 @@ export default function HeaderHUD({
           <span className="font-mono-code text-xs text-slate-400">{gameDate}</span>
           <span className="font-mono-code text-xs text-sky-300">{gameTime}</span>
         </div>
+
+        {shipText && <span className="hidden lg:inline text-[12px] text-slate-400 font-sans" id="header-ship">{shipText}</span>}
 
         <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-md bg-[#0a1532] border border-sky-500/30 text-xs shadow-sm">
           <span className="text-slate-400 text-[12px]">當前位置</span>

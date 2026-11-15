@@ -296,4 +296,71 @@ assert.deepEqual(
   assert.ok(!buildContextBlock(context).includes('記憶'), '沒有記憶時局勢不出現記憶段落');
 }
 
+// --- 取得物品（add_item） ---
+assert.deepEqual(
+  normalizeCommands([{ type: 'add_item', name: '  草莓 ', count: 3 }], context),
+  [{ type: 'add_item', name: '草莓', count: 3 }],
+  'add_item 保留名稱與數量'
+);
+assert.deepEqual(
+  normalizeCommands([{ type: 'add_item', name: '舊照片', description: '邊角磨白了。', itemCategory: '禮物' }], context),
+  [{ type: 'add_item', name: '舊照片', count: 1, description: '邊角磨白了。', category: '禮物' }],
+  '數量預設 1；新東西帶說明與分類'
+);
+assert.equal(normalizeCommands([{ type: 'add_item', name: '   ' }], context).length, 0, '沒有名稱的 add_item 丟棄');
+assert.equal(
+  (normalizeCommands([{ type: 'add_item', name: '怪東西', count: 99999, itemCategory: '神器' }], context)[0] as { count?: number; category?: string }).count,
+  99,
+  '數量夾在 99 以內'
+);
+assert.equal(
+  'category' in normalizeCommands([{ type: 'add_item', name: '怪東西', itemCategory: '神器' }], context)[0],
+  false,
+  '不在列舉裡的分類不帶，交給前端用預設'
+);
+assert.equal(
+  normalizeCommands(Array.from({ length: 9 }, (_, i) => ({ type: 'add_item', name: `東西${i}` })), context).length,
+  5,
+  '一回合最多給五種東西'
+);
+
+// --- 新增任務（add_quest） ---
+assert.deepEqual(
+  normalizeCommands([{ type: 'add_quest', title: '送藥到醫療室', description: '把藥箱從接駁口送到醫療室。', questCategory: '主要', target: '醫療室', reward: '30 星幣', deadlineDays: 2 }], context),
+  [{ type: 'add_quest', title: '送藥到醫療室', description: '把藥箱從接駁口送到醫療室。', category: '主要', target: '醫療室', reward: '30 星幣', deadlineDays: 2 }],
+  'add_quest 保留各欄位'
+);
+assert.deepEqual(
+  normalizeCommands([{ type: 'add_quest', title: '幫忙澆水', description: '替溫室的菜圃澆水。', questCategory: '支線' }], context),
+  [{ type: 'add_quest', title: '幫忙澆水', description: '替溫室的菜圃澆水。' }],
+  '分類不合法就不帶，前端預設次要'
+);
+assert.equal(normalizeCommands([{ type: 'add_quest', title: '沒有內容' }], context).length, 0, '沒有說明的任務丟棄');
+assert.equal(
+  normalizeCommands([{ type: 'add_quest', title: ' 真任務 ', description: '重複成立。' }], context).length,
+  0,
+  '還沒結案的同名任務不重開'
+);
+assert.equal(
+  normalizeCommands([{ type: 'add_quest', title: '真任務', description: '結案後可以再接。' }], { ...context, quests: [{ ...context.quests[0], status: '已完成' }] }).length,
+  1,
+  '同名任務結案後可以再成立'
+);
+assert.equal(
+  normalizeCommands([
+    { type: 'add_quest', title: '同一件事', description: '第一次。' },
+    { type: 'add_quest', title: '同一件事', description: '第二次。' },
+  ], context).length,
+  1,
+  '同一回合重複的任務只留一則'
+);
+
+// --- 背包：同一種物品分成好幾格時，GM 只看到總數；效果從 effect 產生 ---
+{
+  const food = { id: 'crop-strawberry', name: '草莓', category: '食材' as const, effectText: '', description: '', effect: { hunger: -6 } };
+  const block = buildContextBlock({ ...context, items: [{ ...food, count: 99 }, { ...food, count: 3 }] });
+  assert.ok(block.includes('- id: crop-strawberry｜草莓 x102（飢餓 −6）'), 'GM 看到合計數量與效果');
+  assert.equal(block.split('crop-strawberry').length, 2, '同一種只列一次');
+}
+
 console.log('gm/prompt: 全部通過');

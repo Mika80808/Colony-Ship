@@ -20,12 +20,13 @@ export const BRIDGE_OBSTACLES: Rect[] = [
   {x:148,y:557,width:84,height:91},{x:1022,y:557,width:84,height:91},
   {x:164,y:221,width:57,height:45},{x:1034,y:221,width:57,height:45},
 ];
-export interface BridgeInteraction { id: string; label: string; point: Point; bounds: Rect; text: string; map?: boolean }
+/** `board`：打開補給船告示板（通訊台負責貨船進出港）。 */
+export interface BridgeInteraction { id: string; label: string; point: Point; bounds: Rect; text: string; map?: boolean; board?: boolean }
 export const BRIDGE_INTERACTIONS: BridgeInteraction[] = [
   {id:'lift',label:'開啟星圖',point:{x:627,y:615},bounds:{x:502,y:498,width:250,height:204},text:'中央廣場與艦橋之間的升降平台。目的地由星圖選擇。',map:true},
   {id:'command',label:'查看指揮台',point:{x:627,y:398},bounds:{x:458,y:210,width:338,height:148},text:'指揮台正顯示全艦航行狀態。值勤人員抬頭向你示意，隨後讓出螢幕前的視線。'},
   {id:'navigation',label:'查看導航台',point:{x:365,y:608},bounds:{x:207,y:458,width:112,height:302},text:'導航台上標示著目前航線與周邊星域。幾道藍色訊號安靜地沿著座標移動。'},
-  {id:'comms',label:'查看通訊台',point:{x:889,y:608},bounds:{x:935,y:458,width:112,height:302},text:'通訊台維持著各艙區的聯絡。值勤人員稍稍側身，讓你看見正在更新的訊息。'},
+  {id:'comms',label:'查看補給船船期',point:{x:889,y:608},bounds:{x:935,y:458,width:112,height:302},text:'通訊台維持著各艙區的聯絡與貨船進出港。',board:true},
   {id:'window',label:'眺望星空',point:{x:850,y:223},bounds:{x:325,y:0,width:606,height:99},text:'觀景窗外，行星的弧面泛著淡藍色光。艦橋的低鳴聲讓這片星空顯得更加安靜。'},
 ];
 export function insideFloor(p: Point) {

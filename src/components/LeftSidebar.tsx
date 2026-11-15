@@ -9,6 +9,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { DrawerType, ModalType, Objective } from '../types';
+import { INVENTORY_SLOTS } from '../game/inventory';
 import { sound } from '../utils/audio';
 
 // Objective 已移至 types.ts（屬於遊戲進度，存檔需要）。此處再匯出以維持既有 import。
@@ -179,7 +180,7 @@ export default function LeftSidebar({
           <Package className="w-4 h-4 text-sky-400 flex-shrink-0" />
           <span className="font-bold tracking-wide text-[16px] leading-[16px] pb-0 pr-0 -mr-[5px]">道具</span>
           <span className="font-hud text-[12px] text-slate-400 font-bold ml-[2px]">
-            {itemCount}/20
+            {itemCount}/{INVENTORY_SLOTS}
           </span>
         </button>
       </div>

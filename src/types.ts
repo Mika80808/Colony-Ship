@@ -1,5 +1,5 @@
 export type DrawerType = 'quests' | 'inventory' | 'profile' | null;
-export type ModalType = 'map' | 'storybook' | 'diary' | 'settings' | 'growth' | 'monitor' | 'memory' | null;
+export type ModalType = 'map' | 'storybook' | 'diary' | 'settings' | 'growth' | 'monitor' | 'garden' | 'shipBoard' | 'dock' | 'memory' | null;
 export type ThemeMode = 'dark' | 'light';
 
 export interface ToastMessage {
@@ -69,18 +69,52 @@ export interface EntryToggle {
 }
 
 /**
- * 設定集裡的物品「定義」。故事書物品分頁編輯的是這個。
- * 與玩家實際持有（InventoryItem）是兩回事，兩者資料分開存放。
+ * 物品分類。道具欄依這個分頁，也決定物品能做什麼：
+ * 任務物品不能丟也不能送；家具、種子不走「使用」，由佈置與種植各自處理。
+ */
+export const ITEM_CATEGORIES = ['消耗品', '食材', '種子', '禮物', '家具', '裝備', '任務物品', '其他'] as const;
+export type ItemCategory = typeof ITEM_CATEGORIES[number];
+
+/**
+ * 使用物品時由前端直接結算的效果 —— 規則寫得死的部分（吃了回多少）不交給 GM 猜。
+ * 沒有 effect 的物品，按「使用」時改交給 GM 演。
+ */
+export interface ItemEffect {
+  /** 體力增減。 */
+  stamina?: number;
+  /** 飢餓度增減。飢餓度越高越餓，所以吃東西是負的。 */
+  hunger?: number;
+  /** 使用後加上的狀態（例：宿醉）。 */
+  addCondition?: string;
+  /** 使用後解除的狀態。 */
+  removeCondition?: string;
+}
+
+/**
+ * 設定集裡的物品「定義」。故事書物品分頁編輯的是這個；系統自帶的物品（溫室收成等）
+ * 寫在 data/items.ts。與玩家實際持有（InventoryItem）是兩回事，兩者資料分開存放。
  */
 export interface ItemDefinition {
   id: string;
   name: string;
-  category: '消耗品' | '裝備';
+  category: ItemCategory;
+  /** 給玩家看的效果說明。留空時由 effect 自動產生（game/inventory.ts 的 effectLabel）。 */
   effectText: string;
   description: string;
+  /** 圖示路徑（public 底下，例 /assets/items/coffee.webp）。沒有就顯示分類的預設圖示。 */
+  icon?: string;
+  /** 一格最多疊幾個。省略時用 DEFAULT_STACK。 */
+  stackMax?: number;
+  /** 參考價（星幣）。商店買賣用；省略表示不買賣。 */
+  price?: number;
+  effect?: ItemEffect;
 }
 
-/** 玩家背包裡的一筆持有，是物品定義加上持有數量。 */
+/**
+ * 玩家背包裡的一格：物品定義加上這一格疊了幾個。
+ * 同一種物品超過堆疊上限時會佔好幾格，所以同一個 id 可能出現多次。
+ * 存檔裡留著整份定義當備份；顯示與結算時以目錄的最新定義為準（inventory.refreshDefinitions）。
+ */
 export interface InventoryItem extends ItemDefinition {
   count: number;
 }
@@ -306,6 +340,13 @@ export interface DialogueTurn {
 export type GmCommand =
   | { type: 'adjust_stats'; stamina?: number; hunger?: number; credits?: number; addCondition?: string; removeCondition?: string }
   | { type: 'consume_item'; itemId: string; count?: number }
+  /**
+   * 玩家拿到東西（骨架 ITEM_ADD）。name 是正式名稱：目錄裡有同名的就用那一筆定義，
+   * 沒有的由前端登記成本局物品條目（description、category 只在這時用得到）。
+   */
+  | { type: 'add_item'; name: string; count?: number; description?: string; category?: ItemCategory }
+  /** 任務成立（骨架 QUEST_ADD）。id 與接取日期由前端補；reward 只是文字，不觸發數值變動。 */
+  | { type: 'add_quest'; title: string; description: string; category?: Quest['category']; target?: string; reward?: string; deadlineDays?: number }
   | { type: 'set_quest_status'; questId: string; status: Quest['status'] }
   | { type: 'adjust_affection'; npcId: string; amount: number; relationship?: string }
   | { type: 'set_summary'; text: string }

@@ -1,4 +1,4 @@
-import { DialogueSegment, DialogueExpression, GmCommand, MemoryLayer, MemoryWeight, Quest } from '../types';
+import { DialogueSegment, DialogueExpression, GmCommand, ITEM_CATEGORIES, ItemCategory, MemoryLayer, MemoryWeight, Quest } from '../types';
 import { MEMORY_PARAMS, normalizeForMatch } from '../game/memory';
 import { GmContext, GmError, GmResult } from './types';
 import { requestJson } from './client';
@@ -14,6 +14,10 @@ const EXPRESSIONS: DialogueExpression[] = [
 const QUEST_STATUSES: Quest['status'][] = ['進行中', '待回報', '已完成'];
 const MEMORY_LAYERS: MemoryLayer[] = ['world', 'region', 'scene', 'npc'];
 const MEMORY_WEIGHTS: MemoryWeight[] = ['critical', 'normal', 'flavor'];
+const QUEST_CATEGORIES: Quest['category'][] = ['主要', '次要'];
+/** 一回合最多給幾種東西、開幾個任務。再多通常是模型把一件事拆成好幾條重複下。 */
+const ITEM_ADDS_PER_TURN = 5;
+const QUEST_ADDS_PER_TURN = 2;
 
 /** 把數值夾在合理範圍內。模型偶爾會給出 999999 這種值。 */
 function clamp(value: unknown, min: number, max: number): number | undefined {
@@ -74,6 +78,12 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
     [...context.presentNpcs.map((npc) => npc.name), context.locationName].map(normalizeForMatch).filter(Boolean)
   );
   let memoryAdds = 0;
+  let itemAdds = 0;
+  // 還沒結案的任務標題。同一件事不重開：模型隔幾回合常會把談過的委託再「成立」一次。
+  const openQuestTitles = new Set(
+    context.quests.filter((quest) => quest.status !== '已完成').map((quest) => normalizeForMatch(quest.title))
+  );
+  let questAdds = 0;
 
   const commands: GmCommand[] = [];
   for (const item of raw) {
@@ -103,6 +113,38 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
         const itemId = typeof entry.itemId === 'string' ? entry.itemId : '';
         if (!itemIds.has(itemId)) break;
         commands.push({ type: 'consume_item', itemId, count: clamp(entry.count, 1, 99) ?? 1 });
+        break;
+      }
+      case 'add_item': {
+        // 物品用名稱指涉，不用 id：新東西本來就還沒有 id。名稱對不對得上目錄由前端判斷
+        // （game/inventory.ts 的 grantItem），對不上的登記成本局物品，所以這裡不會有「捏造」的問題。
+        if (itemAdds >= ITEM_ADDS_PER_TURN) break;
+        const name = text(entry.name, 20);
+        if (!name) break;
+        const command: GmCommand = { type: 'add_item', name, count: clamp(entry.count, 1, 99) ?? 1 };
+        const description = text(entry.description, 120);
+        if (description) command.description = description;
+        if (ITEM_CATEGORIES.includes(entry.itemCategory as ItemCategory)) command.category = entry.itemCategory as ItemCategory;
+        commands.push(command);
+        itemAdds += 1;
+        break;
+      }
+      case 'add_quest': {
+        if (questAdds >= QUEST_ADDS_PER_TURN) break;
+        const title = text(entry.title, 20);
+        const description = text(entry.description, 200);
+        if (!title || !description || openQuestTitles.has(normalizeForMatch(title))) break;
+        const command: GmCommand = { type: 'add_quest', title, description };
+        if (QUEST_CATEGORIES.includes(entry.questCategory as Quest['category'])) command.category = entry.questCategory as Quest['category'];
+        const target = text(entry.target, 20);
+        if (target) command.target = target;
+        const reward = text(entry.reward, 40);
+        if (reward) command.reward = reward;
+        const deadlineDays = clamp(entry.deadlineDays, 1, 365);
+        if (deadlineDays) command.deadlineDays = deadlineDays;
+        commands.push(command);
+        openQuestTitles.add(normalizeForMatch(title));
+        questAdds += 1;
         break;
       }
       case 'set_quest_status': {

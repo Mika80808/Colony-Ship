@@ -190,7 +190,7 @@ export function interactions(m: FacilityMap): FacilityInteraction[] {
     ...m.entrances.map(e => ({ ...at(`exit-${e.to}`, 'exit', e.label, '', e, { x: e.x + e.w / 2, y: e.y + e.h / 2 }), to: e.to })),
     ...(m.interactions ?? []).map(i => ({ ...at(i.id, i.kind, i.label, i.text, { x: i.area[0], y: i.area[1], w: i.area[2], h: i.area[3] }, { x: i.stand[0], y: i.stand[1] }), ...(i.seat ? { seat: seatPoint(i.seat) } : {}), ...(i.exit ? { exit: { x: i.exit[0] * m.tileSize, y: i.exit[1] * m.tileSize } } : {}), ...bedLine(i) })),
     ...(m.door && !m.door.auto ? [((stand: Point) => at(m.door!.id, 'door', m.door!.label, '', m.door!.passage, { x: stand.x / m.tileSize, y: stand.y / m.tileSize }))(doorStand(m, m.door, { x: 0, y: Infinity }))] : []),
-    ...(m.plots ?? []).map((p, i, all) => at(`plot-${i + 1}`, 'plot', all.length > 1 ? `種植區 ${i + 1}` : '種植區', '這塊土地還空著。（種植系統尚未開放）', p, { x: p.x + p.w / 2, y: p.y + p.h / 2 })),
+    ...(m.plots ?? []).map((p, i, all) => at(`plot-${i + 1}`, 'plot', all.length > 1 ? `種植區 ${i + 1}` : '種植區', '這塊地還空著。', p, { x: p.x + p.w / 2, y: p.y + p.h / 2 })),
   ];
 }
 

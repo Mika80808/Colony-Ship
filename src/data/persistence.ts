@@ -1,4 +1,7 @@
 import type { SuppliesState } from '../game/supplies';
+import type { AffectionTally } from '../game/vitals';
+import type { GardenState } from '../game/garden';
+import type { FreightState } from '../game/freight';
 import {
   PlayerProfile,
   PlayerStats,
@@ -66,6 +69,12 @@ export interface GameSave {
   gameTime: string;
   /** 船上物資帳（game/supplies.ts）。舊存檔沒有，讀檔時從開局狀態起算。 */
   supplies?: SuppliesState;
+  /** 好感單日上限的帳（game/vitals.ts）。舊存檔沒有，當天從零起算。 */
+  affectionTally?: AffectionTally;
+  /** 玩家在溫室的菜圃（game/garden.ts）。舊存檔沒有，從空地開始。 */
+  garden?: GardenState;
+  /** 補給船的貨：接駁口、推車、各區存量（game/freight.ts）。舊存檔沒有，從開局狀態起算。 */
+  freight?: FreightState;
 }
 
 /** 存檔內容的欄位，不含 version / savedAt 這兩個由寫入端補上的中繼欄位。 */
