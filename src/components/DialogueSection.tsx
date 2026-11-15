@@ -65,7 +65,8 @@ export default function DialogueSection({ onOpenModal, onSendMessage, dialogueHi
       <div id="npc-stage" className="flex-1 min-h-0 relative">{stage}</div>
       <div className="dialogue-panel w-full max-w-[900px] mx-[10px] p-3 flex gap-4 z-30 items-stretch">
         {/* 頭像框固定 1:1，對應 1024×1024 的頭像素材；不跟右側對話區一起拉高，否則 object-cover 會裁掉左右。 */}<div className="w-[140px] flex-shrink-0 relative self-center">
-          {toast && <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white text-slate-900 px-3 py-1.5 rounded-sm text-[13px] font-bold shadow whitespace-nowrap z-50">{toast.text}</div>}
+          {/* 靠左對齊、往右長：置中的話，長一點的訊息左半邊會被面板裁掉。 */}
+          {toast && <div className="absolute -top-12 left-0 bg-white text-slate-900 px-3 py-1.5 rounded-sm text-[13px] font-bold shadow whitespace-nowrap z-50">{toast.text}</div>}
           <div className="w-full aspect-square rounded-xl bg-[#081024]/80 border border-sky-500/30 flex flex-col justify-end p-2 relative overflow-hidden text-center">{/* 半透明只套在「沒有頭像」的佔位圖示上；套在外層會連真頭像一起變淡、透出底色而發灰。 */}<div className="absolute inset-0 flex items-center justify-center pb-5">{portrait ? <><img src={portrait} alt={speakerNpc?.name ?? lastSpeaker} className="absolute inset-0 w-full h-full object-cover" />{/* 頭像恢復全亮後，底部名字需要一層漸層襯底才讀得清楚。 */}<div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#081024]/90 to-transparent" /></> : <User className="w-11 h-11 text-sky-400 opacity-60" />}</div><span className="relative text-xs font-hud font-bold text-sky-100 tracking-[0.1em] truncate">{lastSpeaker}</span></div>
         </div>
         <div className="flex-1 flex flex-col gap-3 min-w-0 h-[160px] relative">

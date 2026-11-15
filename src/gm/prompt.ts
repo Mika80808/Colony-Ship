@@ -1,5 +1,6 @@
 import { GmContext } from './types';
 import type { MemoryBlocks } from '../game/memory';
+import { effectLabel, totalsById } from '../game/inventory';
 
 /**
  * GM 的角色設定與輸出規範。
@@ -67,17 +68,32 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
 - 一次回應以 1 到 4 則為宜。對白請加上引號。
 
 ## commands：對遊戲狀態的變更
-只有這十種，且**只能引用下方局勢中真實存在的 id**，不可自行發明：
+只有這十二種，且**只能引用下方局勢中真實存在的 id**，不可自行發明：
 - npc_thought：在場 NPC 此刻的內心想法，npcId 為在場 NPC 的 id，text 40 字內，
   用那個角色的口吻寫他心裡怎麼看玩家、怎麼看這件事（例如「他今天話很少，是不是
   我昨天說錯話了」）。**場上有 NPC 時，每位在場 NPC 每次回應都要下一則**，這是他
   記得這段相處的唯一依據，漏了就補不回來。玩家看不到這些內容。
 - adjust_stats：調整數值。stamina／hunger／credits 為增減量（可為負），
-  addCondition／removeCondition 為狀態字串。
-- consume_item：消耗玩家背包中的物品。itemId 必須是背包裡既有的 id，count 預設 1。
+  addCondition／removeCondition 為狀態字串。飢餓度越高越餓，吃東西是負的。
+  **只用在事件上**（吃了一頓飯、搬了重物、付錢、受傷）。走路與時間流逝造成的疲勞和飢餓
+  系統會自己算；睡覺或長時間休息（advance_time 240 分鐘以上）系統也會自動回復體力，
+  都不要再用 adjust_stats 重複算。
+- consume_item：物品離開玩家背包（用掉、吃掉、送人、交出去都算）。itemId 必須是背包裡既有的 id，
+  count 預設 1。背包裡標了效果的物品被吃掉或用掉時，照標示的效果下 adjust_stats，不要另外估。
+- add_item：玩家拿到東西（有人給的、撿到的、買到的）。name 只寫物品本身的名稱，不帶數量與量詞
+  （寫「草莓」，不寫「一盒草莓」），數量寫在 count（預設 1）；背包或設定集裡已經有的東西，
+  名稱要一模一樣。全新的東西另外給 description（一句話，40 字內）與 itemCategory
+  （消耗品／食材／種子／禮物／家具／裝備／任務物品／其他）。買東西要同時用 adjust_stats 扣星幣。
+  東西要有來由，不要憑空塞給玩家；NPC 只是口頭答應、還沒交到手上時不要下。
+- add_quest：有人正式託付玩家一件事、玩家也答應了，任務才成立。title 12 字內；description 寫清楚
+  要做什麼、做到什麼算完成；questCategory 為 "主要"（跟職務有關）或 "次要"（預設）；target 選填，
+  寫回報對象或地點；reward 選填，只在對方親口說了報酬時才填，是純文字、系統不會自動發放 ——
+  結案時要另外用 adjust_stats 或 add_item 把報酬給出去；deadlineDays 選填。
+  隨口的請求、玩家自己想做的事用 add_objective 就好，不必開任務。
 - set_quest_status：改任務狀態。questId 必須是既有任務的 id，
-  status 為 "進行中"／"待回報"／"已完成"。
+  status 為 "進行中"／"待回報"／"已完成"。事情做完但還沒回報是 "待回報"，回報了才是 "已完成"。
 - adjust_affection：調整 NPC 好感。npcId 必須是在場 NPC 的 id，amount 為增減量。
+  好感變動要小而少，不必每回合都動；對同一人一天累計最多加減 10，超出的系統會丟掉。
 - set_summary：改寫左欄的當前摘要。text 為 40 到 80 字的一段話，寫「玩家現在
   的處境」，不是流水帳。劇情有實質推進才下，每次都改會洗掉玩家剛讀過的內容。
 - add_objective：新增一則當前目標。text 為 20 字內的祈使句（例如「找布雷茲問
@@ -96,8 +112,13 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
     的背景。只填事件標記（例如「停電」「借工具」），不要填人名地名。
   - expireDays 選填：幾天後失效，適合暫時的狀況（例如維修中）。
 
+玩家把補給船的私人包裹當面交給收件人時，系統已經處理好背包、任務與送件報酬：
+不要再下 consume_item、set_quest_status，也不要用 adjust_stats 發報酬；演出收件人的反應就好，
+好感可以視反應小幅調整。
+玩家播放月球或火星寄來的回信時，依玩家寄去的內容，用寄件人的口吻寫一段錄製訊息（家人、朋友、舊同事都可以，
+由你決定是誰），不要下指令改背包。
 沒有對應 id 時就不要下該指令，改用敘述帶過。
-不要發放新任務或新物品 —— 目前的指令集還不支援，硬下指令只會失效。
+敘述裡寫了玩家拿到或失去東西，就要有對應的 add_item／consume_item，背包才會跟故事一致。
 
 當前目標與當前摘要是玩家隨時看得到的側欄，不是每回合都要動。
 除了 npc_thought 與 advance_time，多數回合不需要其他指令。`;
@@ -174,8 +195,9 @@ export function buildStateBlock(context: GmContext): string {
     ? quests.map((q) => `- id: ${q.id}｜[${q.category}][${q.status}] ${q.title}：${q.description}`).join('\n')
     : '（目前沒有任務。）';
 
+  // 同一種物品可能分成好幾格，GM 只需要知道總數。
   const itemBlock = items.length
-    ? items.map((i) => `- id: ${i.id}｜${i.name} x${i.count}${i.effectText ? `（${i.effectText}）` : ''}`).join('\n')
+    ? totalsById(items).map((i) => `- id: ${i.id}｜${i.name} x${i.count}${effectLabel(i) ? `（${effectLabel(i)}）` : ''}`).join('\n')
     : '（背包是空的。）';
 
   const objectiveBlock = objectives.length
@@ -193,7 +215,7 @@ export function buildStateBlock(context: GmContext): string {
 ## 時間
 ${gameDate} ${gameTime}
 ${sceneObjects ? `\n## 當前場景物件（僅供辨認名稱與相對位置，不要把座標直接說給玩家）\n${sceneObjects}\n` : ''}${supplies?.length ? `
-## 站上物資（僅供參考：讓角色自然提起食材充足或短缺，不要報數字，也不要用指令改）
+## 站上物資與補給船（僅供參考：讓角色自然提起食材充足或短缺、船什麼時候到，不要報公斤數，也不要用指令改）
 ${supplies.join('\n')}
 ` : ''}${terminals?.length ? `
 ## 這裡可查詢的設施終端（角色要先走到終端前查看，才說得出下面的內容；沒查看前只能憑印象講大概，不要報日期或天數。有角色想知道時，可以讓他去查）

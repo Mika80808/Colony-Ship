@@ -18,6 +18,13 @@ assert.equal(travelTier('greenhouse', 'bridge'), 4);
 assert.equal(travelTier('bridge', 'greenhouse'), travelTier('greenhouse', 'bridge'), 'symmetric');
 for (let i = 1; i < TRAVEL_MINUTES.length; i++) assert.ok(TRAVEL_MINUTES[i] > TRAVEL_MINUTES[i - 1]);
 assert.equal(travelMinutes('greenhouse', 'greenhouse'), 0);
+// 交通工具：滑板車讓繞半圈變相鄰；輕軌讓跨環變相鄰；垂直移動照算
+assert.equal(travelTier('greenhouse', 'medical', { scooter: true }), 1);
+assert.equal(travelTier('greenhouse', 'residential_a', { scooter: true }), 1);
+assert.equal(travelTier('greenhouse', 'park', { scooter: true }), 3, 'the scooter does not cross rings');
+assert.equal(travelTier('greenhouse', 'park', { rail: true }), 1);
+assert.equal(travelTier('greenhouse', 'bridge', { rail: true }), 2, 'the lift still counts');
+assert.equal(travelTier('greenhouse', 'greenhouse', { scooter: true, rail: true }), 0);
 
 // Walking: whole minutes only, remainders carry over, standing still costs nothing.
 const meter = walkMeter();

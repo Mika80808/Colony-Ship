@@ -4,11 +4,11 @@ import { BRIDGE_ARRIVAL_END, BRIDGE_HEIGHT, BRIDGE_LANDING, BRIDGE_SCALE, BRIDGE
 import { drawBridge, loadBridgeImages } from '../game/bridgeRender';
 import './BridgeScene.css';
 
-interface Props { paused:boolean; onOpenMap:()=>void }
+interface Props { paused:boolean; onOpenMap:()=>void; onOpenBoard?:()=>void }
 const MOVEMENT=new Set(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','w','a','s','d']);
 const normalize=(key:string)=>key.length===1?key.toLowerCase():key;
-export default function BridgeScene({paused,onOpenMap}:Props){
-  const canvasRef=useRef<HTMLCanvasElement>(null),controls=useRef({paused,onOpenMap});controls.current={paused,onOpenMap};
+export default function BridgeScene({paused,onOpenMap,onOpenBoard}:Props){
+  const canvasRef=useRef<HTMLCanvasElement>(null),controls=useRef({paused,onOpenMap,onOpenBoard});controls.current={paused,onOpenMap,onOpenBoard};
   const engine=useRef({actor:createBridgeActor(),arrival:0,arriving:true,ambient:0,pending:null as BridgeInteraction|null,keys:new Set<string>(),view:fitViewport(1,1,BRIDGE_WIDTH,BRIDGE_HEIGHT),camera:{x:0,y:0,settled:false}});
   const action=useRef<()=>void>(()=>{}),skip=useRef<()=>void>(()=>{}),resizeView=useRef<()=>void>(()=>{}),zoomRef=useRef(false);
   const [zoomed,setZoomed]=useState(false);
@@ -29,7 +29,7 @@ export default function BridgeScene({paused,onOpenMap}:Props){
     const resize=new ResizeObserver(resizeFrame);resize.observe(canvas.parentElement!);
     const interact=(item:BridgeInteraction)=>{
       if(controls.current.paused||e.arriving)return;e.actor.path=[];e.pending=null;e.keys.clear();
-      if(item.map)controls.current.onOpenMap();else setNotice(item.text);
+      if(item.map)controls.current.onOpenMap();else if(item.board&&controls.current.onOpenBoard)controls.current.onOpenBoard();else setNotice(item.text);
     };
     action.current=()=>{const item=bridgeNearby(e.actor.position);if(item)interact(item)};
     skip.current=()=>{if(controls.current.paused)return;e.arrival=BRIDGE_ARRIVAL_END;e.arriving=false;e.actor.position={...BRIDGE_LANDING};e.actor.moving=false;e.actor.path=[];setArriving(false)};
