@@ -10,8 +10,40 @@ export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
  * 藏一段時間再從右邊回來。座標都是世界 px：stops 是停靠點的水平中心，top 是圖的上緣，clip 是看得到的範圍 [x, y, 寬, 高]。
  */
 export interface TrackAnim { stops: number[]; top: number; clip: [number, number, number, number]; speed?: number }
-/** flip：左右翻轉；id／size：相對座位錨點參照的物件識別與原圖像素尺寸；anim：沿軌道移動（x 只拿來排前後）。 */
-export interface DecorSpec { sprite: string; x: number; y: number; scale: number; block?: boolean; flip?: boolean; id?: string; size?: [number, number]; anim?: TrackAnim }
+/**
+ * flip：左右翻轉；id／size：相對座位錨點參照的物件識別與原圖像素尺寸；anim：沿軌道移動（x 只拿來排前後）。
+ * beside：角色腳點在圖的左右範圍外時畫在前面。不填就照圖自動判斷（besideByShape）；只有自動判錯時才在 map.json 寫 true／false。
+ * depth：物件在地上佔的深度（格），給產生碰撞的腳本用（tools/art/footprint.py），遊戲不讀。
+ * sortY：排前後用的那條線（格）；省略＝圖的底邊 y。房間家具的排序線是畫的時候另外定的，跟圖的底邊不一樣。
+ */
+export interface DecorSpec { sprite: string; x: number; y: number; scale: number; block?: boolean; flip?: boolean; id?: string; size?: [number, number]; anim?: TrackAnim; beside?: boolean; depth?: number; sortY?: number }
+
+/**
+ * 圖往左右「懸空」伸出多少 px（圖的像素）：整張圖的不透明寬度，減掉貼地那一段（底部 15% 高）的寬度，取左右較大的一邊。
+ * 樹冠、傘這種上面比底部寬很多的會很大；桌、櫃台、床、櫃子、石頭這種底部就是整個寬度的接近 0。
+ * alpha 是 RGBA 像素（getImageData 的 data）。
+ */
+export function baseOverhang(rgba: ArrayLike<number>, width: number, height: number): number {
+  const solid = (x: number, y: number) => rgba[(y * width + x) * 4 + 3] > 40;
+  let top = height, bottom = -1;
+  for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (solid(x, y)) { top = Math.min(top, y); bottom = y; break; }
+  if (bottom < 0) return 0;
+  const span = (y0: number, y1: number) => {
+    let l = width, r = -1;
+    for (let y = y0; y <= y1; y++) for (let x = 0; x < width; x++) if (solid(x, y)) { l = Math.min(l, x); r = Math.max(r, x); }
+    return [l, r];
+  };
+  const [l, r] = span(top, bottom), [bl, br] = span(Math.max(top, bottom - Math.floor((bottom - top + 1) * .15)), bottom);
+  return Math.max(bl - l, r - br, 0);
+}
+
+/** 懸空伸出不超過這麼多世界 px（約角色半寬的一半）的物件，角色站在它左右兩側時畫在前面。 */
+export const BESIDE_OVERHANG = 24;
+/**
+ * 自動判斷 beside：圖沒有往兩側懸空伸出（桌、櫃台、床、沙發、櫃子、石頭），角色站在旁邊就是「並排」，畫在前面；
+ * 有懸空的部分（樹冠）時，角色站在樹冠底下就該被蓋住，照腳點排。overhang 用世界 px（已乘上 scale）。
+ */
+export const besideByShape = (overhang: number) => overhang <= BESIDE_OVERHANG;
 
 /** 一輪：從右邊進來 → 停三個格子（每格停 1.2 秒）→ 往右出去 → 藏 4 秒。回傳這一刻的水平中心（世界 px）。 */
 export function trackX(anim: TrackAnim, seconds: number, width: number): number {

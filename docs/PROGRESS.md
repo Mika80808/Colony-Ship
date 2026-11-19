@@ -130,6 +130,12 @@
 
 ## 其他場景
 
+- **走廊、艦橋、房間搬到設施場景格式（2026-11-20 開始）**：搬完這三個場景就共用設施場景的碰撞、尋路、排前後、點擊走路。順序：階段 0 擴充設施場景 → 1 居住區走廊 A–D → 2 艦橋 → 3 房間；每個階段的舊場景要等新的通過舊測試與瀏覽器檢查才刪。
+  - 階段 0 完成：`map.json` 新增選填欄位 `world`（世界像素大小，可不是格子整數倍）、`doors`（多扇門，可帶 `to` 開到底就離開、`locked` 只顯示文字；門框和警示燈可省略）、`arrivals`（從房間、平台這類非邊界處進場的位置與面向）、`patrol`（NPC 巡遊停靠點）。`FacilityScene` 新增 `npcs`／`onTalk`（`game/facilityNpc.ts`）和 `extras`（場景專屬演出的介面，`game/sceneExtras.ts`）。現有三個設施的 map.json 沒改，測試在 `facilityEngine.test.ts`。
+  - 階段 1 完成：居住區走廊 A–D 改用設施場景，`tools/art/corridor_map.py` 從 manifest 產生 map.json；舊的 `CorridorScene.tsx`、`corridorDoor.ts` 與走廊碰撞尋路刪除，測試換成 `corridorMap.test.ts`。引擎順帶補上：點擊範圍與 E 鍵感應範圍分開（`near`）、門的站位（`stand`）、走到邊界出入口往外走就離開（三個設施也套用）、穿過房門淡出、坐下時坐的那件家具畫在角色後面、起點格中心不再被尋路丟掉（以前偶爾會擦過家具）。說明見 `docs/scenes/corridor-a.md`。
+  - 階段 2 完成：艦橋改用設施場景，`tools/art/bridge_map.py` 產生地圖與圖層，演出與值勤人員在 `game/bridgeExtras.ts`，外框 `BridgeStage.tsx`；舊的 `BridgeScene.tsx`、`bridge.ts`、`bridgeRender.ts`、`bridgeArt.ts` 刪除，測試換成 `bridgeMap.test.ts`。引擎順帶補上：碰撞矩形依格子分桶（幾百塊也不慢）、map.json 的 `speed`、擴充介面加入會動的排序物件（`standing`）與 `drawPlayer`、全景模式、外框用的 `onNearby`／`controlRef`；共用按鍵處理加上方向鍵（所有場景）。說明見 `docs/scenes/bridge.md`。
+  - 階段 3 完成：房間改用設施場景，`tools/art/room_map.py` 每位住戶產生一份地圖（加空房），房門、淋浴、沙發扶手在 `game/roomExtras.ts`；舊的 `roomNavigation`、`roomActors`、`roomBed`、`roomSeats`、`roomInspection`、`roomFurniture`、`roomRuntime`、`showerDoor` 與它們的測試刪除，測試換成 `roomMap.test.ts`。引擎順帶補上：家具排序線 `sortY`、座位面向 `facing` 與坐著的排序線、擴充介面幫角色換色、尋路起點可以是附近直線走得到的格子（比一格還窄的走道也走得出來）。
+  - **遷移完成**：走廊、艦橋、房間、三個設施全部用同一個設施場景。說明見 `docs/scenes/room-a1.md`、`bridge.md`、`corridor-a.md`。
 - A-1 房間：可遊玩，說明見 `docs/scenes/room-a1.md`。
 - 居住區 A 走廊：可遊玩，說明見 `docs/scenes/corridor-a.md`。走廊 B–D 只有擺放設定，素材沿用 A 走廊。
 - A 走廊右端步行接溫室；溫室招牌不再觸發傳送，從 A 走廊進溫室時角色面向右方。

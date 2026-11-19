@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import type { FacilityMap } from './facility';
+import { walkable, type FacilityMap } from './facility';
 import { CropsMeta, RacksMeta, layoutRack, rackBounds } from './racks';
 const read = <T,>(path: string): T => JSON.parse(readFileSync(`public/assets/greenhouse/${path}`, 'utf8'));
 const m = read<FacilityMap>('map.json'), meta = read<RacksMeta>('racks.json'), crops = read<CropsMeta>('crops/crops.json');
 const s = m.tileSize;
 
 // Every rack sits on its collision footprint, and its 2× art is exactly as wide as the footprint.
+// 碰撞照外框圖算（tools/art/greenhouse_collision.py，of＝rack-x,y），不是整格：每格中心都要擋住
 assert.equal(m.racks?.length, 12);
 for (const r of m.racks!) {
-  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) assert.equal(m.collision[y][x], 1, `rack tile ${x},${y}`);
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) assert.equal(walkable(m, { x: (x + .5) * s, y: (y + .5) * s }), false, `rack tile ${x},${y}`);
   const b = rackBounds(r, meta, s);
   assert.equal(b.width, r.w * s); assert.equal(b.bottom, (r.y + r.h) * s); assert.ok(b.y >= 0, 'rack art stays on the map');
 }

@@ -16,6 +16,7 @@
 """
 import json, math, os
 import numpy as np
+import footprint
 from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -391,7 +392,7 @@ def main():
             else: row.append(1)
         collision.append(row)
     # 機台（engineering_objects.py v6）：圖切好了（props/<名稱>.webp 存在）才擺上去。
-    # 位置是遊戲 px（底部中心），碰撞是從底邊往上 depth 格的精細矩形（collisionRects），點擊範圍是整張圖
+    # 位置是遊戲 px（底部中心），碰撞從底邊往上 depth 格、沿著圖的輪廓（footprint.outline），點擊範圍是整張圖
     from engineering_objects import OBJECTS, SEATS, SHARED_SPRITE
     decor, items, object_rects = [], [], []
     r4 = lambda v: round(v, 4)
@@ -401,9 +402,9 @@ def main():
         if not os.path.exists(path): continue
         w, h = Image.open(path).size
         decor.append({'sprite': sprite, 'id': oid, 'x': r4(cx / T), 'y': r4(bottom / T), 'scale': 1, 'block': depth > 0})
-        if depth:
-            pad = min(12, w * .06)
-            object_rects.append({'x': r4((cx - w / 2 + pad) / T), 'y': r4(bottom / T - depth), 'w': r4((w - 2 * pad) / T), 'h': depth})
+        if depth:   # 碰撞照圖算（footprint.py，三個場景同一套）；of 標出是哪件物件的
+            alpha = np.array(Image.open(path).convert('RGBA'))[:, :, 3]
+            object_rects += [{**r, 'of': oid} for r in footprint.outline(alpha, 1, cx, bottom, T, depth)]
         if text:
             sx, sy = stand or (cx, bottom + 40)
             items.append({'id': oid, 'kind': 'machine', 'label': label, 'text': text,

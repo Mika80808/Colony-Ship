@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import SceneLayer from './components/SceneLayer';
 import RoomScene from './components/RoomScene';
-import CorridorScene from './components/CorridorScene';
 import { CORRIDORS } from './game/corridor';
-import { furnishingFor } from './game/roomRuntime';
 import { addMinutes, crossesCheckpoint, hourOf, planRelocation, sceneOf } from './data/npcSchedule';
-import BridgeScene from './components/BridgeScene';
+import BridgeStage from './components/BridgeStage';
 import FacilityScene from './components/FacilityScene';
 import { FACILITIES } from './game/facility';
 import { describeFacilityObjects } from './game/facilityContext';
@@ -1133,15 +1131,17 @@ export default function App() {
           toast={toast}
           npcs={npcs}
           stage={currentSectorId === 'bridge' ? (
-            <BridgeScene key={bridgeEntry} paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} onOpenBoard={() => setActiveModal('shipBoard')} />
+            <BridgeStage key={bridgeEntry} paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} onOpenBoard={() => setActiveModal('shipBoard')} onNotice={triggerToast} gameDate={gameDate} gameTime={gameTime} />
           ) : FACILITIES[currentSectorId] ? (
             <FacilityScene key={currentSectorId} facility={FACILITIES[currentSectorId]} arrivedFrom={arrivedFrom} paused={activeModal !== null || activeDrawer !== null} onLeave={(to) => commitSector(to, null, currentSectorId)} onNotice={triggerToast} onAction={handleFacilityAction} onWalk={handleWalk} onPosition={point => { facilityPositionRef.current = point; }} gameDate={gameDate} gameTime={gameTime} garden={currentSectorId === 'greenhouse' ? garden : undefined} />
           ) : currentRoom ? (
-            <RoomScene key={currentRoom.id} roomId={currentRoom.id} furnishing={furnishingFor(roomOccupant?.id)} npcs={presentNpcs} onInteract={(npc) => sendToGm(`我走近${npc.name}打招呼`)} onExit={() => { setReturnRoomId(currentRoom.id); setCurrentRoomId(null); }} onWalk={handleWalk} paused={activeModal !== null || activeDrawer !== null} />
+            <RoomScene key={currentRoom.id} roomId={currentRoom.id} occupant={roomOccupant?.id ?? ""} npcs={presentNpcs} onInteract={(npc) => sendToGm(`我走近${npc.name}打招呼`)} onExit={() => { setReturnRoomId(currentRoom.id); setCurrentRoomId(null); }} onWalk={handleWalk} onNotice={triggerToast} gameDate={gameDate} gameTime={gameTime} paused={activeModal !== null || activeDrawer !== null} />
           ) : currentSectorId === 'park' ? (
             <ParkStage waiting={totalCrates(freight.dock)} onOpenDock={() => { sound.playOpen(); setActiveModal('dock'); }} />
           ) : CORRIDORS[currentSectorId] ? (
-            <CorridorScene key={currentSectorId} corridor={CORRIDORS[currentSectorId]} playerName={profile.name} returnRoomId={returnRoomId} arrivedFrom={arrivedFrom} onEnterFacility={(to) => commitSector(to, null, currentSectorId)} paused={activeModal !== null || activeDrawer !== null} onEnterRoom={setCurrentRoomId} onNotice={triggerToast} onWalk={handleWalk} />
+            // 走廊用設施場景（map.json 由 tools/art/corridor_map.py 產生）：從房間出來站在那扇門前；房門通往房間，兩端通往設施
+            <FacilityScene key={currentSectorId} facility={{ folder: CORRIDORS[currentSectorId].folder, name: `居住區 ${CORRIDORS[currentSectorId].letter} 走廊` }} arrivedFrom={returnRoomId ?? arrivedFrom} paused={activeModal !== null || activeDrawer !== null}
+              onLeave={(to) => { if (sectors.some((s) => s.id === to)) commitSector(to, null, currentSectorId); else setCurrentRoomId(to); }} onNotice={triggerToast} onWalk={handleWalk} gameDate={gameDate} gameTime={gameTime} />
           ) : undefined}
         />
       </main>

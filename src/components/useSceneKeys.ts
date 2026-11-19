@@ -1,13 +1,15 @@
 import { useEffect, useRef } from 'react';
 
-/** 場景共用的鍵盤輸入。目前只支援 WASD 移動＋E 互動（方向鍵之後再補）。
+/** 場景共用的鍵盤輸入。WASD 或方向鍵移動＋E 互動。
  *
  * 統一處理：大小寫正規化、Ctrl/Alt/Meta 放行、preventDefault、
  * 暫停與失焦（視窗 blur、分頁切走、canvas blur）時清空按鍵。
  * 場景專屬行為用 callback 接：onInteract（按 E）、onMovementDown（每次移動鍵
  * keydown，含長按重複）、onMovementPress（第一次按下，dx/dy 為 -1/0/1）。 */
 export const MOVEMENT_KEYS = new Set(['w', 'a', 's', 'd']);
-export const normalizeKey = (key: string) => (key.length === 1 ? key.toLowerCase() : key);
+/** 方向鍵當成 WASD。 */
+const ARROWS: Record<string, string> = { ArrowUp: 'w', ArrowLeft: 'a', ArrowDown: 's', ArrowRight: 'd' };
+export const normalizeKey = (key: string) => ARROWS[key] ?? (key.length === 1 ? key.toLowerCase() : key);
 
 interface Options {
   paused: boolean;
