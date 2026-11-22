@@ -124,6 +124,8 @@
 
 - 新增 `generate2dmap` skill（`.claude/skills/generate2dmap/`，來源 0x0funky/agent-sprite-forge 2026-07-13 版），之後做新場景地圖時使用。2026-10-15 整理成本專案版：只留分層底圖流程，刪掉橫向捲軸、tilemap 引擎、戰棋格等用不到的模式與附帶腳本。
 - 2026-10-15 全遊戲畫風定為 HD 像素風（美術圖塊一格 48 × 48 px，使用者定）。`starport-asset-gen` 改寫：加共同風格段；格子改 48 px；刪掉統一發光青藍 #4DD0E1、64 px 校準板、白模／Blender、3 × 3 一次生的舊流程、「不要寫 pixel art」禁令、外部模型說明，分層改照 generate2dmap 的實際做法（底圖／decor／門／前景），不再用 Layer 1–6。`starport-scene-props`、`generate2dmap` 的畫風改為引用它。
+- 2026-11-22 畫風統一（使用者定）：只固定畫風（精緻像素風；2 倍再縮一半是切圖與 map.json 的後製），不附風格參考圖（會讓物件全長得一樣）、不限定顏色；設計最重要的是科技感，靠造型表現，不用邊線、螺絲填塞畫面。共用規則段改寫：新增 HIGH-TECH FEEL、NO FILLER DETAIL，描邊只描外輪廓與主要部件，刪掉 DESIGN DEPTH（裝甲板＋深石墨內臟）、4×4 PIXEL GRID 與固定配色。`starport-asset-gen` 第一節是畫風唯一正本，scene-props、generate2dmap、AGENTS、Tileset 標準只引用。
+- 2026-11-23 生圖 prompt 改成精簡版（使用者定，L 型吧檯七版測試，`tools/art/bar/prompts.md`）：`starport-asset-gen` 第二節範本只留鏡頭、燈光、地面三條規則；不寫畫風（game sprite 會帶出像素風）、不寫材質顏色、不附參考圖；要求 richly detailed；物件風格靠第四節的場景主題＋關鍵字。舊的十條長版規則段作廢。Codex 改用 gpt-6.2-sol（桌面版附的 CLI）。
 
 - 2026-10-16 清理 `tools/art`：刪掉用不到的 `candidates_build.py`（原圖已刪）、`engineering_plan.py`（舊機台配置 v3）。工程區小物件之後要照 2090 科幻風重做（舊的偏髒工業風），舊圖留著。
 - 2026-10-16 切圖工具統一成 `tools/art/cut.py`（物件表、門），場景只寫 `tools/art/<場景>_objects.py` 的資料；取代 `engineering_props.py`、`engineering_door.py`、`medical_door.py`，重切結果逐位元相同。
