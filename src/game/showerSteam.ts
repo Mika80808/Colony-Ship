@@ -1,4 +1,4 @@
-import type { Rect } from './roomRuntime';
+import type { Rect } from './corridor';
 
 /** Light spray from the overhead shower, drawn across the actor before the mist. */
 export function drawShowerSpray(ctx: CanvasRenderingContext2D, shower: Rect, seconds: number) {

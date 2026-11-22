@@ -100,8 +100,11 @@ for (const rect of m.collisionRects!.filter(r => r.y === 0 && r.x >= 14 && r.x <
   assert.ok([...Array(24).keys()].some(d => walkable(m, { x, y: bottom + RADIUS + 1 + d })), `the player can stand at the window sill at ${x}`);
 }
 const desk = m.decor!.find(d => d.sprite === 'desk_console')!;
-assert.equal(walkable(m, { x: desk.x * s, y: desk.y * s + RADIUS + 1 }), true, 'the player can stand right below the desk console');
-assert.equal(walkable(m, { x: desk.x * s, y: desk.y * s + RADIUS - 1 }), false, 'the desk console blocks its front edge');
+// 碰撞沿著圖的輪廓：控制台正面中間往內凹，擋到的是中間那一條的底邊
+const deskFront = m.collisionRects!.filter(r => r.of === desk.id).find(r => r.x <= desk.x && r.x + r.w >= desk.x)!;
+const front = (deskFront.y + deskFront.h) * s;
+assert.equal(walkable(m, { x: desk.x * s, y: front + RADIUS + 1 }), true, 'the player can stand right below the desk console');
+assert.equal(walkable(m, { x: desk.x * s, y: front + RADIUS - 1 }), false, 'the desk console blocks its front edge');
 assert.equal(walkable(m, { x: desk.x * s - 229 - RADIUS, y: desk.y * s - 40 }), true, 'the player can stand beside the desk console');
 assert.equal(walkable(m, { x: 14.5 * s, y: 2.5 * s }), false, 'window glass remains solid');
 for (const light of m.decor!.filter(d => d.sprite.startsWith('corridor_light_'))) {

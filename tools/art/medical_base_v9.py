@@ -24,6 +24,7 @@ import numpy as np
 from PIL import Image
 
 import cut
+import footprint
 
 DOOR = cut.door_geometry('medical')    # 大門的門框、門洞、燈條位置（從門的原圖量，見 medical_objects.door()）
 
@@ -284,9 +285,7 @@ def spans(cols):
     return out
 
 
-HEAD_PAD = 14   # 頭寬一半（36，頭寬 72）減腳圈半徑（22）
-SHADOW_GAP = 3  # 物件碰撞比圖寬出的 px：影子半寬 23 − 腳圈 22，再留 2 px
-SHOW_DEPTH = 92  # 物件碰撞上緣最低在圖上緣往下幾 px：角色高 140 − 露出頭肩 70 ＋ 腳圈 22
+from footprint import HEAD_PAD   # 直牆內側多擋的量；物件碰撞的規則都在 footprint.py
 
 
 def collision(corridor_top, passage, frame_x, frame_top):
@@ -439,23 +438,9 @@ def install(ground):
             continue
         decor.append({'sprite': sprite, 'id': oid, 'x': round(cx / T, 4), 'y': round(bottom / T, 4), 'scale': objects.SCALE,
                       'block': bool(block), 'size': list(Image.open(out / 'props' / f'{sprite}.webp').size), **(extra[0] if extra else {})})
-        if block:
-            bx, by, bw, bh = block
-            # 上緣：角色站到物件後面最深處，頭和肩（頭頂往下 70 px）還要露在圖上緣之上，所以碰撞上緣最低在圖上緣往下 SHOW_DEPTH
+        if block:   # PLACE 的碰撞是手填的大概範圍，照圖修正（footprint.py）；of 標出是哪件物件的
             alpha = np.array(Image.open(out / 'props' / f'{sprite}.webp').convert('RGBA'))[:, :, 3]
-            h, w = alpha.shape
-            art_top, art_left = bottom - h * objects.SCALE, cx - w * objects.SCALE / 2
-            opaque_top = art_top + np.nonzero(alpha.max(1) > 40)[0][0] * objects.SCALE
-            if (opaque_top + SHOW_DEPTH) / T < by:
-                bh, by = round(by + bh - (opaque_top + SHOW_DEPTH) / T, 4), round((opaque_top + SHOW_DEPTH) / T, 4)
-            # 左右至少蓋到圖在這幾列的實際寬度外 3 px：影子（半寬 23）比腳圈（22）寬 1 px，貼著物件時影子才不會壓到圖
-            rows = alpha[max(0, int((by * T - art_top) / objects.SCALE)):min(h, int(((by + bh) * T - art_top) / objects.SCALE))]
-            cols = np.nonzero(rows.max(0) > 40)[0] if rows.size else []
-            if len(cols):
-                x0 = min(bx, (art_left + cols[0] * objects.SCALE - SHADOW_GAP) / T)
-                x1 = max(bx + bw, (art_left + (cols[-1] + 1) * objects.SCALE + SHADOW_GAP) / T)
-                bx, bw = round(x0, 4), round(x1 - x0, 4)
-            rects.append({'x': bx, 'y': by, 'w': bw, 'h': bh})
+            rects.append({**footprint.fit(alpha, objects.SCALE, cx, bottom, T, hint=block), 'of': oid})
     data = {
         'tileSize': T, 'width': W, 'height': ROWS,
         'legend': {'0': '可行走', '1': '碰撞'},
