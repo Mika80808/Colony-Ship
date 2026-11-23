@@ -1,6 +1,7 @@
 import { GmContext } from './types';
 import type { MemoryBlocks } from '../game/memory';
 import { effectLabel, totalsById } from '../game/inventory';
+import { deadlineText } from '../game/quest';
 
 /**
  * GM 的角色設定與輸出規範。
@@ -101,7 +102,7 @@ NPC 若有「日常活動」，請對照目前時間來演：該在值班就別�
 - complete_objective：結束一則目標。objectiveId 必須是上方「當前目標」裡既有的 id。
 - advance_time：這段故事經過了多久，minutes 為分鐘數。**每次回應都要下一次**，依
   故事時距估：幾句寒暄 1–3、一段深談 10–20、吃一頓飯 30–60、睡一覺 360–480。
-  玩家走路的時間系統會另外算，這裡只算故事裡發生的事。
+  玩家走路的時間系統會另外算，這裡只算故事裡發生的事。一回合合計最多 720 分鐘，超過的不算。
 - add_memory：記下一件之後該記得的事。只記會影響往後劇情的變化（設備壞了、某人答應了
   什麼、某個地方最近氣氛緊張），寒暄與當下動作不記。多數回合不用下，一次最多 3 則。
   - layer：world（全站都知道的事）／region（玩家所在區域的近況）／scene（這個房間或
@@ -192,7 +193,11 @@ export function buildStateBlock(context: GmContext): string {
     : '';
 
   const questBlock = quests.length
-    ? quests.map((q) => `- id: ${q.id}｜[${q.category}][${q.status}] ${q.title}：${q.description}`).join('\n')
+    ? quests.map((q) => {
+      // 期限照今天的遊戲日期現算，GM 才知道哪件快到期、哪件已經逾期。
+      const deadline = q.status === '已完成' ? undefined : deadlineText(q, gameDate);
+      return `- id: ${q.id}｜[${q.category}][${q.status}] ${q.title}：${q.description}${deadline ? `（期限：${deadline}）` : ''}`;
+    }).join('\n')
     : '（目前沒有任務。）';
 
   // 同一種物品可能分成好幾格，GM 只需要知道總數。

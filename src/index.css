@@ -695,12 +695,25 @@ input[type=range]::-webkit-slider-thumb:hover {
 .room-scene { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .room-viewport { flex: 1; min-height: 0; position: relative; display: flex; justify-content: center; align-items: center; overflow: hidden; }
 .room-viewport canvas { display: block; max-width: 100%; cursor: crosshair; }
+/* 手機寬度才出現的左側欄替代按鈕（LeftSidebar.tsx 的 MobileToolbar）。 */
+.mobile-toolbar { display: none; }
 @media (max-width: 760px) {
   main > aside { display: none; }
-  #npc-stage { min-height: 220px; }
-  .dialogue-panel { margin-inline: 0; gap: 8px; }
-  .dialogue-panel > div:first-child { width: 64px; }
+  .mobile-toolbar { display: flex; }
+  #npc-stage { min-height: 160px; }
+  .dialogue-panel { margin-inline: 0; gap: 8px; padding: 8px; }
+  .dialogue-panel > div:first-child { width: 56px; align-self: flex-start; }
+  /* 對話區加高：開場這類長段落在窄欄裡會換成很多行，文字框本身也可捲動。 */
+  .dialogue-body { height: 230px; gap: 8px; }
+  .dialogue-text { padding: 10px 12px; }
+  .dialogue-toast { white-space: normal; width: max-content; max-width: calc(100vw - 2rem); }
   main > div > aside { width: 48px; }
+  /* 任務、道具抽屜原本貼在左側欄右邊；左側欄收起後改成吃滿寬度，右邊讓出工具列方便切換。 */
+  .side-drawer { left: 12px; right: 64px; width: auto; max-width: none; padding: 16px; }
+}
+/* 最窄的手機（約 320px）：頂欄再讓出信標與日期，設定按鈕才留得在畫面內。日期仍可在時間上的提示看到。 */
+@media (max-width: 360px) {
+  .hud-beacon, .hud-date { display: none; }
 }
 
 /* Residential corridor keeps its camera and controls inside the existing stage. */

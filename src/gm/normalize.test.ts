@@ -208,14 +208,31 @@ assert.deepEqual(JSON.parse(turns[0].gm), {
   commands: [],
 }, 'GM 歷史回應以 JSON 回填');
 
-// advance_time：分鐘數取整、夾在 1–720；0、負數、非數字直接丟掉（缺了就缺，不代為補寫）。
+// advance_time：分鐘數取整，整回合加總不超過 720；0、負數、非數字直接丟掉（缺了就缺，不代為補寫）。
 assert.deepEqual(
   normalizeCommands([
-    { type: 'advance_time', minutes: 15.4 }, { type: 'advance_time', minutes: 99999 },
-    { type: 'advance_time', minutes: -30 }, { type: 'advance_time', minutes: 0 }, { type: 'advance_time', minutes: '很久' },
+    { type: 'advance_time', minutes: 15.4 }, { type: 'advance_time', minutes: -30 }, { type: 'advance_time', minutes: 0 },
+    { type: 'advance_time', minutes: '很久' }, { type: 'advance_time', minutes: 30 },
   ], context),
-  [{ type: 'advance_time', minutes: 15 }, { type: 'advance_time', minutes: 720 }, { type: 'advance_time', minutes: 1 }],
+  [{ type: 'advance_time', minutes: 15 }, { type: 'advance_time', minutes: 30 }],
   'advance_time 收斂',
+);
+// 單筆超過上限夾到 720。
+assert.deepEqual(
+  normalizeCommands([{ type: 'advance_time', minutes: 99999 }], context),
+  [{ type: 'advance_time', minutes: 720 }],
+  'advance_time 單筆上限',
+);
+// 上限算整個回合：兩筆各 720 只推進 12 小時，第二筆用完額度就丟掉。
+assert.deepEqual(
+  normalizeCommands([{ type: 'advance_time', minutes: 720 }, { type: 'advance_time', minutes: 720 }], context),
+  [{ type: 'advance_time', minutes: 720 }],
+  'advance_time 整回合上限',
+);
+assert.deepEqual(
+  normalizeCommands([{ type: 'advance_time', minutes: 600 }, { type: 'advance_time', minutes: 300 }, { type: 'advance_time', minutes: 60 }], context),
+  [{ type: 'advance_time', minutes: 600 }, { type: 'advance_time', minutes: 120 }],
+  'advance_time 剩餘額度',
 );
 
 // --- add_memory（通道 ① 寫入）---

@@ -121,25 +121,27 @@ export default function HeaderHUD({
   }, [isAccordionOpen]);
 
   return (
-    <header className="relative z-20 w-full h-[51.8px] bg-[#030610]/80 blur-strong rounded-none border-b border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_-1px_0_rgba(56,189,248,0.2)] px-5 flex items-center justify-between gap-4">
+    <header className="relative z-20 w-full h-[51.8px] bg-[#030610]/80 blur-strong rounded-none border-b border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.8),inset_0_-1px_0_rgba(56,189,248,0.2)] px-3 sm:px-5 flex items-center justify-between gap-2 sm:gap-4">
       {/* Left: Port Title & Sector */}
-      <div className="flex items-center gap-4 flex-shrink-0">
+      <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
         <div className="flex items-center gap-3">
           {/* Breathing Beacon */}
-          <div className="w-8 h-8 rounded-lg bg-sky-950/90 border border-sky-400/50 flex items-center justify-center relative">
+          <div className="hud-beacon w-8 h-8 rounded-lg bg-sky-950/90 border border-sky-400/50 flex items-center justify-center relative">
             <span className="w-2.5 h-2.5 rounded-full bg-sky-400 breathing-light" />
           </div>
-          <span className="font-hud font-bold text-[20px] tracking-wider text-slate-100">
+          {/* 手機寬度放不下標題字：讓位給右側的數值與設定按鈕。 */}
+          <span className="hidden sm:inline font-hud font-bold text-[20px] tracking-wider text-slate-100">
             星際港
           </span>
         </div>
 
         {/* 1px Low-contrast divider */}
-        <div className="h-4 w-[1px] bg-white/[0.15]" />
+        <div className="hidden sm:block h-4 w-[1px] bg-white/[0.15]" />
 
         {/* 遊戲時間 */}
-        <div className="flex items-center gap-2 font-hud text-sky-400 text-sm font-semibold tracking-wider">
-          <span className="font-mono-code text-xs text-slate-400">{gameDate}</span>
+        <div className="flex items-center gap-2 font-hud text-sky-400 text-sm font-semibold tracking-wider" title={`${gameDate} ${gameTime}`}>
+          <span className="hidden sm:inline font-mono-code text-xs text-slate-400">{gameDate}</span>
+          <span className="hud-date sm:hidden font-mono-code text-xs text-slate-400">{gameDate.slice(5).replace('-', '/')}</span>
           <span className="font-mono-code text-xs text-sky-300">{gameTime}</span>
         </div>
 
@@ -279,13 +281,13 @@ export default function HeaderHUD({
       </div>
 
       {/* Right: Player Status & Control Buttons */}
-      <div className="flex items-center gap-4 flex-shrink-0">
-        {/* Status Indicators */}
-        <div className="flex items-center gap-3 px-3.5 py-1.5 rounded-lg bg-white/[0.03] text-xs font-hud">
+      <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0 min-w-0">
+        {/* Status Indicators（手機寬度只留圖示與現值，標籤與上限藏起來） */}
+        <div className="flex items-center gap-2 sm:gap-3 px-2 sm:px-3.5 py-1.5 rounded-lg bg-white/[0.03] text-xs font-hud">
           {/* Stamina */}
           <div className="flex items-center gap-1.5 relative" title="體力">
             <Zap className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[#34d399] -mt-[2px] text-xs font-sans">體力</span>
+            <span className="hidden sm:inline text-[#34d399] -mt-[2px] text-xs font-sans">體力</span>
             <motion.span
               key={stats.stamina}
               initial={{ scale: 1.2, textShadow: '0 0 10px rgba(52,211,153,0.8)', color: '#a7f3d0' }}
@@ -293,7 +295,7 @@ export default function HeaderHUD({
               transition={{ duration: 0.4, ease: 'easeOut' }}
               className="font-bold text-sm inline-block"
             >
-              {stats.stamina}/{stats.maxStamina}
+              {stats.stamina}<span className="hidden sm:inline">/{stats.maxStamina}</span>
             </motion.span>
             
             <AnimatePresence>
@@ -310,14 +312,14 @@ export default function HeaderHUD({
             </AnimatePresence>
           </div>
 
-          <div className="h-3 w-[1px] bg-white/[0.08]" />
+          <div className="hidden sm:block h-3 w-[1px] bg-white/[0.08]" />
 
           {/* Hunger */}
           <div className="flex items-center gap-1.5 relative" title="飢餓">
             <Coffee className="w-3.5 h-3.5 text-[#fff5da]" />
-            <span className="text-[#fff5da] -mt-[2px] text-xs font-sans">飢餓</span>
+            <span className="hidden sm:inline text-[#fff5da] -mt-[2px] text-xs font-sans">飢餓</span>
             <span className="text-[#fff5da] font-bold text-sm">
-              {stats.hunger}/{stats.maxHunger}
+              {stats.hunger}<span className="hidden sm:inline">/{stats.maxHunger}</span>
             </span>
             <AnimatePresence>
               {floatingTexts
@@ -333,12 +335,12 @@ export default function HeaderHUD({
             </AnimatePresence>
           </div>
 
-          <div className="h-3 w-[1px] bg-white/[0.08]" />
+          <div className="hidden sm:block h-3 w-[1px] bg-white/[0.08]" />
 
           {/* Credits */}
           <div className="flex items-center gap-1.5 relative" title="星幣">
             <Coins className="w-3.5 h-3.5 text-[#fcc645]" />
-            <span className="text-[#fcc645] font-bold font-sans -mt-[2px] text-xs">星幣</span>
+            <span className="hidden sm:inline text-[#fcc645] font-bold font-sans -mt-[2px] text-xs">星幣</span>
             <motion.span
               key={stats.credits}
               initial={{ scale: 1.2, textShadow: '0 0 10px rgba(252,198,69,0.8)', color: '#fde08b' }}
@@ -364,7 +366,7 @@ export default function HeaderHUD({
         </div>
 
         {/* Top Action Buttons */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {/* 個人資訊 */}
           <button
             id="header-profile-btn"

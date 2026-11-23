@@ -20,6 +20,9 @@ const ITEM_ADDS_PER_TURN = 5;
 const QUEST_ADDS_PER_TURN = 2;
 
 /** 把數值夾在合理範圍內。模型偶爾會給出 999999 這種值。 */
+/** 一回合（所有 advance_time 加總）最多推進幾分鐘。 */
+export const MAX_ADVANCE_MINUTES_PER_TURN = 720;
+
 function clamp(value: unknown, min: number, max: number): number | undefined {
   const num = Number(value);
   if (!Number.isFinite(num) || num === 0) return undefined;
@@ -84,6 +87,8 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
     context.quests.filter((quest) => quest.status !== '已完成').map((quest) => normalizeForMatch(quest.title))
   );
   let questAdds = 0;
+  // advance_time 的上限算整個回合的總和：只限單筆的話，模型拆成兩筆各 12 小時就推進了一整天。
+  let minutesLeft = MAX_ADVANCE_MINUTES_PER_TURN;
 
   const commands: GmCommand[] = [];
   for (const item of raw) {
@@ -181,8 +186,12 @@ export function normalizeCommands(raw: unknown, context: GmContext): GmCommand[]
       }
       case 'advance_time': {
         // 一回合最多推進 12 小時：睡一整晚約 8 小時，再長多半是模型誤把天數寫成分鐘。
-        const minutes = clamp(entry.minutes, 1, 720);
-        if (minutes) commands.push({ type: 'advance_time', minutes });
+        // 負數不能倒轉時間，也不夾成 1 分鐘：直接丟掉。
+        if (!(Number(entry.minutes) > 0)) break;
+        const minutes = clamp(entry.minutes, 1, minutesLeft);
+        if (!minutes) break;
+        commands.push({ type: 'advance_time', minutes });
+        minutesLeft -= minutes;
         break;
       }
       case 'complete_objective': {

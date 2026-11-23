@@ -103,7 +103,7 @@ export default function InventoryDrawer({
           animate={{ opacity: 1, x: 0, scale: 1 }}
           exit={{ opacity: 0, x: -30, scale: 0.95 }}
           transition={{ type: 'spring', damping: 18, stiffness: 150, mass: 0.8, restDelta: 0.001 }}
-          className="fixed top-[66px] h-[calc(100vh-80px)] left-[136px] z-50 w-80 max-w-[calc(100vw-150px)] glass-panel bg-[#070e24]/95 p-6 flex flex-col justify-between gap-4 shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl border border-white/[0.12] overflow-y-auto origin-left"
+          className="side-drawer fixed top-[66px] h-[calc(100vh-80px)] left-[136px] z-50 w-80 max-w-[calc(100vw-150px)] glass-panel bg-[#070e24]/95 p-6 flex flex-col justify-between gap-4 shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl border border-white/[0.12] overflow-y-auto origin-left"
         >
           <div>
             {/* 標題列：格數與整理 */}
