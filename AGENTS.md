@@ -33,15 +33,25 @@
 | `tools/art/greenhouse_crop_prompts.md` | 溫室 19 種作物三階段提示詞與排位配置 |
 | `docs/memory.md` | 記憶系統（記憶六通道）的實作：各通道怎麼寫入、怎麼帶給 GM、可調參數、還沒做的部分 |
 | `docs/scenes/` | 各場景說明：A-1 房間、居住區 A 走廊、艦橋、工程區、中央廣場（規劃中）、醫療室（規劃中） |
+| `docs/supply-ship.md` | 補給船與物資運輸 |
 | `docs/characters.md` | 角色素材與行走圖處理流程 |
 | `docs/tasks/` | 指派給 Codex 的任務單：要生什麼、規格、交件與驗收方式 |
-| `README.md` | 執行方式、目錄結構 |
+| `README.md` | 執行方式 |
+| `../專案目錄.md` | 遊戲資料夾以外的資料夾（`場景/`、`工具/`、`設定資料/` 等） |
 
-## 程式結構
+這份文件地圖和下面的目錄結構是唯一正本，README 與 `../專案目錄.md` 只指過來，不再各寫一份。
 
-- `src/components/*Scene.tsx`：各場景的互動與生命週期（房間、走廊、艦橋、設施）。
-- `src/game/`：碰撞、尋路、移動、互動等邏輯，每支都有對應的 `*.test.ts`。
-- `public/assets/<場景>/`：遊戲用素材。`tools/`、`tools/art/`：素材處理與產生腳本。
+## 目錄結構
+
+| 位置 | 內容 |
+|---|---|
+| `src/components/` | 畫面：`FacilityScene`（所有場景共用：走廊、艦橋、房間、溫室、工程區、醫療室）、`BridgeStage`、`ParkStage`、`RoomScene`、頂欄、側欄、`Modals/`、`Drawers/` |
+| `src/game/` | 純邏輯，每支都有對應的 `*.test.ts`：場景引擎（`facility`、`clickWalk`、`sceneDepth`、`decor`）、場景擴充（`bridgeExtras`、`roomExtras`）、時間（`clock`）、作物（`growth`、`racks`、`garden`）、物資與貨運（`supplies`、`freight`、`supplyShip`）、背包、任務、記憶（`memory`、`npcMemory`、`diary`、`lore`）、營業時間、體力 |
+| `src/gm/`、`src/data/` | GM 提示詞與 AI 服務串接；初始資料、道具、故事、存檔 |
+| `public/assets/<場景>/` | 遊戲直接讀的素材（`map.json` 由腳本產生，不手改） |
+| `tools/` | 角色素材腳本（PSD 匯出、行走圖打包、表情、檢查）、房間腳本 |
+| `tools/art/` | 場景產生腳本：`cut.py`（共用切圖）、`<場景>_map.py`／`_build.py`／`_objects.py`、`footprint.py`（碰撞規則）、`editor_layout.py`＋`psd_place.py`（地圖編輯器與 PSD 拼場景）；各主題資料夾放 `raw/`（腳本會讀的原圖）與 prompt 紀錄 |
+| `tools/.venv/`、`dist/`、`node_modules/` | Python 環境、建置輸出、套件（不進 git，可重新產生） |
 
 ## 驗證
 

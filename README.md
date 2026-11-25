@@ -13,43 +13,9 @@ npm run dev      # http://localhost:3000
 
 啟動後位於居住區 A 走廊，WASD、方向鍵或點地移動，E 互動。
 
-## 目錄結構
+## 目錄結構與文件
 
-```
-Colony-Ship/
-├─ AGENTS.md            AI 工具共用的專案總則（CLAUDE.md 匯入本檔）
-├─ README.md            本檔
-├─ docs/
-│  ├─ PROGRESS.md       開發進度、下一步、已定案的決定
-│  ├─ characters.md     角色素材與行走圖處理流程
-│  └─ scenes/           各場景說明：room-a1、corridor-a、bridge
-├─ src/
-│  ├─ App.tsx           主畫面與場景切換
-│  ├─ components/       各場景（*Scene.tsx）、側欄、抽屜、彈窗
-│  ├─ game/             碰撞、尋路、移動、互動、作物生長等邏輯，各有 *.test.ts
-│  ├─ gm/               GM 對話：提示詞、AI 服務串接
-│  ├─ data/             初始遊戲資料、NPC 行程、存檔、故事
-│  └─ utils/            音效
-├─ public/assets/       遊戲用素材，依場景與角色分資料夾
-├─ tools/               素材處理腳本、生圖提示詞
-│  └─ art/              場景美術產生腳本；原始生成圖放 art/<主題>/raw/
-└─ .claude/skills/      素材規範（starport-asset-gen）、地圖生成流程（generate2dmap）
-```
-
-## 文件
-
-| 檔案 | 內容 |
-|---|---|
-| `docs/PROGRESS.md` | 各場景進度，開工先看這份 |
-| `問題修正紀錄.md` | 修正紀錄與設計原則 |
-| `docs/scenes/room-a1.md` | A-1 房間 |
-| `docs/scenes/corridor-a.md` | 居住區 A 走廊 |
-| `docs/scenes/bridge.md` | 艦橋 |
-| `docs/scenes/engineering.md` | 工程區 |
-| `docs/characters.md` | 角色素材 |
-| `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名 |
-| `.claude/skills/generate2dmap/SKILL.md` | 2D 地圖生成流程 |
-| `tools/art/greenhouse_crop_prompts.md` | 溫室作物提示詞與排位 |
+都在 `AGENTS.md` 的「文件地圖」與「目錄結構」（唯一正本）。開發進度看 `docs/PROGRESS.md`。
 
 ## 驗證
 
