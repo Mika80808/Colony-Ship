@@ -3,15 +3,18 @@ import Markdown from 'react-markdown';
 import { ListChecks, Coins, Calendar, Timer, MapPin, CheckCircle2, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Quest } from '../../types';
+import { deadlineText, isOverdue, questDaysLeft } from '../../game/quest';
 
 interface QuestDrawerProps {
   isOpen: boolean;
   quests: Quest[];
+  /** 今天的遊戲日期：期限照它現算剩餘天數。 */
+  gameDate: string;
   onReportQuest?: (quest: Quest) => void;
   onAbandonQuest?: (quest: Quest) => void;
 }
 
-export default function QuestDrawer({ isOpen, quests, onReportQuest, onAbandonQuest }: QuestDrawerProps) {
+export default function QuestDrawer({ isOpen, quests, gameDate, onReportQuest, onAbandonQuest }: QuestDrawerProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -28,7 +31,7 @@ export default function QuestDrawer({ isOpen, quests, onReportQuest, onAbandonQu
             mass: 0.8,
             restDelta: 0.001
           }}
-          className="fixed top-[66px] h-[calc(100vh-80px)] left-[136px] z-50 w-84 max-w-[calc(100vw-150px)] glass-panel bg-[#070e24]/95 p-6 flex flex-col justify-between shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl border border-white/[0.12] overflow-y-auto origin-left"
+          className="side-drawer fixed top-[66px] h-[calc(100vh-80px)] left-[136px] z-50 w-84 max-w-[calc(100vw-150px)] glass-panel bg-[#070e24]/95 p-6 flex flex-col justify-between shadow-[0_0_50px_rgba(0,0,0,0.5)] rounded-2xl border border-white/[0.12] overflow-y-auto origin-left"
         >
           <div>
             {/* Title matches button text "任務" exactly */}
@@ -54,14 +57,16 @@ export default function QuestDrawer({ isOpen, quests, onReportQuest, onAbandonQu
                     </div>
                     <span
                       className={`font-hud font-bold px-1.5 py-0.5 rounded text-[12px] flex-shrink-0 ${
-                        quest.status === '進行中'
+                        isOverdue(quest, gameDate)
+                          ? 'text-rose-300 bg-rose-950/40 border border-rose-500/30'
+                          : quest.status === '進行中'
                           ? 'text-emerald-400 bg-emerald-950/40 border border-emerald-500/30'
                           : quest.status === '已完成'
                           ? 'text-sky-400 bg-sky-950/40'
                           : 'text-slate-500 bg-white/[0.02]'
                       }`}
                     >
-                      {quest.status}
+                      {isOverdue(quest, gameDate) ? '已逾期' : quest.status}
                     </span>
                   </div>
 
@@ -98,16 +103,12 @@ export default function QuestDrawer({ isOpen, quests, onReportQuest, onAbandonQu
                               className={
                                 quest.status === '已完成'
                                   ? 'text-slate-500'
-                                  : quest.deadlineDays <= 1
+                                  : (questDaysLeft(quest, gameDate) ?? quest.deadlineDays) <= 1
                                   ? 'text-rose-400 font-bold'
                                   : 'text-sky-300 font-medium'
                               }
                             >
-                              {quest.status === '已完成'
-                                ? '已結算'
-                                : quest.deadlineDays === 0
-                                ? '今日到期'
-                                : `剩餘 ${quest.deadlineDays} 天`}
+                              {deadlineText(quest, gameDate) ?? `期限 ${quest.deadlineDays} 天`}
                             </span>
                           </div>
                         )}

@@ -96,14 +96,88 @@ export function loadGameSave(): GameSave | null {
   if (!raw) return null;
 
   try {
-    const parsed = JSON.parse(raw) as GameSave;
-    if (!parsed || typeof parsed !== 'object') return null;
-    if (parsed.version !== SAVE_VERSION) return null;
-    return parsed;
+    return sanitizeSave(JSON.parse(raw));
   } catch {
     // 內容被改壞或被其他程式覆寫，捨棄。
     return null;
   }
+}
+
+// ------------------------------------------------------------------ 讀檔驗證
+//
+// 版本號對、JSON 也解得開，不代表每一欄都是對的型別：手動改過、別的分頁寫到一半、
+// 或舊開發版留下的欄位，都可能讓 items 變成物件、stats 少了數字。
+// 原樣交給 App 的話，第一個 .map 就讓整個畫面白掉。
+// 這裡逐欄檢查：整欄型別不對就拿掉（App 退回新遊戲的初始值），清單裡壞掉的單筆就濾掉，
+// 其他好的欄位照常讀回來，不因為一欄壞掉就丟掉整份進度。
+
+type Obj = Record<string, unknown>;
+const isObj = (value: unknown): value is Obj => !!value && typeof value === 'object' && !Array.isArray(value);
+const isStr = (value: unknown): value is string => typeof value === 'string';
+const isNum = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const hasStrings = (value: unknown, keys: string[]): value is Obj => isObj(value) && keys.every((key) => isStr(value[key]));
+/** 陣列裡只留通過檢查的元素；不是陣列就回傳 undefined（整欄拿掉）。 */
+const listOf = <T>(value: unknown, ok: (entry: unknown) => boolean): T[] | undefined =>
+  Array.isArray(value) ? (value.filter(ok) as T[]) : undefined;
+
+const STORY_KINDS = ['npcs', 'items', 'chapters', 'sectors', 'lore'] as const;
+
+/**
+ * 檢查並修整解析後的存檔。不是物件或版本不符回傳 null；其餘欄位逐一檢查，
+ * 型別不對的欄位刪掉，讓呼叫端用 `??` 退回初始值。
+ */
+export function sanitizeSave(parsed: unknown): GameSave | null {
+  if (!isObj(parsed) || parsed.version !== SAVE_VERSION) return null;
+  const save: Obj = { ...parsed };
+  const set = (key: string, value: unknown) => {
+    if (value === undefined) delete save[key];
+    else save[key] = value;
+  };
+
+  set('savedAt', isStr(save.savedAt) ? save.savedAt : undefined);
+  set('profile', isObj(save.profile) && Object.values(save.profile).every((v) => v === undefined || isStr(v)) ? save.profile : undefined);
+  const stats = save.stats;
+  set('stats', isObj(stats) && ['stamina', 'maxStamina', 'hunger', 'maxHunger', 'credits'].every((key) => isNum(stats[key]))
+    && Array.isArray(stats.conditions) ? { ...stats, conditions: stats.conditions.filter(isStr) } : undefined);
+  set('quests', listOf(save.quests, (q) => hasStrings(q, ['id', 'title', 'status', 'description'])
+    && (q.deadlineDays === undefined || isNum(q.deadlineDays))));
+  set('items', listOf(save.items, (item) => hasStrings(item, ['id', 'name']) && isNum(item.count) && item.count > 0));
+  set('runStory', isObj(save.runStory)
+    ? Object.fromEntries(STORY_KINDS.map((kind) => [kind, listOf((save.runStory as Obj)[kind], (entry) => hasStrings(entry, ['id'])) ?? []]))
+    : undefined);
+  set('storyOverrides', isObj(save.storyOverrides)
+    ? Object.fromEntries(STORY_KINDS.map((kind) => {
+      const layer = (save.storyOverrides as Obj)[kind];
+      return [kind, isObj(layer) ? Object.fromEntries(Object.entries(layer).filter(([, v]) => isObj(v))) : {}];
+    }))
+    : undefined);
+  set('dialogueHistory', listOf<Obj>(save.dialogueHistory, (turn) => hasStrings(turn, ['playerInput']) && Array.isArray(turn.segments))
+    ?.map((turn) => ({ ...turn, segments: (turn.segments as unknown[]).filter((seg) => hasStrings(seg, ['text'])) })));
+  set('diaryEntries', listOf(save.diaryEntries, (entry) => hasStrings(entry, ['id', 'date', 'title', 'content'])));
+  set('currentSectorId', isStr(save.currentSectorId) ? save.currentSectorId : undefined);
+  set('currentRoomId', isStr(save.currentRoomId) ? save.currentRoomId : null);
+  set('memories', listOf(save.memories, (memory) => hasStrings(memory, ['id', 'layer', 'content'])));
+  set('npcMemories', isObj(save.npcMemories)
+    ? Object.fromEntries(Object.entries(save.npcMemories).filter(([, v]) => isObj(v) && Array.isArray(v.thoughts) && Array.isArray(v.logs)))
+    : undefined);
+  set('objectives', listOf(save.objectives, (objective) => hasStrings(objective, ['id', 'text'])));
+  set('summary', isStr(save.summary) ? save.summary : undefined);
+  // 日期與時間另有固定格式：時鐘、物資、菜圃都從這兩欄推算日序，格式壞了只能從開局時間重來。
+  const dateOk = isStr(save.gameDate) && /^\d{4}-\d{2}-\d{2}$/.test(save.gameDate);
+  const timeOk = isStr(save.gameTime) && /^\d{2}:\d{2}$/.test(save.gameTime);
+  if (!dateOk || !timeOk) { delete save.gameDate; delete save.gameTime; }
+  const supplies = save.supplies;
+  set('supplies', isObj(supplies) && isNum(supplies.day) && isObj(supplies.store) && isObj(supplies.carrying) ? supplies : undefined);
+  const tally = save.affectionTally;
+  set('affectionTally', isObj(tally) && isStr(tally.date) && isObj(tally.byNpc) ? tally : undefined);
+  const garden = save.garden;
+  set('garden', isObj(garden) && isNum(garden.day) && Array.isArray(garden.cells) ? garden : undefined);
+  const freight = save.freight;
+  set('freight', isObj(freight) && isNum(freight.day) && isNum(freight.nextVoyage) && Array.isArray(freight.dock)
+    && Array.isArray(freight.cart) && isObj(freight.stock) && Array.isArray(freight.clearedVoyages)
+    && ['parcels', 'carried', 'outbox', 'rewards', 'inbox'].every((key) => freight[key] === undefined || Array.isArray(freight[key]))
+    ? freight : undefined);
+  return save as unknown as GameSave;
 }
 
 /**

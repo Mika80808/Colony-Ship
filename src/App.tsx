@@ -34,7 +34,7 @@ const GARDEN_PLOT = GREENHOUSE_MAP.plots?.[0] ?? { x: 0, y: 0, w: 0, h: 0 };
 const GARDEN_CELLS = GARDEN_PLOT.w * GARDEN_PLOT.h;
 const systemItem = (id: string) => SYSTEM_ITEMS.find((item) => item.id === id)!;
 import HeaderHUD from './components/HeaderHUD';
-import LeftSidebar, { Objective } from './components/LeftSidebar';
+import LeftSidebar, { MobileToolbar, Objective } from './components/LeftSidebar';
 import DialogueSection from './components/DialogueSection';
 import QuestDrawer from './components/Drawers/QuestDrawer';
 import InventoryDrawer from './components/Drawers/InventoryDrawer';
@@ -99,7 +99,7 @@ import {
   GAME_START_DATE,
   GAME_START_TIME,
 } from './data/initialGameData';
-import { loadGameSave, writeGameSave, clearGameSave } from './data/persistence';
+import { loadGameSave, writeGameSave, clearGameSave, GameSavePayload } from './data/persistence';
 import { loadBuiltinStory, writeBuiltinStory, mergeStory, splitEntries, fillMissingBuiltin, findRoomOccupant, makeRunId } from './data/story';
 import { sound } from './utils/audio';
 import { runGm, GmError } from './gm';
@@ -137,6 +137,9 @@ export default function App() {
   // Navigation & Container State
   const [activeDrawer, setActiveDrawer] = useState<DrawerType>(null);
   const [activeModal, setActiveModal] = useState<ModalType>(null);
+  // 全域快捷鍵只掛一次，讀這個 ref 才看得到現在開著哪個彈窗。
+  const activeModalRef = useRef<ModalType>(null);
+  activeModalRef.current = activeModal;
   const [storybookTargetNpcId, setStorybookTargetNpcId] = useState<string | null>(null);
 
   // Player Profile State
@@ -267,20 +270,35 @@ export default function App() {
    * 不靜默失敗 —— 玩家以為有存檔卻沒有，比直接告知更糟。
    */
   const saveFailedRef = useRef<boolean>(false);
+  /** 最新一次 render 的存檔內容。關分頁時與「立即存檔」都從這裡寫，不必等延遲。 */
+  const savePayloadRef = useRef<GameSavePayload | null>(null);
+  savePayloadRef.current = {
+    profile, stats, quests, items, runStory, storyOverrides, dialogueHistory,
+    diaryEntries, currentSectorId, currentRoomId,
+    memories, npcMemories, objectives, summary, gameDate, gameTime, supplies, affectionTally, garden, freight,
+  };
+  /** 下一次存檔不延遲：玩家明確按了「儲存」的東西（日記），不能賭他 500ms 內不重新整理。 */
+  const saveNowRef = useRef(false);
+  const persist = () => {
+    if (!savePayloadRef.current) return;
+    const ok = writeGameSave(savePayloadRef.current);
+    if (ok) {
+      saveFailedRef.current = false;
+    } else if (!saveFailedRef.current) {
+      saveFailedRef.current = true;
+      triggerToast('自動存檔失敗：瀏覽器儲存空間不足或無法寫入');
+    }
+  };
+  // 重新整理或關分頁時把還沒寫出去的變動補寫。pagehide 在行動裝置切走時也會觸發。
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const ok = writeGameSave({
-        profile, stats, quests, items, runStory, storyOverrides, dialogueHistory,
-        diaryEntries, currentSectorId, currentRoomId,
-        memories, npcMemories, objectives, summary, gameDate, gameTime, supplies, affectionTally, garden, freight,
-      });
-      if (ok) {
-        saveFailedRef.current = false;
-      } else if (!saveFailedRef.current) {
-        saveFailedRef.current = true;
-        triggerToast('自動存檔失敗：瀏覽器儲存空間不足或無法寫入');
-      }
-    }, 500);
+    const flush = () => persist();
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    return () => { window.removeEventListener('pagehide', flush); window.removeEventListener('beforeunload', flush); };
+  }, []);
+  useEffect(() => {
+    if (saveNowRef.current) { saveNowRef.current = false; persist(); return; }
+    const timer = setTimeout(persist, 500);
     return () => clearTimeout(timer);
   }, [
     profile, stats, quests, items, runStory, storyOverrides, dialogueHistory,
@@ -307,36 +325,26 @@ export default function App() {
       }
 
       if (isTyping) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      // 開著彈窗時不接字母快捷鍵：彈窗有自己的關閉流程（未儲存確認、過場鎖定），
+      // 在這裡直接切到別的彈窗會繞過那些判斷，日記寫到一半按 M 就整篇消失。
+      // 要離開彈窗用 Esc 或點遮罩，由 ModalShell 經過各彈窗的防呆處理。
+      if (activeModalRef.current !== null) return;
 
-      switch (e.key.toLowerCase()) {
-        case 'd':
-          setActiveModal((prev) => (prev === 'diary' ? null : 'diary'));
-          sound.playOpen();
-          break;
-        case 's':
-          setActiveModal((prev) => (prev === 'storybook' ? null : 'storybook'));
-          sound.playOpen();
-          break;
-        case 'm':
-          setActiveModal((prev) => (prev === 'map' ? null : 'map'));
-          sound.playOpen();
-          break;
-        case 't':
-          setActiveDrawer((prev) => (prev === 'quests' ? null : 'quests'));
-          sound.playOpen();
-          break;
-        case 'i':
-          setActiveDrawer((prev) => (prev === 'inventory' ? null : 'inventory'));
-          sound.playOpen();
-          break;
-        case 'p':
-          setActiveDrawer((prev) => (prev === 'profile' ? null : 'profile'));
-          sound.playOpen();
-          break;
-        default:
-          break;
+      const modalKeys: Record<string, Exclude<ModalType, null>> = { d: 'diary', s: 'storybook', m: 'map' };
+      const drawerKeys: Record<string, Exclude<DrawerType, null>> = { t: 'quests', i: 'inventory', p: 'profile' };
+      const key = e.key.toLowerCase();
+      const modal = modalKeys[key], drawer = drawerKeys[key];
+      if (!modal && !drawer) return;
+      // 吃掉這次按鍵：否則彈窗開啟後自動聚焦的輸入框會收到同一個字（按 D 開日記，標題多一個 d）。
+      e.preventDefault();
+      if (modal) {
+        setActiveDrawer(null);
+        setActiveModal(modal);
+      } else {
+        setActiveDrawer((prev) => (prev === drawer ? null : drawer));
       }
+      sound.playOpen();
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -352,7 +360,7 @@ export default function App() {
           '#drawer-quests, #drawer-inventory, #drawer-profile'
         );
         const insideTrigger = target.closest(
-          '#btn-quests-drawer, #btn-inventory-drawer, #header-profile-btn'
+          '#btn-quests-drawer, #btn-inventory-drawer, #header-profile-btn, #btn-quests-drawer-mobile, #btn-inventory-drawer-mobile'
         );
         if (!insideDrawer && !insideTrigger) {
           setActiveDrawer(null);
@@ -467,7 +475,8 @@ export default function App() {
    * 在場 NPC：所在地點等於玩家眼前場景的角色。GM 只能讓這些角色說話與調整好感。
    * NPC 的位置存在覆寫的 location，由下面兩個時機依日程重算。
    */
-  const presentNpcs = npcs.filter((npc) => npc.location === playerScene);
+  // 停用的 NPC 不在場：故事書關掉的角色仍可能留著排班地點，不能交給 GM 扮演。
+  const presentNpcs = npcs.filter((npc) => npc.enabled && npc.location === playerScene);
 
   /** 把重算結果寫進覆寫的 location。 */
   const relocateNpcs = (hour: number, deferScene: string | null) => {
@@ -551,7 +560,7 @@ export default function App() {
       adjacentRegions: currentSector?.connectedTo ?? [],
       scene: playerScene,
       presentNpcIds: presentNpcs.map((npc) => npc.id),
-      closeNpcIds: npcs.filter((npc) => npc.location !== playerScene && npc.affection >= MEMORY_PARAMS.closeAffection).map((npc) => npc.id),
+      closeNpcIds: npcs.filter((npc) => npc.enabled && npc.location !== playerScene && npc.affection >= MEMORY_PARAMS.closeAffection).map((npc) => npc.id),
       today: gameDate,
     });
     const presentIds = presentNpcs.map((npc) => npc.id);
@@ -606,13 +615,14 @@ export default function App() {
       const batch = pendingThoughts(store, npc.id);
       const date = clockRef.current.date;
       distillingRef.current.add(npc.id);
+      const epoch = runEpochRef.current;
       distillNpcThoughts({
         npc,
         playerName: profile.name,
         thoughts: batch,
         todayLog: npcMemoryOf(store, npc.id).logs.find((log) => log.date === date)?.content ?? '',
       })
-        .then((result) => setNpcMemories((prev) => {
+        .then((result) => epoch === runEpochRef.current && setNpcMemories((prev) => {
           const next = appendLog(prev, npc.id, result, batch.map((thought) => thought.id), date, memoryNow());
           npcMemoriesRef.current = next;
           return next;
@@ -625,6 +635,11 @@ export default function App() {
   // GM 呼叫狀態。錯誤不寫進對話歷史 —— 那是遊戲紀錄，不是錯誤日誌。
   const [gmPending, setGmPending] = useState<boolean>(false);
   const [gmError, setGmError] = useState<string | null>(null);
+  /**
+   * 本局編號：重置進度時 +1。非同步回應（GM、日誌提煉）回來時比對送出當時的編號，
+   * 不同就整個丟掉，否則上一局的回應會把對話、星幣、時間寫進新局。
+   */
+  const runEpochRef = useRef(0);
 
   /** 對話窗口 20 回合；滿額後批次捨棄最早 10 回（game/memory.ts 的 pushTurn）。 */
   const sendToGm = async (text: string) => {
@@ -655,6 +670,7 @@ export default function App() {
     };
     setMemories((prev) => touchMemories(prev, [...packIds, ...recalled.map((item) => item.id)], memoryNow()));
 
+    const epoch = runEpochRef.current;
     try {
       const result = await runGm({
         playerInput,
@@ -675,16 +691,20 @@ export default function App() {
         terminals: currentSectorId === 'greenhouse' ? [{ name: '溫室窗前工作站（農業監控終端）', lines: growthReport(GREENHOUSE_RACKS, dayNumber(gameDate, gameTime), GREENHOUSE_WIDTH).map(describeRow) }] : undefined,
         memory,
       });
+      // 等待期間玩家重置了進度：這是上一局的回應，不套用。
+      if (epoch !== runEpochRef.current) return;
       applyCommands(result.commands);
       const thoughts = result.commands.flatMap((command) => command.type === 'npc_thought' ? [{ npcId: command.npcId, text: command.text }] : []);
       recordThoughts(thoughts, result.commands);
       setDialogueHistory((prev) => pushTurn(prev, { playerInput, segments: result.segments, ...(thoughts.length ? { thoughts } : {}) }));
     } catch (error) {
+      if (epoch !== runEpochRef.current) return;
       setGmError(
         error instanceof GmError ? error.message : 'GM 呼叫失敗，請稍後再試。'
       );
     } finally {
-      setGmPending(false);
+      // 重置時已經把等待狀態清掉了，新局可能已經送出新的請求，不要替它解鎖。
+      if (epoch === runEpochRef.current) setGmPending(false);
     }
   };
 
@@ -992,6 +1012,14 @@ export default function App() {
   // 以及故事書的本局條目與全部覆寫 —— 好感、關係、所在位置、啟用狀態都回到預設。
   // 保留故事書內建內容與系統設定。
   const handleResetProgress = () => {
+    // 還在路上的 GM 回應屬於上一局：換編號讓它回來時被丟掉，並解除等待鎖讓新局能直接送出。
+    runEpochRef.current += 1;
+    setGmPending(false);
+    setGmError(null);
+    distillingRef.current.clear();
+    setWakeNotice(null);
+    walkRef.current = walkMeter();
+    clockRef.current = { date: GAME_START_DATE, time: GAME_START_TIME };
     setStats(INITIAL_STATS);
     vitalsCarryRef.current = emptyCarry();
     affectionTallyRef.current = undefined;
@@ -1035,16 +1063,19 @@ export default function App() {
   };
 
   // Handle adding diary entry
+  // 日記的新增、修改、刪除都是玩家按了按鈕的動作：下一次存檔立即寫入，不走延遲。
   const handleAddDiaryEntry = (entry: Omit<DiaryEntry, 'id'>) => {
     const newEntry: DiaryEntry = {
       ...entry,
       id: `d_${Date.now()}`,
     };
-    setDiaryEntries([newEntry, ...diaryEntries]);
+    saveNowRef.current = true;
+    setDiaryEntries((prev) => [newEntry, ...prev]);
   };
 
   // Handle updating diary entry
   const handleUpdateDiaryEntry = (updatedEntry: DiaryEntry) => {
+    saveNowRef.current = true;
     setDiaryEntries((prev) =>
       prev.map((entry) => (entry.id === updatedEntry.id ? updatedEntry : entry))
     );
@@ -1065,6 +1096,7 @@ export default function App() {
   ];
 
   const handleDeleteDiaryEntry = (id: string) => {
+    saveNowRef.current = true;
     setDiaryEntries((prev) => prev.filter((entry) => entry.id !== id));
   };
 
@@ -1130,8 +1162,16 @@ export default function App() {
           gmError={gmError}
           toast={toast}
           npcs={npcs}
+          tools={
+            <MobileToolbar
+              activeDrawer={activeDrawer}
+              onOpenDrawer={(type) => { sound.playOpen(); setActiveDrawer(type); }}
+              onOpenModal={(type) => { sound.playOpen(); setStorybookTargetNpcId(null); setActiveModal(type); }}
+              activeQuestsCount={quests.filter((q) => q.status === '進行中').length}
+            />
+          }
           stage={currentSectorId === 'bridge' ? (
-            <BridgeStage key={bridgeEntry} paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} onOpenBoard={() => setActiveModal('shipBoard')} onNotice={triggerToast} gameDate={gameDate} gameTime={gameTime} />
+            <BridgeStage key={bridgeEntry} paused={activeModal !== null || activeDrawer !== null} onOpenMap={() => setActiveModal('map')} onOpenBoard={() => setActiveModal('shipBoard')} onNotice={triggerToast} onWalk={handleWalk} gameDate={gameDate} gameTime={gameTime} />
           ) : FACILITIES[currentSectorId] ? (
             <FacilityScene key={currentSectorId} facility={FACILITIES[currentSectorId]} arrivedFrom={arrivedFrom} paused={activeModal !== null || activeDrawer !== null} onLeave={(to) => commitSector(to, null, currentSectorId)} onNotice={triggerToast} onAction={handleFacilityAction} onWalk={handleWalk} onPosition={point => { facilityPositionRef.current = point; }} gameDate={gameDate} gameTime={gameTime} garden={currentSectorId === 'greenhouse' ? garden : undefined} />
           ) : currentRoom ? (
@@ -1151,6 +1191,7 @@ export default function App() {
       <QuestDrawer
         isOpen={activeDrawer === 'quests'}
         quests={quests}
+        gameDate={gameDate}
         onReportQuest={handleReportQuest}
         onAbandonQuest={handleAbandonQuest}
       />
@@ -1242,8 +1283,8 @@ export default function App() {
         gameDate={gameDate}
         onGenerateDraft={requestDiaryDraft}
         onCondenseDraft={(ids) => condenseDiaryDraft({ profile, entries: diaryEntries.filter((entry) => ids.includes(entry.id)) })}
-        onSaveCondensed={(ids, entry) => setDiaryEntries((prev) => condenseEntries(prev, ids, entry, `d_${Date.now()}`))}
-        onSplitEntry={(id) => setDiaryEntries((prev) => splitCondensed(prev, id))}
+        onSaveCondensed={(ids, entry) => { saveNowRef.current = true; setDiaryEntries((prev) => condenseEntries(prev, ids, entry, `d_${Date.now()}`)); }}
+        onSplitEntry={(id) => { saveNowRef.current = true; setDiaryEntries((prev) => splitCondensed(prev, id)); }}
       />
 
       {/* 溫室植栽監測機：這一翼作物的收成倒數與健康（健康為模擬） */}

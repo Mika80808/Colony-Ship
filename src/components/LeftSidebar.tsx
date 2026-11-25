@@ -257,3 +257,57 @@ export default function LeftSidebar({
     </aside>
   );
 }
+
+interface MobileToolbarProps {
+  activeDrawer: DrawerType;
+  onOpenDrawer: (type: DrawerType) => void;
+  onOpenModal: (type: ModalType) => void;
+  activeQuestsCount: number;
+}
+
+/**
+ * 手機寬度（≤760px）時左側欄整個收起，這四個入口改成圖示按鈕，放在右側地圖按鈕下方。
+ * 寬螢幕不顯示（index.css 的 .mobile-toolbar）。
+ */
+export function MobileToolbar({ activeDrawer, onOpenDrawer, onOpenModal, activeQuestsCount }: MobileToolbarProps) {
+  const drawerButton = (id: string, type: Exclude<DrawerType, null>, label: string, icon: React.ReactNode, badge?: number) => (
+    <button
+      id={id}
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={activeDrawer === type}
+      onClick={(e) => {
+        e.stopPropagation();
+        sound.playClick();
+        onOpenDrawer(activeDrawer === type ? null : type);
+      }}
+      className={`sidebar-icon-btn w-11 h-11 rounded-xl relative ${activeDrawer === type ? 'active' : ''}`}
+    >
+      {icon}
+      {!!badge && (
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#55baeb] text-black text-[11px] font-bold flex items-center justify-center">{badge}</span>
+      )}
+    </button>
+  );
+  const modalButton = (id: string, type: Exclude<ModalType, null>, label: string, icon: React.ReactNode) => (
+    <button
+      id={id}
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => { sound.playClick(); onOpenModal(type); }}
+      className="sidebar-icon-btn w-11 h-11 rounded-xl"
+    >
+      {icon}
+    </button>
+  );
+  return (
+    <nav className="mobile-toolbar flex-col items-end gap-2 mt-2" aria-label="遊戲選單">
+      {drawerButton('btn-quests-drawer-mobile', 'quests', '任務', <ListChecks className="w-5 h-5" />, activeQuestsCount)}
+      {drawerButton('btn-inventory-drawer-mobile', 'inventory', '道具', <Package className="w-5 h-5" />)}
+      {modalButton('btn-diary-mobile', 'diary', '日記', <BookMarked className="w-5 h-5" />)}
+      {modalButton('btn-storybook-mobile', 'storybook', '故事書', <BookOpen className="w-5 h-5" />)}
+    </nav>
+  );
+}
