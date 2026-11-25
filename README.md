@@ -49,7 +49,6 @@ Colony-Ship/
 | `docs/characters.md` | 角色素材 |
 | `.claude/skills/starport-asset-gen/SKILL.md` | 素材規範：視角、尺寸、光源、畫風、檔名 |
 | `.claude/skills/generate2dmap/SKILL.md` | 2D 地圖生成流程 |
-| `tools/asset-prompts.md` | 角色與房間家具的生圖提示詞 |
 | `tools/art/greenhouse_crop_prompts.md` | 溫室作物提示詞與排位 |
 
 ## 驗證

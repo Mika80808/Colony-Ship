@@ -10,9 +10,9 @@
 
 - 2026-10-25 A-1 淋浴間：角色放在玻璃門後，保留頭髮與臉部；門片沿右側軸承開關，加入蓮蓬頭灑水及漸淡上升的熱氣。
 
-- 2026-10-19 走道地板精修：依使用者提供的十字形地板原圖，以內建 imagegen 整理外圍破碎區域為洋紅背景，修整板縫、邊框與導光燈，保留原十字構圖與中央圓飾。精修 PNG 與完整提示詞暫存 `tmp/imagegen/corridor-floor-refined-20261019.png`、同名 `.prompt.txt`；待驗收，尚未去背、套用碰撞或替換遊戲素材。
-- 2026-10-19 醫療室地板第二套選樣：內建 imagegen 生成淡彩水泥粉光、霧面環氧樹脂、柔光環氧樹脂各三款，合為一張 3 × 3 選樣圖。原圖與完整提示詞暫存 `tmp/imagegen/medical-floor-pastel-cement-epoxy-20261019.png`、同名 `.prompt.txt`，待使用者挑選；尚未做無縫鋪設驗收或替換遊戲素材。
-- 2026-10-19 醫療室地板選樣：依使用者要求，用內建 imagegen 生成一張 3 × 3 九款地板比較圖（暖白樹脂、薄荷綠大板、霧藍灰複合板、象牙白陶瓷、淺鼠尾草綠橡膠、細粒人造石、淡灰長板、白綠拼色、淺灰八角板）。選樣圖與完整提示詞暫存 `tmp/imagegen/medical-floor-options-20261019.png`、同名 `.prompt.txt`；待使用者挑選後再整理正式可重複鋪設素材，尚未替換遊戲地板。未選用的試畫依規範不放進 raw 或 Git。
+- 2026-10-19 走道地板精修：依使用者提供的十字形地板原圖，以內建 imagegen 整理外圍破碎區域為洋紅背景，修整板縫、邊框與導光燈，保留原十字構圖與中央圓飾。精修 PNG 與完整提示詞暫存 `../場景/地板/試畫_20261019/corridor-floor-refined-20261019.png`、同名 `.prompt.txt`；待驗收，尚未去背、套用碰撞或替換遊戲素材。
+- 2026-10-19 醫療室地板第二套選樣：內建 imagegen 生成淡彩水泥粉光、霧面環氧樹脂、柔光環氧樹脂各三款，合為一張 3 × 3 選樣圖。原圖與完整提示詞暫存 `../場景/地板/試畫_20261019/medical-floor-pastel-cement-epoxy-20261019.png`、同名 `.prompt.txt`，待使用者挑選；尚未做無縫鋪設驗收或替換遊戲素材。
+- 2026-10-19 醫療室地板選樣：依使用者要求，用內建 imagegen 生成一張 3 × 3 九款地板比較圖（暖白樹脂、薄荷綠大板、霧藍灰複合板、象牙白陶瓷、淺鼠尾草綠橡膠、細粒人造石、淡灰長板、白綠拼色、淺灰八角板）。選樣圖與完整提示詞暫存 `../場景/地板/試畫_20261019/medical-floor-options-20261019.png`、同名 `.prompt.txt`；待使用者挑選後再整理正式可重複鋪設素材，尚未替換遊戲地板。未選用的試畫依規範不放進 raw 或 Git。
 - 2026-10-17 醫療室牆壁素材：依使用者確認生成純洋紅背景、深藍磁磚牆頂、白牆與薄荷綠飾線。美術來源在 `tools/art/medical/raw/medical-wall-modules-magenta-v1.png`、`medical-walltop-a2-magenta-v2.png`，完整提示詞與狀態在 `tools/art/medical/wall-autotile-prompts.md`。尚待切圖、48 px 尺寸整理與拼接驗收，未替換遊戲底圖。
 
 每次收工更新這份。格式：已完成、進行中、下一步、已定案。
@@ -128,6 +128,7 @@
 
 ## 工具
 
+- 2026-11-23 地圖編輯器接進遊戲（流程見 `tools/art/editor/README.md`）：專案根目錄 `工具/地圖編輯器_v3.html` 開 PSD 標互動物件（類型、名稱、文字、效果備註、點擊範圍、站位）、互動狀態圖（PSD 圖層「名稱@互動」或上傳）、掛在圖層下的碰撞、出口、互動點，可改圖層名稱。匯出到 `tools/art/editor/`，`tools/art/editor_layout.py <場景>` 寫進 map.json（各場景腳本也自動套用）。`cut.py psd` 會匯出藏起來的「@互動」圖層成 `<名稱>-active.webp`、記下底圖位置 `_base.bbox`、套用編輯器的改名。遊戲：`DecorSpec.active`／`activeOffset`、`InteractionSpec.decor`，互動後擺設換圖，走開或再按一次換回（`decor.ts` 的 `engageAfter`、`stillEngaged`，有測試）。用藥局 PSD 的冷藏櫃走過一次全流程（座標與 cut.py 的 layout 對得上，測試資料已還原）；遊戲裡換圖的畫面還沒在瀏覽器實際看過。同日補：編輯器常先畫個大概，腳本接受沒標完的草稿：能進遊戲的先進去，站位在碰撞裡的互動先不放（走不到），其餘缺的（互動文字、物件沒擺、門／座位、出口目的地、上傳的狀態圖）照寫並列成「還沒完成」清單；物件沒擺時碰撞先不掛 `of`。編輯器的「場景」預設改成空的，沒填不會誤寫進醫療室。同日再補：用 PSD 拼場景（編輯器勾「自動擺放」，`tools/art/psd_place.py`）：每個圖層自動擺、自動算碰撞；圖高 ≤ 92 px 的整張擋、不互動的併成一張地面圖（decor `sortY: 0`），只有更高的單獨一層做遮蔽；碰撞背後不到 72 px 自動接牆（手畫的也接）；場景腳本已擺的圖層不動。規則寫進 starport-scene-props「圖層與碰撞規則」一-6。用測試資料在醫療室走廊跑過（分類、接牆、重跑不重複、遊戲測試都過，測試資料已清掉）；遊戲畫面因瀏覽器面板隱藏沒實際看。
 - 新增 `generate2dmap` skill（`.claude/skills/generate2dmap/`，來源 0x0funky/agent-sprite-forge 2026-07-13 版），之後做新場景地圖時使用。2026-10-15 整理成本專案版：只留分層底圖流程，刪掉橫向捲軸、tilemap 引擎、戰棋格等用不到的模式與附帶腳本。
 - 2026-10-15 全遊戲畫風定為 HD 像素風（美術圖塊一格 48 × 48 px，使用者定）。`starport-asset-gen` 改寫：加共同風格段；格子改 48 px；刪掉統一發光青藍 #4DD0E1、64 px 校準板、白模／Blender、3 × 3 一次生的舊流程、「不要寫 pixel art」禁令、外部模型說明，分層改照 generate2dmap 的實際做法（底圖／decor／門／前景），不再用 Layer 1–6。`starport-scene-props`、`generate2dmap` 的畫風改為引用它。
 - 2026-11-22 畫風統一（使用者定）：只固定畫風（精緻像素風；2 倍再縮一半是切圖與 map.json 的後製），不附風格參考圖（會讓物件全長得一樣）、不限定顏色；設計最重要的是科技感，靠造型表現，不用邊線、螺絲填塞畫面。共用規則段改寫：新增 HIGH-TECH FEEL、NO FILLER DETAIL，描邊只描外輪廓與主要部件，刪掉 DESIGN DEPTH（裝甲板＋深石墨內臟）、4×4 PIXEL GRID 與固定配色。`starport-asset-gen` 第一節是畫風唯一正本，scene-props、generate2dmap、AGENTS、Tileset 標準只引用。
@@ -153,9 +154,10 @@
 
 ## 中央廣場（規劃中）
 
-- 2026-10-05 v2 分區（使用者給全艦配置圖 `tools/art/plaza/station_layout_ref.png` 後改版）：RPG 構圖、圓形廣場＋十字通道（上研究室、右農業區、下醫療室、左工程區），圓外是星空底圖。中央塔是直筒，塔身畫到地圖頂、玩家在後面時半透明；電梯門朝南。北半圈兩間有 NPC 的大店面（西北酒吧、東北餐廳＋進貨口），東西兩側無人小店（物資店、服飾店），店面一律正面朝鏡頭；美食街座位環繞中央塔。電子投影已刪除。說明見 `docs/scenes/plaza.md`，規劃圖 `tools/art/plaza/plaza_plan_v2.png`（`tools/art/plaza_plan.py`）。
-- 營業時間模組 `src/game/shopHours.ts`（餐廳 08–20、酒吧 20–02，含測試）。
-- 下一步：使用者確認 v2 配置與待決定事項後做底圖。
+- 2026-11-12 v3 分區（使用者定）：v2 廢棄（圓形＋星空，生圖會把星艦畫成盤子）。改成四面有牆的矩形室內廣場 40 × 31 格，不露星空。店面全部嵌在北牆（雜貨、酒吧、販賣櫃、北出口、咖啡吧檯、餐廳＋進貨口、洗手台、服飾）；餐廳、酒吧改成進門換場景。中央塔 6 × 6 格、透明電梯井、塔身只畫 4 格，南面可投影（會議用）。十字主走道 4 格寬，中間 2 格是輸送帶蓋板（大型貨物）；小包裹由自走運送車送到臥室。南半部左右兩翼共 24 席，西南閱覽區、東南健身區。營業時間改為餐廳 11–20、酒吧 18–01、咖啡 07–17。說明見 `docs/scenes/plaza.md`，規劃圖 `tools/art/plaza/plaza_plan_v3.png`（`tools/art/plaza_plan.py`）。
+- （已廢棄）2026-10-05 v2 分區（使用者給全艦配置圖 `tools/art/plaza/station_layout_ref.png` 後改版）：RPG 構圖、圓形廣場＋十字通道（上研究室、右農業區、下醫療室、左工程區），圓外是星空底圖。中央塔是直筒，塔身畫到地圖頂、玩家在後面時半透明；電梯門朝南。北半圈兩間有 NPC 的大店面（西北酒吧、東北餐廳＋進貨口），東西兩側無人小店（物資店、服飾店），店面一律正面朝鏡頭；美食街座位環繞中央塔。電子投影已刪除。說明見 `docs/scenes/plaza.md`，規劃圖 `plaza_plan_v2.png` 與舊的 `plaza_plan.json` 已於 2026-11-12 刪除。
+- 營業時間模組 `src/game/shopHours.ts`（2026-11-12 改成 v3：販賣櫃 24 小時、咖啡吧檯 07–17、餐廳 11–20、酒吧 18–01，含測試）。
+- 下一步：照 v3 做底圖。
 
 ## 醫療室（建置中）
 
@@ -166,8 +168,8 @@
 - 2026-10-16 放進遊戲看尺寸（暫時版，10-17 已補上碰撞、遮擋、自動門）。舊的 v6 底圖、牆 decor、`tools/art/medical_build.py`（v6 流程）都已刪除；用不到的 `calibration_board.py`（64 px 校準板）、`whitebox.py`（家具白模）也刪了。
 - 2026-10-17 碰撞與遮擋：`medical_base_v9.py` 照 v9 規劃寫 `map.json` 的碰撞（牆、病床與櫃台佔位、門洞）與 `walls`（橫牆牆頂那一條，從底圖切，依底邊跟角色排前後；站到牆後只露出胸口以上，站在牆端旁邊不被蓋）。大門改成靠近自動開（`DoorSpec.auto`）。`facility.test.ts` 檢查全部格子走得到、八個房間、門洞、牆後深度。說明見 `docs/scenes/medical.md`「碰撞與遮擋」。
 - 2026-10-17 地板與底圖質感：地板改成四色霧面樹脂大方板（`raw/medical_floor_resin.png`，一片 2 × 2 格，取代太像浴室的小方格磁磚）；拼好的底圖切四塊交給 GPT（astra）「照描＋加質感」重畫（牆頂倒角、牆面嵌板與薄荷綠飾線、邊緣陰影），`medical_base_v9.py` 看到 `raw/repaint_*.png` 就接起來當遊戲底圖。作法與 prompt 在 `tools/art/medical/prompts.md`。
-- `tools/art/medical/raw/` 另有使用者的物件草稿（`draft_*.png`：側門、雙開門、L 型沙發、候診椅、病床）與整張擺設參考圖 `props_ref_v9.png`。
-- 2026-10-26 藥局物件：使用者在 `場景/藥局物件/pharmacy-dispensing-body.psd` 排好位置與大小，匯出成 `public/assets/medical/props/pharmacy-*.webp`，用 `python tools/art/cut.py psd medical <PSD>` 匯入（位置存在 `tools/art/medical/layout_pharmacy-dispensing-body.json`），擺放與碰撞寫在 `tools/art/medical_objects.py` 的 PLACE。配藥櫃分三層（櫃體、取藥爪、玻璃），取藥爪在玻璃後停三格後往右滑出（`decor.ts` 的 trackX）；右端取藥口前留給藥劑師 NPC 站。L 型櫃台拆成短邊、長邊兩張圖（LAYERS），各自排前後。
+- 使用者的物件草稿（`draft_*.png`：側門、雙開門、L 型沙發、候診椅、病床）與各分區試畫原圖，2026-11-23 移到遊戲資料夾外的 `../場景/醫療區/試畫原圖/`；`props_ref_v9.png` 已刪除。
+- 2026-10-26 藥局物件：使用者在 `../場景/醫療區/藥局物件/pharmacy-dispensing-body.psd` 排好位置與大小，匯出成 `public/assets/medical/props/pharmacy-*.webp`，用 `python tools/art/cut.py psd medical <PSD>` 匯入（位置存在 `tools/art/medical/layout_pharmacy-dispensing-body.json`），擺放與碰撞寫在 `tools/art/medical_objects.py` 的 PLACE。配藥櫃分三層（櫃體、取藥爪、玻璃），取藥爪在玻璃後停三格後往右滑出（`decor.ts` 的 trackX）；右端取藥口前留給藥劑師 NPC 站。L 型櫃台拆成短邊、長邊兩張圖（LAYERS），各自排前後。
 - 2026-10-26 病床：三張床照規劃貼北牆，被單拆成另一層；按 E 或點床躺下（互動 kind `bed`，角色夾在床跟被單中間），移動就起來。床用第一版病房表 `raw/props_ward.png` 的圖。
 - 下一步：病房其他物件（床邊藥車已切好 `ward-cart` 還沒擺、拉簾）、其他分區物件照藥局的新畫風重做；藥劑師 NPC 與呼叫鈴。
 - 延後的事：兩位 NPC 外型與名字（地圖建完再說）、看診費與藥價（跟其他物價一起定）、北牆接中央廣場（廣場建完再改）。
@@ -181,7 +183,17 @@
 - 2026-10-05：Aiden／Ethan／Luca 目錄改小寫、`normal`→`neutral`、`troubled`→`sad`、行走圖從 1254 原圖縮成 688；布雷茲六表情由 Codex 生成的表情表切出；艾登、伊森、路卡登錄成內建 NPC（中文名暫用音譯，人物設定待補，不指定房號、日程、部門）。故事書可編輯沒有日程的既有角色。
 - `tools/pack_walk_sheet.py`：走路影格比站姿高、會超出腳底線時，整張改用剛好放得下的比例（盧卡需要）。
 - 玩家：只有行走圖，造型由玩家自訂，不做頭像、立繪、表情。
-- 2026-10-05：10 位候選男角體型立繪（黑色無袖背心＋黑短褲、赤腳），供挑選角色外型；女性向，身高 176–194 cm，體型涵蓋精瘦、力量、纖細、壯碩、泳將、成熟、高挑、拳擊、書卷、格鬥。成品 `tools/art/candidates/C01~C10.webp`。不進遊戲。
+- 2026-10-05：10 位候選男角體型立繪（黑色無袖背心＋黑短褲、赤腳），供挑選角色外型；女性向，身高 176–194 cm，體型涵蓋精瘦、力量、纖細、壯碩、泳將、成熟、高挑、拳擊、書卷、格鬥。成品已移到遊戲資料夾外的 `../場景/候選角色體型_C01-C10/`。不進遊戲。
+
+## 專案整理（2026-11-23）
+
+- 與遊戲本體無關的試畫、選樣、工具移出 `Colony Ship Game/`（規則寫進 `AGENTS.md`「素材處理慣例」，整體地圖見 `../專案目錄.md`）：
+  - `public/assets/medical/000.html`（牆壁 autotile 生成器）→ `../工具/`
+  - `tools/art/style_test/` → `../場景/畫風測試/`；`tmp/imagegen/` 地板選樣 → `../場景/地板/試畫_20261019/`；`tmp/` 刪除
+  - `tools/art/medical/raw/` 裡腳本沒讀的試畫與草稿 25 張 → `../場景/醫療區/試畫原圖/`
+  - 還沒擺進 `map.json` 的藥局候選切圖（`pharmacy-bench*`、`pharmacy-desk*`、`pharmacy-island`、`pharmacy-long-desk`、`pharmacy-side-counter-west`）→ `../場景/醫療區/藥局物件/遊戲用2倍圖_未擺放/`；要擺時從 PSD 用 `cut.py psd` 匯入，或重跑 `cut.py props medical`
+  - `tools/art/candidates/`（候選男角體型）→ `../場景/候選角色體型_C01-C10/`
+  - 腳本裡的 `場景/藥局物件/` 改成 `場景/醫療區/藥局物件/`
 
 ## 專案整理（2026-10-03）
 
@@ -191,4 +203,5 @@
 - 素材轉無損 WebP（`tools/to_webp.py` 逐像素驗證）：bridge-v3 全部、greenhouse/props 全部、Luca 行走圖，共省約 5.4MB；`bridgeArt.ts`、`FacilityScene.tsx` 引用已改副檔名。
 - 修正 `initialGameData.ts` 裡艦橋背景指向不存在的 `/assets/bridge/central-tower-bridge.png`，改指 bridge-v3 背景（實際顯示時 App.tsx 本來就會覆蓋，屬保險修正）。
 - 第二批：剩餘 PNG（作物、種植架、水面遮罩、玩家行走圖）也轉無損 WebP；所有寫進 public/assets 的產生腳本輸出副檔名同步改 .webp（lossless），讀取端（rebuild_greenhouse_collision、greenhouse_tree_layer）一併更新。
-- 重複程式碼整併：共用圖片載入 `src/utils/loadImage.ts`（四處合一）；鍵盤輸入共用 hook `src/components/useSceneKeys.ts`（房間、走廊、設施三場景接上，暫只支援 WASD＋E，方向鍵之後再補；艦橋因接線方式不同暫不動）；合併 pack_player／pack_lucian 為 `tools/pack_walk_atlas.py`；溫室圖層切割抽出 `tools/art/greenhouse_common.py`；刪除過時的 prepare_furniture.py。
+- 重複程式碼整併：共用圖片載入 `src/utils/loadImage.ts`（四處合一）；鍵盤輸入共用 hook `src/components/useSceneKeys.ts`（房間、走廊、設施三場景接上，暫只支援 WASD＋E，方向鍵之後再補；艦橋因接線方式不同暫不動）；合併 pack_player／pack_lucian 為 `tools/pack_walk_atlas.py`；溫室圖層切割抽出 `greenhouse_common.py`（之後溫室舊腳本整批清掉，這支已不存在）；刪除過時的 prepare_furniture.py。
+- 2026-10-26 手術室大型科幻設備：內建 imagegen 完成八款 2090 設備選樣；原圖與完整提示詞已交件至專案根目錄的 `場景/手術室物件/surgery-large-equipment-concepts-v1.png`、同名 `.prompt.md`。狀態：造型選樣完成，待挑選；尚未切圖或套用場景。遊戲 repo 的 raw 與 prompts.md 寫入受限，原圖與提示詞保存在交件資料夾。

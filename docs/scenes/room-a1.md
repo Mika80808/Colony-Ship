@@ -17,7 +17,7 @@
 
 - 玩家圖集：`public/assets/player/walk.webp`（RGBA 688×516，4 方向 × 3 幀）。
 - 家具：`public/assets/rooms/furniture/`，配置表 `public/assets/rooms/furniture.json`。
-- 提示詞見 `tools/asset-prompts.md`。處理腳本：`tools/prepare_player.py`、`tools/pack_walk_atlas.py`（打包圖集，原 pack_player.py）（家具當年用的 `prepare_furniture.py` 輸出路徑已不存在，隨房間改走 Photoshop 流程後移除）。
+- 要重畫時，prompt 照 `.claude/skills/starport-asset-gen/SKILL.md` 第二節的精簡範本。處理腳本：`tools/prepare_player.py`、`tools/pack_walk_atlas.py`（打包圖集，原 pack_player.py）（家具當年用的 `prepare_furniture.py` 輸出路徑已不存在，隨房間改走 Photoshop 流程後移除）。
 - 玩家中間橫排可使用 sprite-pipeline 的 `normalize_sprite_strip.py --input tmp/sprites/player-strip.png --out-dir tmp/sprites/player-frames --frames 12 --frame-size 160` 後再打包。
 - 2026-11-20 起房間用設施場景（`FacilityScene`）跑，跟走廊、艦橋、溫室同一套碰撞、尋路、排前後與點擊走路。
 - 殼與陳設的原始資料：`public/assets/rooms/shell.json`（所有房間共用：牆、地板、浴室、房門）、`public/assets/rooms/furnishings/<住戶>.json`（家具、地毯、座位、床、巡遊點）。改這兩個，再跑 `python tools/art/room_map.py`，產生 `public/assets/rooms/<住戶>/`（map.json、ground.webp、props/）與空房 `rooms/empty/`。**不要手改 map.json。** 新增住戶陳設時把住戶 id 加進 `src/game/rooms.ts` 的 `FURNISHED`。
