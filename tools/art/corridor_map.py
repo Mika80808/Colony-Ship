@@ -12,6 +12,7 @@
 重跑會產生同樣的結果。
 """
 import json
+import editor_layout
 from pathlib import Path
 
 import numpy as np
@@ -188,6 +189,7 @@ def build(key, cfg):
         'foreground': [{'src': rel('foreground.webp') if key != 'a' else 'foreground.webp', 'x': fg['x'], 'y': fg['y']}],
     }
     ground.save(ASSETS / folder / 'ground.webp', lossless=True)
+    editor_layout.apply(data, folder)   # 地圖編輯器的標註（tools/art/editor/）
     (ASSETS / folder / 'map.json').write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
     print(f'{folder}: {len(doors)} 扇門、{len(entrances)} 個出入口、{len(decor)} 件擺設、{len(rects)} 塊碰撞')
 

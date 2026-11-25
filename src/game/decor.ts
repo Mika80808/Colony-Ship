@@ -15,8 +15,9 @@ export interface TrackAnim { stops: number[]; top: number; clip: [number, number
  * beside：角色腳點在圖的左右範圍外時畫在前面。不填就照圖自動判斷（besideByShape）；只有自動判錯時才在 map.json 寫 true／false。
  * depth：物件在地上佔的深度（格），給產生碰撞的腳本用（tools/art/footprint.py），遊戲不讀。
  * sortY：排前後用的那條線（格）；省略＝圖的底邊 y。房間家具的排序線是畫的時候另外定的，跟圖的底邊不一樣。
+ * active：互動狀態圖（地圖編輯器標的，tools/art/editor_layout.py 寫入）；activeOffset：互動圖底部中央相對一般圖的位移（世界 px）。
  */
-export interface DecorSpec { sprite: string; x: number; y: number; scale: number; block?: boolean; flip?: boolean; id?: string; size?: [number, number]; anim?: TrackAnim; beside?: boolean; depth?: number; sortY?: number }
+export interface DecorSpec { sprite: string; x: number; y: number; scale: number; block?: boolean; flip?: boolean; id?: string; size?: [number, number]; anim?: TrackAnim; beside?: boolean; depth?: number; sortY?: number; active?: string; activeOffset?: [number, number] }
 
 /**
  * 圖往左右「懸空」伸出多少 px（圖的像素）：整張圖的不透明寬度，減掉貼地那一段（底部 15% 高）的寬度，取左右較大的一邊。
@@ -87,4 +88,20 @@ export const spriteFor = (d: DecorSpec, date: string) => d.sprite.replace('{seas
 
 /** 所有可能用到的圖檔名（季節圖四張都列），載入一次，換季不用再等。 */
 export const decorSprites = (specs: DecorSpec[]) =>
-  [...new Set(specs.flatMap(d => d.sprite.includes('{season}') ? SEASONS.map(s => d.sprite.replace('{season}', s)) : [d.sprite]))];
+  [...new Set(specs.flatMap(d => [...(d.sprite.includes('{season}') ? SEASONS.map(s => d.sprite.replace('{season}', s)) : [d.sprite]), ...(d.active ? [d.active] : [])]))];
+
+/**
+ * 互動中的擺設（冰箱打開、床躺著）：互動時記下哪件擺設、哪個互動、角色當時站的位置。
+ * 角色離開那個位置（走開、起身）就結束，擺設換回一般圖；同一個互動再按一次也會結束（關上冰箱）。
+ */
+export interface Engaged { decor: string; item: string; at: { x: number; y: number } }
+/** 走開多遠（世界 px）算離開。 */
+export const ENGAGE_SLACK = 6;
+export const stillEngaged = (e: Engaged | null, p: { x: number; y: number }) => !!e && Math.hypot(p.x - e.at.x, p.y - e.at.y) <= ENGAGE_SLACK;
+/** 互動之後的狀態：綁了擺設的互動才有；坐下、躺下一直是互動中；其他同一個互動再按一次就結束。出口、門不換圖。 */
+export function engageAfter(prev: Engaged | null, item: { id: string; kind: string; decor?: string }, at: { x: number; y: number }): Engaged | null {
+  if (!item.decor || item.kind === 'exit' || item.kind === 'door') return prev;
+  const sitting = item.kind === 'seat' || item.kind === 'bed';
+  if (!sitting && prev?.item === item.id) return null;
+  return { decor: item.decor, item: item.id, at: { ...at } };
+}

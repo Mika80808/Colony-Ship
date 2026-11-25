@@ -57,8 +57,11 @@ const SEED_ITEMS: ItemDefinition[] = Object.entries(CROP_NAMES).map(([crop, name
   category: '種子',
   effectText: '',
   description: `一包${name}的種子。到溫室的菜圃播種。`,
-  // 還沒有專用圖示，先用幼苗階段的圖。
-  icon: `/assets/greenhouse/crops/${crop}_1.webp`,
+  // 道具欄裡作物只有兩種樣子：種子包裝、成熟型態（不出現幼苗、生長中）。
+  // 還沒有專用的包裝圖，先把成熟作物印在程式畫的包裝上（InventoryDrawer 的種子包裝外框）。
+  // 正式圖示的生圖任務：docs/tasks/2026-11-23-seed-packets.md。
+  icon: `/assets/greenhouse/crops/${crop}_3.webp`,
+  iconFrame: 'seed-packet',
   price: 3,
 }));
 

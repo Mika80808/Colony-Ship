@@ -7,7 +7,8 @@
                                                           ＋ tools/art/<場景>/layout_<PSD 檔名>.json（每件的世界座標）
 
 原圖預設在 tools/art/<場景>/raw/。場景資料寫在 tools/art/<場景>_objects.py：
-  sheets()  物件表：{批次: [(順序, 名稱, 遊戲寬, 遊戲高或 None)]}（給高度＝照高度縮放）
+  sheets()  物件表：{批次: [(順序, 名稱, 遊戲寬, 遊戲高或 None)]}（給高度＝照高度縮放；寬高都 None＝照 SHEET_SCALE[批次] 整張同倍率）
+  SHEET_SCALE 選填：{批次: 倍率}，固定比例生的整房表（一格 128 px → 2 倍圖一格 96 是 0.75），描邊粗細才會一致
   JOIN      選填：{批次: 併塊距離}，格子排得擠的表調小，免得把相鄰的兩件併成一件
   KEEP_ALPHA 選填：{批次, ...} 物件本身有半透明（玻璃）的批次，不做 clean_edges
   CANVAS    選填：{圖層名: 另一個圖層名}，PSD 匯入時把這層墊到那層的畫布（同位置、同底邊，例：配藥櫃的玻璃墊到櫃體）
@@ -31,6 +32,7 @@
 4. PSD：使用者把物件擺在一層「底圖位置」（遊戲底圖裁一塊、放大）上排位置與大小。先用影像比對找出那層在遊戲底圖的
    哪裡、放大幾倍，再把其他看得見的圖層換算成世界座標，存成 2 倍尺寸（一格 96，map.json 用 scale 0.5）。
    圖層名取到第一個括號或空白前（「pharmacy-dispensing-glass（2倍尺寸）」→ pharmacy-dispensing-glass）。
+   名稱結尾是「@互動」的圖層是同名物件的互動狀態圖，藏起來也會匯出，存成 <名稱>-active.webp（tools/art/editor_layout.py 接到 map.json）。
 """
 import importlib
 import json
@@ -156,7 +158,7 @@ def props(scene, sheet, raw=None):
     out.mkdir(parents=True, exist_ok=True)
     for (order, name, width, height), box in zip(plan, boxes):
         piece = src.crop(box)
-        k = height / piece.height if height else width / piece.width
+        k = height / piece.height if height else width / piece.width if width else getattr(data, 'SHEET_SCALE', {})[sheet]   # 都沒給＝整張同倍率
         piece = piece.resize((round(piece.width * k), round(piece.height * k)), Image.LANCZOS)
         piece.save(out / f'{name}.webp', lossless=True)
         print(f'{sheet} #{order} {name}: {piece.width}x{piece.height}')
@@ -212,6 +214,7 @@ def door(scene, raw=None):
 
 
 BASE_LAYER = '底圖位置'
+STATE = re.compile(r'\s*[@＠](互動|on)$', re.I)   # 互動狀態圖層的名稱結尾（工具/地圖編輯器_v3.html 同一套）
 
 
 def _ncc(image, template):
@@ -255,10 +258,20 @@ def locate_base(base, ground):
     return base.width / round(base.width / k), x, y, score
 
 
+def editor_renames(path):
+    """地圖編輯器（工具/地圖編輯器_v3.html）改過的圖層名稱：tools/art/editor/ 裡同一份 PSD 的匯出檔的 renames。"""
+    for p in sorted((ART / 'editor').glob('*.json')):
+        data = json.loads(p.read_text(encoding='utf-8'))
+        if data.get('psd') == Path(path).name:
+            return data.get('renames') or {}
+    return {}
+
+
 def psd(scene, path):
     from psd_tools import PSDImage
     doc = PSDImage.open(path)
-    layers = [l for l in doc.descendants() if not l.is_group() and l.is_visible()]
+    # 看得見的圖層，加上藏起來的互動狀態圖（「名稱@互動」，地圖編輯器配對用）→ 存成 名稱-active.webp
+    layers = [l for l in doc.descendants() if not l.is_group() and (l.is_visible() or STATE.search(l.name.strip()))]
     base = next((l for l in layers if l.name.strip() == BASE_LAYER), None)
     if base is None:
         raise SystemExit(f'PSD 裡要有一層「{BASE_LAYER}」（遊戲底圖裁一塊），用來換算座標')
@@ -267,11 +280,15 @@ def psd(scene, path):
         raise SystemExit(f'「{BASE_LAYER}」在遊戲底圖上找不到（相似度 {score:.2f}）：底圖改過的話，重新放一層目前的底圖')
     bx, by = base.bbox[:2]
     wx, wy = (lambda px: (px - bx) / k + ox), (lambda py: (py - by) / k + oy)
+    renames = editor_renames(path)
     info = {}
     for l in layers:
         if l is base:
             continue
-        name = re.split(r'[（(\s]', l.name.strip())[0]
+        raw, state = l.name.strip(), STATE.search(l.name.strip())
+        key = re.split(r'[（(\s]', STATE.sub('', raw))[0] + (state.group(0).strip() if state else '')
+        key = renames.get(key, key)   # 地圖編輯器改過的名稱
+        name = STATE.sub('', key) + '-active' if STATE.search(key) else key
         x0, y0, x1, y1 = l.bbox
         sprite = l.composite().convert('RGBA').resize((round((x1 - x0) * 2 / k), round((y1 - y0) * 2 / k)), Image.LANCZOS)
         info[name] = {'sprite': sprite, 'left': wx(x0), 'top': wy(y0), 'right': wx(x1), 'bottom': wy(y1)}
@@ -282,7 +299,8 @@ def psd(scene, path):
         info[name] = {**h, 'sprite': canvas}
     props_dir = out_dir(scene) / 'props'
     props_dir.mkdir(parents=True, exist_ok=True)
-    layout = {'_base': {'psd': Path(path).name, 'scale': round(k, 4), 'origin': [round(ox, 1), round(oy, 1)], 'match': round(score, 3)}}
+    # bbox：「底圖位置」在 PSD 裡的左上角；地圖編輯器的標註是 PSD 座標，editor_layout.py 用它換成世界座標
+    layout = {'_base': {'psd': Path(path).name, 'scale': round(k, 4), 'origin': [round(ox, 1), round(oy, 1)], 'bbox': [bx, by], 'match': round(score, 3)}}
     for name, d in info.items():
         d['sprite'].save(props_dir / f'{name}.webp', lossless=True)
         layout[name] = {'x': round((d['left'] + d['right']) / 2, 1), 'bottom': round(d['bottom'], 1),

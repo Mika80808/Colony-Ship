@@ -17,8 +17,9 @@ export interface Entrance extends TileRect { to: string; label: string; spawn: [
  * area 是點擊範圍；near 是 E 鍵感應範圍（腳點要在裡面），省略時用 area 往外 REACH。兩個分開定義（問題修正紀錄「互動」）：
  * 走廊招牌在牆上，點擊範圍是招牌本身，但要站在地板上它的前方才能按 E。
  * to：kind 是 exit 時，按 E 或點它就離開到這裡（走廊的設施招牌）。
+ * decor：綁定的擺設 id，互動時那件換成它的互動狀態圖（DecorSpec.active）；notes：給 GM 與開發看的效果說明（地圖編輯器寫的）。
  */
-export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number]; near?: [number, number, number, number]; to?: string; seat?: [number, number] | { decor: string; position: [number, number] }; exit?: [number, number]; facing?: Facing; sortY?: number }
+export interface InteractionSpec { id: string; kind: string; label: string; text: string; area: [number, number, number, number]; stand: [number, number]; near?: [number, number, number, number]; to?: string; seat?: [number, number] | { decor: string; position: [number, number] }; exit?: [number, number]; facing?: Facing; sortY?: number; decor?: string; notes?: string }
 /**
  * 要按 E（或點門）才會開的門（工程區的厚重隔音門），走遠了自己關上。passage 是門洞的格子：
  * 碰撞表裡是可走，門關著時尋路改用 withDoorClosed 的地圖，移動由 doorBlocks 擋住。座標除了 passage 都是 px。
@@ -76,7 +77,7 @@ export interface FacilityMap { tileSize: number; width: number; height: number; 
  * facing：坐下時面向哪裡（省略＝向下）。sortY：坐或躺著時角色排前後用的線（px）；
  * 床省略時用床的底邊（角色排在床跟被單中間），座位省略時用坐的位置。
  */
-export interface FacilityInteraction { id: string; kind: string; label: string; text: string; point: Point; area: Rect; near?: Rect; to?: string; seat?: Point; seatDecor?: string; exit?: Point; sortY?: number; facing?: Facing }
+export interface FacilityInteraction { id: string; kind: string; label: string; text: string; point: Point; area: Rect; near?: Rect; to?: string; seat?: Point; seatDecor?: string; exit?: Point; sortY?: number; facing?: Facing; decor?: string }
 
 /** Every facility with its own walkable scene, keyed by sector id. */
 export const FACILITIES: Record<string, { folder: string; name: string }> = {
@@ -279,7 +280,7 @@ export function interactions(m: FacilityMap): FacilityInteraction[] {
     ...(m.interactions ?? []).map(i => ({ ...at(i.id, i.kind, i.label, i.text, { x: i.area[0], y: i.area[1], w: i.area[2], h: i.area[3] }, { x: i.stand[0], y: i.stand[1] }),
       ...(i.near ? { near: tileRect(m, { x: i.near[0], y: i.near[1], w: i.near[2], h: i.near[3] }) } : {}), ...(i.to ? { to: i.to } : {}),
       ...(i.seat ? { seat: seatPoint(i.seat), ...(Array.isArray(i.seat) ? {} : { seatDecor: i.seat.decor }) } : {}), ...(i.exit ? { exit: { x: i.exit[0] * m.tileSize, y: i.exit[1] * m.tileSize } } : {}),
-      ...(i.facing ? { facing: i.facing } : {}), ...bedLine(i) })),
+      ...(i.facing ? { facing: i.facing } : {}), ...(i.decor ? { decor: i.decor } : {}), ...bedLine(i) })),
     ...doorsOf(m).filter(d => !d.auto).map(d => ({
       ...((stand: Point) => at(d.id, 'door', d.label, d.locked ?? '', d.passage, { x: stand.x / m.tileSize, y: stand.y / m.tileSize }))(doorStand(m, d, { x: 0, y: Infinity })),
       ...(d.near ? { near: { x: d.near[0], y: d.near[1], width: d.near[2], height: d.near[3] } } : {}),
