@@ -17,6 +17,7 @@
 角色走到橫牆後面時畫在角色上面）、自動玻璃門。大門圖要先用 python tools/art/cut.py door medical 切好。
 """
 import json
+import editor_layout
 import random
 from pathlib import Path
 
@@ -467,6 +468,7 @@ def install(ground):
         },
         'foreground': [{'src': 'foreground.webp', 'x': 0, 'y': top + 746}],
     }
+    editor_layout.apply(data, 'medical')   # 地圖編輯器的標註（tools/art/editor/）
     (out / 'map.json').write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
     print('已放進 public/assets/medical：ground.webp、foreground.webp、map.json', W, 'x', ROWS)
 

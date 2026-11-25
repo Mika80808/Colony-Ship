@@ -103,6 +103,11 @@ export interface ItemDefinition {
   description: string;
   /** 圖示路徑（public 底下，例 /assets/items/coffee.webp）。沒有就顯示分類的預設圖示。 */
   icon?: string;
+  /**
+   * 圖示外框。'seed-packet'：把 icon（成熟作物）印在種子包裝上。
+   * 種子還沒有專用的包裝圖時用；有了正式包裝圖就把 icon 換成那張、拿掉這一欄。
+   */
+  iconFrame?: 'seed-packet';
   /** 一格最多疊幾個。省略時用 DEFAULT_STACK。 */
   stackMax?: number;
   /** 參考價（星幣）。商店買賣用；省略表示不買賣。 */

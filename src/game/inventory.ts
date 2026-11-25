@@ -21,10 +21,11 @@ export const stackMaxOf = (def: Pick<ItemDefinition, 'stackMax'>): number => {
 
 /** 只留定義欄位。故事書條目身上還有 source、enabled 這類不該進背包的欄位。 */
 export function toDefinition(def: ItemDefinition): ItemDefinition {
-  const { id, name, category, effectText, description, icon, stackMax, price, effect } = def;
+  const { id, name, category, effectText, description, icon, iconFrame, stackMax, price, effect } = def;
   return {
     id, name, category, effectText, description,
     ...(icon ? { icon } : {}),
+    ...(iconFrame ? { iconFrame } : {}),
     ...(stackMax ? { stackMax } : {}),
     ...(price !== undefined ? { price } : {}),
     ...(effect ? { effect } : {}),

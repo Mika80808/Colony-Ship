@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { walkable, type FacilityMap } from './facility';
-import { baseOverhang, besideByShape, decorSprites, seasonOf, spriteFor, trackX, type TrackAnim } from './decor';
+import { baseOverhang, besideByShape, decorSprites, engageAfter, seasonOf, spriteFor, stillEngaged, trackX, type TrackAnim } from './decor';
 
 assert.equal(seasonOf('2090-10-24'), 'autumn'); assert.equal(seasonOf('2090-01-05'), 'winter'); assert.equal(seasonOf('2090-12-31'), 'winter');
 assert.equal(seasonOf('2090-03-01'), 'spring'); assert.equal(seasonOf('2090-08-31'), 'summer');
@@ -73,3 +73,17 @@ console.log('decor ok');
   for (let i = 1; i < xs.length; i++) assert.ok(Math.abs(xs[i] - xs[i - 1]) <= 110 * .02 + 1e-6, 'moves smoothly');
   console.log('track ok');
 }
+
+// 互動狀態圖（地圖編輯器標的）：互動狀態的圖也要載入
+assert.deepEqual(decorSprites([{ sprite: 'fridge', active: 'fridge-active', x: 1, y: 1, scale: .5 }]), ['fridge', 'fridge-active']);
+// 綁了擺設的互動：按一次換成互動圖，同一個再按一次換回；走開就結束
+const fridge = { id: 'fridge', kind: 'info', decor: 'fridge' }, at = { x: 100, y: 200 };
+const opened = engageAfter(null, fridge, at);
+assert.deepEqual(opened, { decor: 'fridge', item: 'fridge', at });
+assert.equal(engageAfter(opened, fridge, at), null, 'interacting again closes it');
+assert.ok(stillEngaged(opened, { x: 103, y: 200 }) && !stillEngaged(opened, { x: 120, y: 200 }), 'walking away ends it');
+// 坐下、躺下一直是互動中；出口、門、沒綁擺設的不換圖
+const bed = { id: 'bed', kind: 'bed', decor: 'bed' };
+assert.ok(engageAfter(engageAfter(null, bed, at), bed, at));
+assert.equal(engageAfter(null, { id: 'out', kind: 'exit', decor: 'sign' }, at), null);
+assert.equal(engageAfter(opened, { id: 'plain', kind: 'info' }, at), opened);

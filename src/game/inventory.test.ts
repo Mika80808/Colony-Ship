@@ -22,6 +22,11 @@ for (const item of SYSTEM_ITEMS) {
   assert.ok(ITEM_CATEGORIES.includes(item.category), `${item.id} has a known category`);
   assert.ok(!item.icon || existsSync(`public${item.icon}`), `${item.id} icon exists (${item.icon})`);
 }
+// 道具欄裡作物只有兩種樣子：收成是成熟型態，種子是包裝（外框上印成熟作物）。不出現幼苗、生長中的圖。
+for (const item of SYSTEM_ITEMS.filter((i) => i.id.startsWith('crop-') || i.id.startsWith('seed-'))) {
+  assert.match(item.icon!, /_3\.webp$/, `${item.id} shows the ripe crop`);
+  assert.equal(item.iconFrame, item.id.startsWith('seed-') ? 'seed-packet' : undefined, `${item.id} frame`);
+}
 const strawberry = findItemById(cropItemId('strawberry'), [])!;
 assert.equal(strawberry.name, '草莓');
 assert.ok(strawberry.effect!.hunger! < 0, 'fruit can be eaten raw');

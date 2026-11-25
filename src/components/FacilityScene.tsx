@@ -10,7 +10,7 @@ import { ACTOR_HEIGHT, approach, fitViewport } from '../game/viewport';
 import { drawSeatedPose } from '../game/seatedPose';
 import { CropsMeta, RacksMeta, layoutRack, rackBounds, rackKey } from '../game/racks';
 import { dayNumber, stageAt } from '../game/growth';
-import { baseOverhang, besideByShape, decorSprites, spriteFor, trackX } from '../game/decor';
+import { Engaged, baseOverhang, besideByShape, decorSprites, engageAfter, spriteFor, stillEngaged, trackX } from '../game/decor';
 import { Fish, WaterMask, drawFish, rng, spawnFish, stepFish } from '../game/fish';
 import { Box, frontOutline, overlapOrder, underPlayer } from '../game/sceneDepth';
 import { GardenState, needsWater, stageOf } from '../game/garden';
@@ -60,7 +60,7 @@ export default function FacilityScene(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const controls = useRef(props); controls.current = props;
   const [status, setStatus] = useState(`正在載入${props.facility.name}…`);
-  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point; sortY?: number; on?: string; lying?: boolean } | null, fade: 0, gone: false, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], later: [] as number[][], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null, doors: [] as SceneDoor[], leaving: null as SceneDoor | null, npcs: new Map<string, FacilityNpc>(), npcSprites: new Map<string, HTMLImageElement>(), overlays: [] as { image: HTMLImageElement; x: number; y: number }[] });
+  const state = useRef({ map: null as FacilityMap | null, p: { x: 0, y: 0 } as Point, path: [] as Point[], direction: 'up', elapsed: 0, camera: { x: 0, y: 0 }, settled: false, view: { width: 1600, height: 996 }, items: [] as FacilityInteraction[], pending: null as FacilityInteraction | null, seated: null as { id: string; exit: Point; sortY?: number; on?: string; lying?: boolean } | null, fade: 0, gone: false, notice: null as { item: FacilityInteraction; text: string; until: number } | null, grid: false, standing: [] as Standing[], later: [] as number[][], fish: [] as Fish[], water: null as WaterMask | null, paintRacks: null as ((day: number) => void) | null, doors: [] as SceneDoor[], leaving: null as SceneDoor | null, npcs: new Map<string, FacilityNpc>(), npcSprites: new Map<string, HTMLImageElement>(), overlays: [] as { image: HTMLImageElement; x: number; y: number }[], engaged: null as Engaged | null });
   const act = (item?: FacilityInteraction) => {
     const s = state.current;
     if (!s.map || controls.current.paused || isLocked()) return;
@@ -76,6 +76,9 @@ export default function FacilityScene(props: Props) {
     }
     item ??= keyboardTarget(s.p, s.items); if (!item) return;
     s.path = []; s.pending = null; keys.current.clear();
+    // 綁了擺設的互動再按一次＝結束（關上冰箱）：換回一般圖，不再冒文字
+    const engaged = engageAfter(s.engaged, item, s.p);
+    if (item.decor && !engaged && s.engaged) { s.engaged = null; s.notice = null; return; }
     if (item.kind === 'exit' && item.to) controls.current.onLeave(item.to);
     else if (item.kind === 'door') {
       const door = s.doors.find(d => d.spec.id === item!.id); if (!door) return;
@@ -93,6 +96,8 @@ export default function FacilityScene(props: Props) {
       const response = controls.current.onAction?.(item), text = response === true ? '' : response || item.text;
       if (text) s.notice = { item, text, until: performance.now() + 4500 };
     }
+    // 擺設換成互動狀態圖；位置用互動後的位置（坐下、躺下後角色在座位上）
+    if (engaged) s.engaged = { ...engaged, at: { ...s.p } };
   };
   /** 目前在場的 NPC（App 給的名單）：第一次出現時照 patrol 分配起點。 */
   const presentNpcs = () => {
@@ -180,6 +185,16 @@ export default function FacilityScene(props: Props) {
         beside: d.beside ?? besideByShape(overhang.get(spriteFor(d, controls.current.gameDate))! * d.scale),
         left, right, box, front,
         draw: (c: CanvasRenderingContext2D) => {
+          const s = state.current;
+          if (s.engaged && !stillEngaged(s.engaged, s.p)) s.engaged = null;   // 走開了：換回一般圖
+          const on = d.active && s.engaged?.decor === (d.id ?? d.sprite);
+          if (on) {   // 互動狀態圖：對齊一般圖的底部中央，再加 activeOffset
+            const im = images.get(d.active!)!, w = im.width * d.scale, h = im.height * d.scale, [ox, oy] = d.activeOffset ?? [0, 0];
+            c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+            if (d.flip) { c.save(); c.translate(d.x * T + ox, 0); c.scale(-1, 1); c.drawImage(im, -w / 2, d.y * T + oy - h, w, h); c.restore(); }
+            else c.drawImage(im, d.x * T + ox - w / 2, d.y * T + oy - h, w, h);
+            return;
+          }
           const im = images.get(spriteFor(d, controls.current.gameDate))!, w = im.width * d.scale, h = im.height * d.scale;
           c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; // 2 倍圖縮成一半時才不會鋸齒、細線斷掉
           if (d.anim) {   // 沿軌道移動的零件：只畫在 clip 範圍裡，滑出去就看不見

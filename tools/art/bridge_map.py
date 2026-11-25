@@ -12,6 +12,7 @@
 重跑會產生同樣的結果。
 """
 import json
+import editor_layout
 from pathlib import Path
 
 import numpy as np
@@ -219,6 +220,7 @@ def main():
         'interactions': interactions, 'decor': decor,
         'foreground': [{'src': 'parapet.webp', 'x': round(px * S), 'y': round(py * S)}],
     }
+    editor_layout.apply(data, 'bridge-v3')   # 地圖編輯器的標註（tools/art/editor/）
     (OUT / 'map.json').write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
     print(f'bridge-v3: {sum(map(sum, grid))} 格整格碰撞、{len(rects)} 塊矩形、{len(decor)} 件擺設、{len(interactions)} 個互動')
 

@@ -14,6 +14,7 @@
 淋浴、房門動畫、沙發扶手在 src/game/roomExtras.ts。重跑會產生同樣的結果。
 """
 import json
+import editor_layout
 from pathlib import Path
 
 import numpy as np
@@ -216,6 +217,7 @@ def build(shell, furnishing, folder):
         'patrol': [[tile(p['x']), tile(p['y'])] for p in furnishing.get('patrol', [])],
         'shower': {'piece': [shower['x'], shower['y'], shower['width'], shower['height']], 'depth': shower['depth'], 'zone': [zone['x'], zone['y'], zone['width'], zone['height']]},
     }
+    editor_layout.apply(data, f'rooms/{folder}')   # 地圖編輯器的標註（tools/art/editor/）
     (out / 'map.json').write_text(json.dumps(data, ensure_ascii=False), encoding='utf-8')
     print(f'rooms/{folder}: {sum(map(sum, grid))} 格整格碰撞、{len(rects)} 塊矩形、{len(decor)} 件家具、{len(interactions)} 個互動')
 

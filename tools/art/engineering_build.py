@@ -15,6 +15,7 @@
 下方走廊沿用居住區 A 走廊的素材：柱子、素面牆板、地板、欄杆、星空原樣切出來拼，不重畫。
 """
 import json, math, os
+import editor_layout
 import numpy as np
 import footprint
 from PIL import Image, ImageDraw, ImageFilter
@@ -469,6 +470,7 @@ def main():
         'interactions': items,
         'decor': decor,
     }
+    editor_layout.apply(data, 'engineering')   # 地圖編輯器的標註（tools/art/editor/）
     with open(os.path.join(OUT, 'map.json'), 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False)
     write_cap()

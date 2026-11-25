@@ -8,6 +8,7 @@
 季節換圖的樹（sprite 有 {season}）四季各算一次取聯集；flip 的物件圖左右翻過來算。
 """
 import json
+import editor_layout
 import sys
 from pathlib import Path
 
@@ -88,6 +89,7 @@ def main(dry=False):
             for x in range(k['x'], k['x'] + k['w']):
                 m['collision'][y][x] = 0
     m['collisionRects'] = new + [r for r in m['collisionRects'] if 'of' not in r]
+    editor_layout.apply(m, 'greenhouse')   # 上面會清掉帶 of 的碰撞，地圖編輯器的標註再補回來
     MAP.write_text(json.dumps(m, ensure_ascii=False), encoding='utf-8')
     print(f'寫入 {len(blocks)} 件物件、{len(racks)} 座種植架、{len(new)} 塊碰撞')
 

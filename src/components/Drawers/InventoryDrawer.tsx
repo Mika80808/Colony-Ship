@@ -40,6 +40,24 @@ function ItemIcon({ item, className }: { item: ItemDefinition; className: string
   const [broken, setBroken] = useState(false);
   useEffect(() => setBroken(false), [item.icon]);
   const Fallback = CATEGORY_ICON[item.category] ?? Package;
+  if (item.iconFrame === 'seed-packet' && item.icon && !broken) {
+    // 種子包裝（暫代，正式圖見 docs/tasks/2026-11-23-seed-packets.md）：牛皮紙種子袋、上緣折口，中間印成熟作物
+    return (
+      <span className={`${className} relative flex items-center justify-center`} aria-hidden="true">
+        <span className="absolute inset-x-[12%] inset-y-[4%] rounded-[3px] bg-[#c9a56a] border border-[#7a5a2e] shadow-[inset_0_-3px_0_rgba(0,0,0,0.18)]" />
+        <span className="absolute inset-x-[12%] top-[4%] h-[16%] rounded-t-[3px] bg-[#a8834a] border border-[#7a5a2e] border-b-[#6b4d24]" />
+        <span className="absolute inset-x-[22%] top-[28%] bottom-[14%] rounded-[2px] bg-[#f3e6c4]" />
+        <img
+          src={item.icon}
+          alt=""
+          draggable={false}
+          onError={() => setBroken(true)}
+          className="relative w-[52%] h-[52%] mt-[14%] object-contain"
+          style={{ imageRendering: 'pixelated' }}
+        />
+      </span>
+    );
+  }
   return item.icon && !broken ? (
     <img
       src={item.icon}

@@ -96,7 +96,7 @@ prompt 的 `Theme` 與 `Keywords` 從這裡挑。**這是方向提示，不是�
 | 居住區 | COZY CREW QUARTERS | warm wood panels, fabric, soft lighting, amber lights |
 | 內側道路 | STATION CORRIDOR | handrails, guide light strips |
 
-- 年代是 2090 年（`docs/world.md`）：不要紙本、文字、標誌（範本已寫 No text）。
+- 年代是 2090 年（`docs/world.md`）：不要紙本、文字、標誌（範本已寫 No text）。紙本只限資料類（書、文件、便條）；紙做的包裝（種子袋、紙盒）可以畫。
 - 艙房採通用底圖加個人陳設物件。陳設小物以佔用者的職業決定：研究員堆資料、工程師散零件、醫護放藥盒。每人三到五件即可，格局共用。
 
 ---
